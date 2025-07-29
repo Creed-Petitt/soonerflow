@@ -55,4 +55,97 @@ model Department {
   name        String? // Full department name
   
   @@map("departments")
+}
+
+model Professor {
+  id                    String   @id // GraphQL ID from RMP
+  legacyId              String?  // Legacy ID from RMP
+  firstName             String
+  lastName              String
+  department            String?
+  departmentId          String?
+  lockStatus            String?
+  isSaved               Boolean  @default(false)
+  isProfCurrentUser     Boolean  @default(false)
+  
+  // School info
+  schoolName            String?
+  schoolCity            String?
+  schoolState           String?
+  schoolCountry         String?
+  
+  // Rating info
+  avgRating             Float?
+  numRatings            Int      @default(0)
+  avgDifficulty         Float?
+  wouldTakeAgainPercent Float?
+  
+  // Rating distribution
+  ratingTotal           Int      @default(0)
+  ratingR1              Int      @default(0) // 1-star ratings
+  ratingR2              Int      @default(0) // 2-star ratings
+  ratingR3              Int      @default(0) // 3-star ratings
+  ratingR4              Int      @default(0) // 4-star ratings
+  ratingR5              Int      @default(0) // 5-star ratings
+  
+  // Teacher tags (stored as JSON)
+  teacherTags           String?  // JSON array of tag objects
+  
+  // Course codes (stored as JSON)
+  courseCodes           String?  // JSON array of course objects
+  
+  // Related teachers (stored as JSON)
+  relatedTeachers       String?  // JSON array of related teacher IDs
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relationships
+  ratings               Rating[]
+  
+  @@map("professors")
+}
+
+model Rating {
+  id                    String   @id // GraphQL ID from RMP
+  legacyId              String?  // Legacy ID from RMP
+  professorId           String   // Foreign key to Professor
+  
+  // Rating data
+  comment               String?
+  date                  DateTime?
+  class                 String?  // Class name (e.g., "ECON4353")
+  
+  // Individual ratings
+  difficultyRating      Float?
+  clarityRating         Float?
+  helpfulRating         Float?
+  
+  // Course meta
+  wouldTakeAgain        Boolean?
+  grade                 String?
+  attendanceMandatory   Boolean?
+  textbookUse           Boolean?
+  isForOnlineClass      Boolean?
+  isForCredit           Boolean?
+  
+  // Tags and flags
+  ratingTags            String?  // JSON array of tags
+  flagStatus            String?
+  createdByUser         Boolean?
+  
+  // Thumbs up/down
+  thumbsUpTotal         Int      @default(0)
+  thumbsDownTotal       Int      @default(0)
+  
+  // Professor response
+  teacherNote           String?  // Professor's response to rating
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relationship
+  professor             Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  
+  @@map("ratings")
 } 
