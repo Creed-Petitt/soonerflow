@@ -1,0 +1,1 @@
+im sick of using my uni's clunky ui for trying to make my schedule and manage classes/time constraints. i know other students agree, and hope this makes peoples lives at OU a little more convenient. would love to work with any OU students who want to contribute :)
