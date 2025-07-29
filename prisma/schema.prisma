@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Class {
+  id            String   @id // class_id from API (e.g., "13384")
+  subject       String   // Subject code (e.g., "ECE")
+  courseNumber  String   // Course number (e.g., "2214") 
+  section       String   // Section (e.g., "010")
+  title         String   // Course title
+  description   String?  // Course description
+  instructor    String?  // Primary instructor name
+  allInstructors String? // All instructors (comma-separated)
+  type          String?  // "Lecture", "Lab", "Seminar", etc.
+  delivery      String?  // "Traditional In-Person", "Online", etc.
+  genEd         String?  // Gen Ed requirement
+  term          String?  // "Full Term", etc.
+  semesterDates String?  // "Aug 25 - Dec 12"
+  examInfo      String?  // Final exam information
+  repeatability String?  // Repeatability rules
+  additionalInfo String? // Max hours, prerequisites, etc.
+  
+  // Relationships
+  meetingTimes  MeetingTime[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("classes")
+}
+
+model MeetingTime {
+  id          Int     @id @default(autoincrement())
+  classId     String  // Foreign key to Class
+  days        String? // "MWF", "TR", etc.
+  startTime   String? // "10:00 am"
+  endTime     String? // "10:50 am" 
+  location    String? // "Felgar Hall 300"
+  building    String? // "Felgar Hall"
+  room        String? // "300"
+  
+  // Relationship
+  class       Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  @@map("meeting_times")
+}
+
+model Department {
+  code        String  @id // "ECE", "A HI", etc.
+  name        String? // Full department name
+  
+  @@map("departments")
+} 
