@@ -4,6 +4,12 @@ import time
 import os
 import logging
 from datetime import datetime
+import subprocess
+import sys
+
+# Import our data processor
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from data_processor import DataProcessor
 
 # Constants
 GRAPHQL_URL = "https://www.ratemyprofessors.com/graphql"
@@ -119,14 +125,12 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
 
 def setup_logging():
     """Set up logging for the professor loader"""
-    # Create logs directory structure
+    # Create logs directory if it doesn't exist
     if not os.path.exists('logs'):
         os.makedirs('logs')
-    if not os.path.exists('logs/professor_loader'):
-        os.makedirs('logs/professor_loader')
     
     # Create professor loader specific log file
-    log_filename = f'logs/professor_loader/professor_loader_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt'
+    log_filename = f'logs/professor_loader_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
     
     # Configure logging
     logging.basicConfig(
@@ -141,7 +145,7 @@ def setup_logging():
     return logging.getLogger(__name__)
 
 def fetch_all_ou_professors():
-    """Fetch ALL OU professors and save to database."""
+    """Fetch ALL OU professors and save directly to database."""
     
     # Headers that match my working browser request
     headers = {
@@ -164,15 +168,16 @@ def fetch_all_ou_professors():
         'cookie': 'userSchoolId=U2Nob29sLTE1OTY=; userSchoolLegacyId=1596; userSchoolName=University%20of%20Oklahoma'
     }
     
-    # Set up logging
+    # Set up logging and data processor
     logger = setup_logging()
+    data_processor = DataProcessor()
     
     all_professors = []
     page_count = 0
     after_cursor = ""  # Start with empty cursor
     
     try:
-        logger.info("Starting to fetch ALL OU professors...")
+        logger.info("Starting to fetch ALL OU professors and save to database...")
         
         while True:
             page_count += 1
@@ -222,17 +227,23 @@ def fetch_all_ou_professors():
                     logger.info(f"Has next page: {page_info.get('hasNextPage', False)}")
                     logger.info(f"End cursor: {page_info.get('endCursor', 'None')}")
                 
-                    # Extract professor data
+                    # Extract professor data and save to database
                     for i, edge in enumerate(professors, 1):
                         professor = edge.get('node', {})
                         
                         name = f"{professor.get('firstName', '')} {professor.get('lastName', '')}".strip()
                         department = professor.get('department', 'Unknown')
-                        rating = professor.get('avgRating', 'N/A')
-                        difficulty = professor.get('avgDifficulty', 'N/A')
+                        rating = professor.get('avgRating', None)
+                        difficulty = professor.get('avgDifficulty', None)
                         num_ratings = professor.get('numRatings', 0)
-                        would_take_again = professor.get('wouldTakeAgainPercent', 'N/A')
+                        would_take_again = professor.get('wouldTakeAgainPercent', None)
                         professor_id = professor.get('id', 'Unknown')
+                        legacy_id = professor.get('legacyId', None)
+                        is_saved = professor.get('isSaved', False)
+                        
+                        # Get school info
+                        school_data = professor.get('school', {})
+                        school_name = school_data.get('name', 'University of Oklahoma')
                         
                         logger.info(f"  {len(all_professors) + i}. {name}")
                         logger.info(f"     ID: {professor_id}")
@@ -242,17 +253,25 @@ def fetch_all_ou_professors():
                         logger.info(f"     Number of Ratings: {num_ratings}")
                         logger.info(f"     Would Take Again: {would_take_again}%")
                         
-                        all_professors.append({
-                            'id': professor_id,
-                            'name': name,
-                            'department': department,
-                            'rating': rating,
-                            'difficulty': difficulty,
-                            'num_ratings': num_ratings,
-                            'would_take_again': would_take_again,
-                            'legacy_id': professor.get('legacyId', 'Unknown'),
-                            'is_saved': professor.get('isSaved', False)
-                        })
+                        # Process professor data for database
+                        processed_professor = data_processor.process_professor_data(professor)
+                        
+                        # Save to database
+                        if data_processor.save_to_database(processed_professor, 'professor'):
+                            logger.info(f"     Successfully saved to database")
+                            all_professors.append({
+                                'id': professor_id,
+                                'name': name,
+                                'department': department,
+                                'rating': rating,
+                                'difficulty': difficulty,
+                                'num_ratings': num_ratings,
+                                'would_take_again': would_take_again,
+                                'legacy_id': legacy_id,
+                                'is_saved': is_saved
+                            })
+                        else:
+                            logger.error(f"     Failed to save to database")
                     
                     # Check if there are more pages
                     if page_info.get('hasNextPage', False):
@@ -274,27 +293,7 @@ def fetch_all_ou_professors():
                 break
         
         logger.info(f"\n=== FINAL RESULTS ===")
-        logger.info(f"Successfully collected {len(all_professors)} professors")
-        
-        # Save to data folder
-        if not os.path.exists('data'):
-            os.makedirs('data')
-        
-        with open('data/ou_professors_complete.json', 'w') as f:
-            json.dump(all_professors, f, indent=2)
-        logger.info(f"Saved complete professors data to data/ou_professors_complete.json")
-        
-        # Also save a summary
-        summary = {
-            'total_professors': len(all_professors),
-            'pages_fetched': page_count,
-            'departments': list(set([p['department'] for p in all_professors if p['department'] != 'Unknown'])),
-            'date_fetched': time.strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        with open('data/ou_professors_summary.json', 'w') as f:
-            json.dump(summary, f, indent=2)
-        logger.info(f"Saved summary to data/ou_professors_summary.json")
+        logger.info(f"Successfully collected and saved {len(all_professors)} professors to database")
         
     except Exception as e:
         logger.error(f"Error: {e}")
