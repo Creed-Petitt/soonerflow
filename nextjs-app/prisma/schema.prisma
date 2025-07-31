@@ -148,4 +148,58 @@ model Rating {
   professor             Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
   
   @@map("ratings")
+}
+
+// Major Requirements Models
+model Major {
+  id            String   @id @default(cuid())
+  name          String   // "Computer Engineering"
+  code          String?  // "CPE"
+  college       String   // "Gallogly College of Engineering"
+  department    String?  // "Electrical and Computer Engineering"
+  totalCredits  Int      @default(120)
+  description   String?
+  url           String?  // Original CourseLeaf URL
+  
+  // Relationships
+  requirements  Requirement[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("majors")
+}
+
+model Requirement {
+  id            String   @id @default(cuid())
+  majorId       String   // Foreign key to Major
+  categoryName  String   // "Major Requirements", "Gen Ed", etc.
+  creditsNeeded Int      @default(0)
+  description   String?
+  
+  // Relationships
+  major         Major        @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  courses       MajorCourse[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("requirements")
+}
+
+model MajorCourse {
+  id            String   @id @default(cuid())
+  requirementId String   // Foreign key to Requirement
+  subject       String   // "ECE", "MATH", etc.
+  courseNumber  String   // "2214", "2924", etc.
+  title         String?  // "Digital Design", etc.
+  credits       Int      @default(3)
+  
+  // Relationships
+  requirement   Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("major_courses")
 } 
