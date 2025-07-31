@@ -48,7 +48,7 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
         if test_mode:
             logger.info("Running in TEST MODE - will only fetch a small sample")
             # Fetch a small sample for testing (offset 0 has classes with full meeting times)
-            raw_classes = api_client.fetch_classes(0, 10, semester)
+            raw_classes = api_client.fetch_classes(0, 100, semester)
             if raw_classes and raw_classes.get('aaData'):
                 classes_data = raw_classes['aaData']
             else:
