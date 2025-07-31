@@ -1,15 +1,19 @@
 import json
 import os
-import subprocess
+import sys
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+# Add the clients directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'clients'))
+from database_client import DatabaseClient
 
 class DataProcessor:
     """Processes scraped data and prepares it for database storage"""
     
     def __init__(self):
-        # Point to the nextjs-app/scripts directory for Node.js scripts
-        self.script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'nextjs-app', 'scripts')
+        # Initialize SQLAlchemy database client
+        self.db_client = DatabaseClient()
         
     def process_professor_data(self, raw_professor_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process raw professor data from scraping into database format"""
@@ -172,29 +176,15 @@ class DataProcessor:
         return processed_data
     
     def save_to_database(self, data: Dict[str, Any], data_type: str = 'professor') -> bool:
-        """Save processed data to database using Node.js bridge"""
+        """Save processed data to database using SQLAlchemy"""
         
         try:
-            # Create temporary file
-            temp_file = f'temp_{data_type}_{data["id"]}_{os.getpid()}.json'
-            temp_path = os.path.join(self.script_dir, temp_file)
-            
-            with open(temp_path, 'w') as f:
-                json.dump(data, f)
-            
-            # Call appropriate Node.js script
-            script_name = f'save_{data_type}.js'
-            result = subprocess.run([
-                'node', script_name, temp_file
-            ], capture_output=True, text=True, cwd=self.script_dir)
-            
-            # Clean up temp file
-            os.remove(temp_path)
-            
-            if result.returncode == 0:
-                return True
+            if data_type == 'professor':
+                return self.db_client.save_professor(data)
+            elif data_type == 'rating':
+                return self.db_client.save_rating(data)
             else:
-                print(f"Error saving {data_type}: {result.stderr}")
+                print(f"Unknown data type: {data_type}")
                 return False
                 
         except Exception as e:

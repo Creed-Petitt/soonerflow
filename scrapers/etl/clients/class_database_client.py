@@ -1,267 +1,166 @@
-import subprocess
-import json
-import os
 import logging
 from typing import Dict, List, Optional, Any
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+import sys
+import os
+# Get the path to the database directory (three levels up from current file)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+database_path = os.path.abspath(os.path.join(current_dir, '..', '..', '..', 'database'))
+sys.path.append(database_path)
+print(f"Database path: {database_path}")
+print(f"Python path: {sys.path}")
+from models import create_engine_and_session, Class, MeetingTime
 
 class ClassDatabaseClient:
-    """Client for class database operations using Node.js scripts"""
+    """Client for class database operations using SQLAlchemy"""
     
     def __init__(self):
-        self.script_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'nextjs-app', 'scripts'
-        )
+        self.engine, self.SessionLocal = create_engine_and_session()
         self.logger = logging.getLogger(__name__)
     
+    def get_session(self) -> Session:
+        """Get a database session"""
+        return self.SessionLocal()
+    
     def save_class(self, class_data: Dict[str, Any]) -> bool:
-        """Save class data to database"""
+        """Save class data to database using SQLAlchemy"""
+        session = self.get_session()
         try:
-            # Save class data to temporary JSON file
-            temp_file = os.path.join(self.script_dir, 'temp_class.json')
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(class_data, f, ensure_ascii=False, indent=2)
-            
-            # Run the save class script with the file path as argument
-            result = subprocess.run([
-                'node', 'save_class.js', 'temp_class.json'
-            ], capture_output=True, text=True, encoding='utf-8', cwd=self.script_dir)
-            
-            # Clean up temp file
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
-            
-            if result.returncode == 0:
-                self.logger.info(f"Successfully saved class: {class_data.get('subject', '')} {class_data.get('courseNumber', '')}")
+            # Check if class already exists
+            existing_class = session.query(Class).filter(Class.id == class_data['id']).first()
+            if existing_class:
+                self.logger.info(f"Class {class_data['id']} already exists, skipping...")
                 return True
-            else:
-                self.logger.error(f"Failed to save class: {result.stderr}")
-                return False
-                
+            
+            # Create new class
+            new_class = Class(
+                id=class_data['id'],
+                subject=class_data['subject'],
+                courseNumber=class_data['courseNumber'],
+                section=class_data['section'],
+                title=class_data['title'],
+                description=class_data.get('description'),
+                instructor=class_data.get('instructor'),
+                allInstructors=class_data.get('allInstructors'),
+                type=class_data.get('type'),
+                delivery=class_data.get('delivery'),
+                genEd=class_data.get('genEd'),
+                term=class_data.get('term'),
+                semesterDates=class_data.get('semesterDates'),
+                examInfo=class_data.get('examInfo'),
+                repeatability=class_data.get('repeatability'),
+                additionalInfo=class_data.get('additionalInfo')
+            )
+            
+            session.add(new_class)
+            session.commit()
+            
+            self.logger.info(f"Successfully saved class: {class_data.get('subject', '')} {class_data.get('courseNumber', '')}")
+            return True
+            
+        except IntegrityError as e:
+            session.rollback()
+            self.logger.warning(f"Class {class_data.get('id', 'Unknown')} already exists: {e}")
+            return True  # Consider this a success since the data exists
         except Exception as e:
+            session.rollback()
             self.logger.error(f"Error saving class: {e}")
             return False
+        finally:
+            session.close()
     
     def save_meeting_time(self, meeting_time_data: Dict[str, Any]) -> bool:
-        """Save meeting time data to database"""
+        """Save meeting time data to database using SQLAlchemy"""
+        session = self.get_session()
         try:
-            # Save meeting time data to temporary JSON file
-            temp_file = os.path.join(self.script_dir, 'temp_meeting_time.json')
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(meeting_time_data, f, ensure_ascii=False, indent=2)
+            # Create new meeting time
+            new_meeting_time = MeetingTime(
+                classId=meeting_time_data['classId'],
+                days=meeting_time_data.get('days'),
+                startTime=meeting_time_data.get('startTime'),
+                endTime=meeting_time_data.get('endTime'),
+                location=meeting_time_data.get('location'),
+                building=meeting_time_data.get('building'),
+                room=meeting_time_data.get('room')
+            )
             
-            # Run the save meeting time script with the file path as argument
-            result = subprocess.run([
-                'node', 'save_meeting_time.js', 'temp_meeting_time.json'
-            ], capture_output=True, text=True, encoding='utf-8', cwd=self.script_dir)
+            session.add(new_meeting_time)
+            session.commit()
             
-            # Clean up temp file
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
+            self.logger.info(f"Successfully saved meeting time for class: {meeting_time_data.get('classId', '')}")
+            return True
             
-            if result.returncode == 0:
-                self.logger.info(f"Successfully saved meeting time for class: {meeting_time_data.get('classId', '')}")
-                return True
-            else:
-                self.logger.error(f"Failed to save meeting time: {result.stderr}")
-                return False
-                
         except Exception as e:
+            session.rollback()
             self.logger.error(f"Error saving meeting time: {e}")
             return False
+        finally:
+            session.close()
     
     def get_class_stats(self) -> Dict[str, Any]:
         """Get database statistics for classes"""
+        session = self.get_session()
         try:
-            # Create a script to get class statistics
-            stats_script = os.path.join(self.script_dir, 'get_class_stats.js')
+            total_classes = session.query(Class).count()
+            total_meeting_times = session.query(MeetingTime).count()
+            unique_subjects = session.query(Class.subject).distinct().count()
+            unique_instructors = session.query(Class.instructor).filter(Class.instructor.isnot(None)).distinct().count()
             
-            script_content = '''
-const { PrismaClient } = require('@prisma/client');
-const fs = require('fs');
-const path = require('path');
-
-const prisma = new PrismaClient();
-
-async function getClassStats() {
-    try {
-        const totalClasses = await prisma.class.count();
-        const totalMeetingTimes = await prisma.meetingTime.count();
-        const uniqueSubjects = await prisma.class.findMany({
-            select: { subject: true },
-            distinct: ['subject']
-        });
-        const uniqueInstructors = await prisma.class.findMany({
-            select: { instructor: true },
-            distinct: ['instructor'],
-            where: { instructor: { not: null } }
-        });
-
-        const stats = {
-            totalClasses,
-            totalMeetingTimes,
-            uniqueSubjects: uniqueSubjects.length,
-            uniqueInstructors: uniqueInstructors.length
-        };
-        
-        // Save to JSON file
-        const outputPath = path.join(__dirname, 'class_stats.json');
-        fs.writeFileSync(outputPath, JSON.stringify(stats, null, 2));
-        console.log(`Exported class stats to ${outputPath}`);
-        
-    } catch (error) {
-        console.error('Error:', error);
-    } finally {
-        await prisma.$disconnect();
-    }
-}
-
-getClassStats();
-'''
-            
-            with open(stats_script, 'w') as f:
-                f.write(script_content)
-            
-            # Run the script
-            result = subprocess.run([
-                'node', 'get_class_stats.js'
-            ], capture_output=True, text=True, encoding='utf-8', cwd=self.script_dir)
-            
-            if result.returncode == 0:
-                # Read the JSON file
-                json_file = os.path.join(self.script_dir, 'class_stats.json')
-                if os.path.exists(json_file):
-                    with open(json_file, 'r', encoding='utf-8') as f:
-                        stats = json.load(f)
-                    # Clean up the JSON file
-                    os.remove(json_file)
-                    return stats
-                else:
-                    self.logger.error("JSON file not created")
-                    return {}
-            else:
-                self.logger.error(f"Error getting class stats: {result.stderr}")
-                return {}
-                
+            return {
+                'total_classes': total_classes,
+                'total_meeting_times': total_meeting_times,
+                'unique_subjects': unique_subjects,
+                'unique_instructors': unique_instructors
+            }
         except Exception as e:
-            self.logger.error(f"Error in get_class_stats: {e}")
+            self.logger.error(f"Error getting class stats: {e}")
             return {}
+        finally:
+            session.close()
     
     def class_exists(self, class_id: str) -> bool:
         """Check if class already exists in database"""
+        session = self.get_session()
         try:
-            # Create a script to check class existence
-            check_script = os.path.join(self.script_dir, 'check_class.js')
-            
-            script_content = f'''
-const {{ PrismaClient }} = require('@prisma/client');
-const fs = require('fs');
-
-const prisma = new PrismaClient();
-
-async function checkClass() {{
-    try {{
-        const classData = await prisma.class.findUnique({{
-            where: {{
-                id: "{class_id}"
-            }}
-        }});
-        
-        console.log(classData ? 'exists' : 'not_found');
-        
-    }} catch (error) {{
-        console.error('Error:', error);
-    }} finally {{
-        await prisma.$disconnect();
-    }}
-}}
-
-checkClass();
-'''
-            
-            with open(check_script, 'w') as f:
-                f.write(script_content)
-            
-            # Run the script
-            result = subprocess.run([
-                'node', 'check_class.js'
-            ], capture_output=True, text=True, encoding='utf-8', cwd=self.script_dir)
-            
-            if result.returncode == 0:
-                return 'exists' in result.stdout.strip()
-            else:
-                self.logger.error(f"Error checking class: {result.stderr}")
-                return False
-                
+            existing_class = session.query(Class).filter(Class.id == class_id).first()
+            return existing_class is not None
         except Exception as e:
-            self.logger.error(f"Error in class_exists: {e}")
+            self.logger.error(f"Error checking if class exists: {e}")
             return False
+        finally:
+            session.close()
     
     def get_sample_classes(self, limit: int = 5) -> List[Dict[str, Any]]:
         """Get sample classes with meeting times for testing"""
+        session = self.get_session()
         try:
-            # Create a script to get sample classes
-            sample_script = os.path.join(self.script_dir, 'get_sample_classes.js')
+            classes = session.query(Class).filter(
+                Class.instructor.isnot(None)
+            ).limit(limit).all()
             
-            script_content = f'''
-const {{ PrismaClient }} = require('@prisma/client');
-const fs = require('fs');
-const path = require('path');
-
-const prisma = new PrismaClient();
-
-async function getSampleClasses() {{
-    try {{
-        const classes = await prisma.class.findMany({{
-            take: {limit},
-            include: {{ meetingTimes: true }},
-            where: {{ 
-                AND: [
-                    {{ instructor: {{ not: null }} }},
-                    {{ meetingTimes: {{ some: {{}} }} }}
-                ]
-            }}
-        }});
-        
-        // Save to JSON file
-        const outputPath = path.join(__dirname, 'sample_classes.json');
-        fs.writeFileSync(outputPath, JSON.stringify(classes, null, 2));
-        console.log(`Exported {limit} sample classes to ${{outputPath}}`);
-        
-    }} catch (error) {{
-        console.error('Error:', error);
-    }} finally {{
-        await prisma.$disconnect();
-    }}
-}}
-
-getSampleClasses();
-'''
-            
-            with open(sample_script, 'w') as f:
-                f.write(script_content)
-            
-            # Run the script
-            result = subprocess.run([
-                'node', 'get_sample_classes.js'
-            ], capture_output=True, text=True, encoding='utf-8', cwd=self.script_dir)
-            
-            if result.returncode == 0:
-                # Read the JSON file
-                json_file = os.path.join(self.script_dir, 'sample_classes.json')
-                if os.path.exists(json_file):
-                    with open(json_file, 'r', encoding='utf-8') as f:
-                        classes = json.load(f)
-                    # Clean up the JSON file
-                    os.remove(json_file)
-                    return classes
-                else:
-                    self.logger.error("JSON file not created")
-                    return []
-            else:
-                self.logger.error(f"Error getting sample classes: {result.stderr}")
-                return []
-                
+            return [
+                {
+                    'id': c.id,
+                    'subject': c.subject,
+                    'courseNumber': c.courseNumber,
+                    'title': c.title,
+                    'instructor': c.instructor,
+                    'meetingTimes': [
+                        {
+                            'days': mt.days,
+                            'startTime': mt.startTime,
+                            'endTime': mt.endTime,
+                            'location': mt.location
+                        }
+                        for mt in c.meetingTimes
+                    ]
+                }
+                for c in classes
+            ]
         except Exception as e:
-            self.logger.error(f"Error in get_sample_classes: {e}")
-            return [] 
+            self.logger.error(f"Error getting sample classes: {e}")
+            return []
+        finally:
+            session.close() 

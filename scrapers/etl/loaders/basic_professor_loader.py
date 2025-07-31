@@ -8,8 +8,8 @@ import subprocess
 import sys
 
 # Import our data processor
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from data_processor import DataProcessor
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'processors'))
+from basic_data_processor import DataProcessor
 
 # Constants
 GRAPHQL_URL = "https://www.ratemyprofessors.com/graphql"
@@ -144,8 +144,8 @@ def setup_logging():
     
     return logging.getLogger(__name__)
 
-def fetch_all_ou_professors():
-    """Fetch ALL OU professors and save directly to database."""
+def fetch_all_ou_professors(max_professors=None):
+    """Fetch ALL OU professors and save directly to database. If max_professors is set, only fetch up to that many."""
     
     # Headers that match my working browser request
     headers = {
@@ -175,7 +175,7 @@ def fetch_all_ou_professors():
     all_professors = []
     page_count = 0
     after_cursor = ""  # Start with empty cursor
-    
+    total_saved = 0
     try:
         logger.info("Starting to fetch ALL OU professors and save to database...")
         
@@ -229,6 +229,9 @@ def fetch_all_ou_professors():
                 
                     # Extract professor data and save to database
                     for i, edge in enumerate(professors, 1):
+                        if max_professors is not None and total_saved >= max_professors:
+                            logger.info(f"TEST MODE: Stopping after {total_saved} professors")
+                            return
                         professor = edge.get('node', {})
                         
                         name = f"{professor.get('firstName', '')} {professor.get('lastName', '')}".strip()
@@ -270,6 +273,7 @@ def fetch_all_ou_professors():
                                 'legacy_id': legacy_id,
                                 'is_saved': is_saved
                             })
+                            total_saved += 1
                         else:
                             logger.error(f"     Failed to save to database")
                     
@@ -299,4 +303,11 @@ def fetch_all_ou_professors():
         logger.error(f"Error: {e}")
 
 if __name__ == "__main__":
-    fetch_all_ou_professors() 
+    import argparse
+    parser = argparse.ArgumentParser(description="OU Professor Loader")
+    parser.add_argument('--test', action='store_true', help='Run in test mode (fetch only 10 professors)')
+    args = parser.parse_args()
+    if args.test:
+        fetch_all_ou_professors(max_professors=10)
+    else:
+        fetch_all_ou_professors() 
