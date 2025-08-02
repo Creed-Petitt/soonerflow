@@ -31,10 +31,22 @@ class DatabaseClient:
         """Save professor data to database using SQLAlchemy"""
         session = self.get_session()
         try:
-            # Check if professor already exists
+            # Check if professor already exists and update with detailed data
             existing_professor = session.query(Professor).filter(Professor.id == professor_data['id']).first()
             if existing_professor:
-                self.logger.info(f"Professor {professor_data['id']} already exists, skipping...")
+                self.logger.info(f"Professor {professor_data['id']} already exists, updating with detailed data...")
+                # Update existing professor with detailed data
+                existing_professor.ratingTotal = professor_data.get('ratingTotal', existing_professor.ratingTotal)
+                existing_professor.ratingR1 = professor_data.get('ratingR1', existing_professor.ratingR1)
+                existing_professor.ratingR2 = professor_data.get('ratingR2', existing_professor.ratingR2) 
+                existing_professor.ratingR3 = professor_data.get('ratingR3', existing_professor.ratingR3)
+                existing_professor.ratingR4 = professor_data.get('ratingR4', existing_professor.ratingR4)
+                existing_professor.ratingR5 = professor_data.get('ratingR5', existing_professor.ratingR5)
+                existing_professor.teacherTags = professor_data.get('teacherTags', existing_professor.teacherTags)
+                existing_professor.courseCodes = json.dumps(professor_data.get('courseCodes', [])) if professor_data.get('courseCodes') else existing_professor.courseCodes
+                existing_professor.relatedTeachers = json.dumps(professor_data.get('relatedTeachers', [])) if professor_data.get('relatedTeachers') else existing_professor.relatedTeachers
+                session.commit()
+                self.logger.info(f"Successfully updated professor with detailed data: {professor_data.get('firstName', '')} {professor_data.get('lastName', '')}")
                 return True
             
             # Create new professor
@@ -62,7 +74,7 @@ class DatabaseClient:
                 ratingR3=professor_data.get('ratingR3', 0),
                 ratingR4=professor_data.get('ratingR4', 0),
                 ratingR5=professor_data.get('ratingR5', 0),
-                teacherTags=json.dumps(professor_data.get('teacherTags', [])) if professor_data.get('teacherTags') else None,
+                teacherTags=professor_data.get('teacherTags'),
                 courseCodes=json.dumps(professor_data.get('courseCodes', [])) if professor_data.get('courseCodes') else None,
                 relatedTeachers=json.dumps(professor_data.get('relatedTeachers', [])) if professor_data.get('relatedTeachers') else None
             )

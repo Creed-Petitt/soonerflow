@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { MainNavigation } from "@/components/main-navigation"
 import { Badge } from "@/components/ui/badge"
 import { 
   Select, 
@@ -13,6 +14,15 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationEllipsis, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination"
 import {
   Table,
   TableBody,
@@ -34,15 +44,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import { 
   Settings, 
   User, 
@@ -134,9 +135,9 @@ export default function BrowsePage() {
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '10',
+        limit: '20',
         ...(search && { search }),
-        ...(selectedDepartment !== "all" && { department: selectedDepartment }),
+        ...(selectedDepartment !== "all" && { subject: selectedDepartment }),
         ...(selectedLevel !== "all" && { level: selectedLevel }),
         ...(selectedCredits !== "all" && { credits: selectedCredits }),
         ...(selectedSemester !== "all" && { semester: selectedSemester }),
@@ -152,9 +153,25 @@ export default function BrowsePage() {
       console.log('Got data keys:', Object.keys(data))
       console.log('Classes count:', data.classes?.length || 0)
       
-      setClasses(data.classes)
-      setPagination(data.pagination)
-      setFilters(data.filters)
+      setClasses(data.classes || [])
+      setPagination(data.pagination || {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      })
+      
+      // Keep existing filters, don't override departments
+      if (data.classes && data.classes.length > 0) {
+        setFilters(prev => ({
+          ...prev,
+          levels: ["Undergraduate", "Graduate"],
+          credits: [1, 2, 3, 4, 5, 6],
+          semesters: ["Spring", "Fall", "Summer"]
+        }))
+      }
       
       console.log('State updated successfully')
     } catch (error) {
@@ -163,6 +180,27 @@ export default function BrowsePage() {
       setLoading(false)
     }
   }, [search, selectedDepartment, selectedLevel, selectedCredits, selectedSemester, currentPage])
+
+  // Load all departments on first load
+  React.useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/classes?limit=200')
+        const data = await response.json()
+        if (data.classes) {
+          const uniqueSubjects = Array.from(new Set(data.classes.map((cls: any) => cls.subject))).sort()
+          setFilters(prev => ({
+            ...prev,
+            departments: uniqueSubjects
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to load departments:', error)
+      }
+    }
+    
+    loadDepartments()
+  }, [])
 
   React.useEffect(() => {
     fetchClasses()
@@ -257,7 +295,7 @@ export default function BrowsePage() {
       <main className="flex-1 p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Browse Classes</h1>
-          <p className="text-muted-foreground">Search and filter available courses for Spring 2025</p>
+          <p className="text-muted-foreground">Detailed course research and exploration - {pagination.total} courses available</p>
         </div>
 
         {/* Filters */}
@@ -284,7 +322,7 @@ export default function BrowsePage() {
                   <SelectTrigger>
                     <SelectValue placeholder="All Departments" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
                     <SelectItem value="all">All Departments</SelectItem>
                     {filters.departments.map((dept) => (
                       <SelectItem key={dept} value={dept}>{dept}</SelectItem>
@@ -302,7 +340,7 @@ export default function BrowsePage() {
                   <SelectTrigger>
                     <SelectValue placeholder="All Levels" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
                     <SelectItem value="all">All Levels</SelectItem>
                     {filters.levels.map((level) => (
                       <SelectItem key={level} value={level}>{level}</SelectItem>
@@ -320,7 +358,7 @@ export default function BrowsePage() {
                   <SelectTrigger>
                     <SelectValue placeholder="All Credits" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
                     <SelectItem value="all">All Credits</SelectItem>
                     {filters.credits.map((credit) => (
                       <SelectItem key={credit} value={credit.toString()}>{credit} Credit{credit !== 1 ? 's' : ''}</SelectItem>
@@ -338,7 +376,7 @@ export default function BrowsePage() {
                   <SelectTrigger>
                     <SelectValue placeholder="All Semesters" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
                     <SelectItem value="all">All Semesters</SelectItem>
                     {filters.semesters.map((semester) => (
                       <SelectItem key={semester} value={semester}>{semester}</SelectItem>

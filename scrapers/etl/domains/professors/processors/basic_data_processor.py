@@ -45,8 +45,13 @@ class DataProcessor:
         rating_r4 = ratings_dist.get('r4', 0)
         rating_r5 = ratings_dist.get('r5', 0)
         
-        # Process teacher tags
-        teacher_tags = raw_professor_data.get('teacherRatingTags', [])
+        # Process teacher tags - convert to comma-separated string
+        teacher_tags_raw = raw_professor_data.get('teacherRatingTags', [])
+        teacher_tags_string = ""
+        if teacher_tags_raw and isinstance(teacher_tags_raw, list):
+            # Extract tagName from each tag object and join with commas
+            tag_names = [tag.get('tagName', '') for tag in teacher_tags_raw if tag.get('tagName')]
+            teacher_tags_string = ','.join(tag_names)
         
         # Process course codes
         course_codes = raw_professor_data.get('courseCodes', [])
@@ -86,8 +91,8 @@ class DataProcessor:
             'ratingR4': rating_r4,
             'ratingR5': rating_r5,
             
-            # JSON fields
-            'teacherTags': teacher_tags,
+            # Teacher tags as comma-separated string
+            'teacherTags': teacher_tags_string,
             'courseCodes': course_codes,
             'relatedTeachers': related_teachers
         }

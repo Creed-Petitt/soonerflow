@@ -1,306 +1,242 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
-import { Calendar, dateFnsLocalizer, View } from "react-big-calendar"
-import { format, parse, startOfWeek, getDay } from "date-fns"
-import { enUS } from "date-fns/locale"
+import * as React from "react"
+import { useState, useEffect } from "react"
+import { Calendar, momentLocalizer, View } from "react-big-calendar"
+import moment from "moment"
 import "react-big-calendar/lib/css/react-big-calendar.css"
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { Settings, User, Search, Plus, ChevronRight, Clock, MapPin, Users } from "lucide-react"
-import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ProjectStatusCard } from "@/components/ui/expandable-card"
-import { Tree, TreeItem, TreeItemLabel } from "@/components/tree"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { Search, Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings } from "lucide-react"
+import { ExpandableClassCard } from "@/components/expandable-class-card"
+import { GroupedClassCard } from "@/components/grouped-class-card"
+import Link from "next/link"
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales: {
-    'en-US': enUS,
-  },
-})
+const localizer = momentLocalizer(moment)
 
-// Types for API data
 interface ClassData {
   id: string
   subject: string
   number: string
   title: string
   instructor: string
-  rating: number
-  difficulty: number
-  wouldTakeAgain: number
   time: string
   location: string
-  days: string[]
-  credits: number
-  description: string
-  prerequisites: string
-  genEd: string
-  sections: Array<{
-    id: string
-    time: string
-    instructor: string
-    seats: string
-  }>
+  credits?: number
+  rating?: number
+  difficulty?: number
+  wouldTakeAgain?: number
 }
 
-// API functions
-const fetchClasses = async (): Promise<ClassData[]> => {
+interface ScheduledClass extends ClassData {
+  colorBg: string
+  colorHex: string
+}
+
+interface GroupedClass {
+  subject: string
+  number: string
+  title: string
+  credits?: number
+  sections: ClassData[]
+}
+
+// API function
+const fetchClasses = async (filters: any = {}): Promise<ClassData[]> => {
   try {
-    const response = await fetch('http://localhost:8000/api/classes?limit=50')
-    if (!response.ok) {
-      throw new Error('Failed to fetch classes')
-    }
+    const params = new URLSearchParams()
+    if (filters.subject) params.set('subject', filters.subject)
+    if (filters.search) params.set('search', filters.search)
+    if (filters.level) params.set('level', filters.level)
+    params.set('limit', '4000')
+    
+    const url = `http://localhost:8000/api/classes?${params}`
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Failed to fetch classes')
+    
     const data = await response.json()
-    console.log('Scheduler: Got classes data:', data.classes?.length || 0)
-    return data.classes || [] // Extract classes from wrapped response
+    return data.classes || []
   } catch (error) {
-    console.error('Scheduler: Error fetching classes:', error)
+    console.error('Error fetching classes:', error)
     return []
   }
 }
 
-const fetchUserSchedule = async (): Promise<ClassData[]> => {
-  try {
-    const response = await fetch('http://localhost:8000/api/user/schedule')
-    if (!response.ok) {
-      throw new Error('Failed to fetch user schedule')
+// Group classes by subject and number
+const groupClasses = (classes: ClassData[]): GroupedClass[] => {
+  const groups = new Map<string, GroupedClass>()
+  
+  classes.forEach(cls => {
+    const key = `${cls.subject}-${cls.number}`
+    
+    if (!groups.has(key)) {
+      groups.set(key, {
+        subject: cls.subject,
+        number: cls.number,
+        title: cls.title,
+        credits: cls.credits,
+        sections: []
+      })
     }
-    return await response.json()
-  } catch (error) {
-    console.error('Error fetching user schedule:', error)
-    return []
-  }
+    
+    groups.get(key)!.sections.push(cls)
+  })
+  
+  return Array.from(groups.values())
 }
 
-interface ClassCardProps {
-  classData: ClassData
-  onAddToSchedule: (classId: string) => void
-}
-
-interface ClassItemProps {
-  classData: ClassData
-  onClick: () => void
-}
-
-function ClassItem({ classData, onClick }: ClassItemProps) {
-  return (
-    <div 
-      className="p-2 rounded-lg border bg-card hover:bg-accent cursor-pointer transition-colors"
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm truncate">{classData.subject} {classData.number}</p>
-          <p className="text-xs text-muted-foreground truncate">{classData.time}</p>
-        </div>
-        <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
-      </div>
-    </div>
-  )
-}
-
-function ScheduleCalendar({ 
-  events, 
-  view, 
-  setView, 
-  eventStyleGetter,
-  toolbar = true
-}: {
-  events: any[]
-  view: View
-  setView: (view: View) => void
-  eventStyleGetter: (event: any) => any
-  toolbar?: boolean
-}) {
-  return (
-    <div className="h-full">
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        view={view}
-        onView={setView}
-        eventPropGetter={eventStyleGetter}
-        step={30}
-        timeslots={2}
-        min={new Date(2025, 7, 1, 8, 0)}
-        max={new Date(2025, 7, 1, 21, 0)}
-        defaultDate={new Date(2025, 7, 4)}
-        toolbar={toolbar}
-        className="bg-background border border-border rounded-lg"
-      />
-    </div>
-  )
-}
-
-function ClassCard({ classData, onAddToSchedule }: ClassCardProps) {
-  return (
-    <ProjectStatusCard
-      title={`${classData.subject} ${classData.number}`}
-      progress={Math.round((classData.rating / 5) * 100)}
-      dueDate="Spring 2025"  
-      contributors={[{ name: classData.instructor }]}
-      tasks={[
-        { title: `Rating: ${classData.rating}/5.0`, completed: classData.rating >= 4.0 },
-        { title: `Would take again: ${classData.wouldTakeAgain}%`, completed: classData.wouldTakeAgain >= 80 },
-        { title: `Difficulty: ${classData.difficulty}/5.0`, completed: classData.difficulty <= 3.0 }
-      ]}
-      githubStars={Math.round(classData.rating * 20)}
-      openIssues={classData.sections.length}
-    />
-  )
-}
+// Class colors for visual distinction
+const classColors = [
+  { bg: 'bg-blue-500', hex: '#3b82f6' },
+  { bg: 'bg-green-500', hex: '#10b981' },
+  { bg: 'bg-purple-500', hex: '#8b5cf6' },
+  { bg: 'bg-orange-500', hex: '#f97316' },
+  { bg: 'bg-pink-500', hex: '#ec4899' },
+  { bg: 'bg-teal-500', hex: '#14b8a6' },
+  { bg: 'bg-indigo-500', hex: '#6366f1' },
+  { bg: 'bg-red-500', hex: '#ef4444' }
+]
 
 export default function SchedulerPage() {
-  const [view, setView] = useState<View>("week")
-  const [events, setEvents] = useState<any[]>([])
-  const [selectedClass, setSelectedClass] = useState<ClassData | null>(null)
-  const [leftPanelWidth, setLeftPanelWidth] = useState(256) // 64 * 4 = 256px
-  const [rightPanelWidth, setRightPanelWidth] = useState(320) // 80 * 4 = 320px
-  const [isResizing, setIsResizing] = useState<'left' | 'right' | null>(null)
   const [classes, setClasses] = useState<ClassData[]>([])
+  const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
+  const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([])
+  const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-
-  // Resize handlers
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing) return
+  const [view, setView] = useState<View>("week")
+  
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedSubject, setSelectedSubject] = useState("all")
+  const [selectedLevel, setSelectedLevel] = useState("all")
+  const [selectedCourseLevel, setSelectedCourseLevel] = useState("all")
+  const [selectedMajor, setSelectedMajor] = useState("all")
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([])
+  const [displayLimit, setDisplayLimit] = useState(50)
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  
+  // Filtered grouped classes
+  const filteredGroupedClasses = groupedClasses.filter(group => {
+    const classCode = `${group.subject} ${group.number}`.toLowerCase()
+    const matchesSearch = !searchTerm || 
+      classCode.includes(searchTerm.toLowerCase()) ||
+      group.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.number.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const windowWidth = window.innerWidth
-    if (isResizing === 'left') {
-      const newWidth = Math.min(Math.max(e.clientX, 200), 400)
-      setLeftPanelWidth(newWidth)
-    } else if (isResizing === 'right') {
-      const newWidth = Math.min(Math.max(windowWidth - e.clientX, 200), 400)
-      setRightPanelWidth(newWidth)
-    }
-  }, [isResizing])
+    const matchesSubject = selectedSubject === "all" || group.subject === selectedSubject
+    
+    const matchesLevel = selectedLevel === "all" || 
+      (selectedLevel === "undergraduate" && parseInt(group.number[0]) < 5) ||
+      (selectedLevel === "graduate" && parseInt(group.number[0]) >= 5)
+    
+    const courseNum = parseInt(group.number)
+    const matchesCourseLevel = selectedCourseLevel === "all" ||
+      (selectedCourseLevel === "1000" && courseNum >= 1000 && courseNum < 2000) ||
+      (selectedCourseLevel === "2000" && courseNum >= 2000 && courseNum < 3000) ||
+      (selectedCourseLevel === "3000" && courseNum >= 3000 && courseNum < 4000) ||
+      (selectedCourseLevel === "4000" && courseNum >= 4000 && courseNum < 5000) ||
+      (selectedCourseLevel === "5000+" && courseNum >= 5000)
+    
+    
+    // TODO: Implement major filtering when major data is available
+    const matchesMajor = selectedMajor === "all" // For now, always true
+    
+    return matchesSearch && matchesSubject && matchesLevel && matchesCourseLevel && matchesMajor
+  })
 
-  const handleMouseUp = useCallback(() => {
-    setIsResizing(null)
-    document.body.style.cursor = 'default'
-    document.body.style.userSelect = 'auto'
-  }, [])
-
+  // Reset display limit when filters change
   useEffect(() => {
-    if (isResizing) {
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-      
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-        document.body.style.cursor = 'default'
-        document.body.style.userSelect = 'auto'
-      }
-    }
-  }, [isResizing, handleMouseMove, handleMouseUp])
+    setDisplayLimit(50)
+  }, [searchTerm, selectedSubject, selectedCourseLevel, selectedMajor])
 
-  // Load data on component mount
+  // Load data
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
-      const [classesData, scheduleData] = await Promise.all([
-        fetchClasses(),
-        fetchUserSchedule()
-      ])
-      
+      const classesData = await fetchClasses()
       setClasses(classesData)
       
-      // Convert schedule data to calendar events
-      const calendarEvents = scheduleData.flatMap(cls => {
-        const { classDays, startHour, startMin, endHour, endMin } = parseTimeToDate(cls.time)
-        
-        return classDays.map(dayOfWeek => {
-          const startDate = new Date(2025, 7, 4) // Start of week (Monday Aug 4, 2025)
-          startDate.setDate(startDate.getDate() + (dayOfWeek - 1)) // Adjust to correct day
-          startDate.setHours(startHour, startMin, 0, 0)
-          
-          const endDate = new Date(startDate)
-          endDate.setHours(endHour, endMin, 0, 0)
-          
-          return {
-            id: `${cls.id}-${dayOfWeek}`,
-            title: `${cls.subject} ${cls.number}`,
-            start: startDate,
-            end: endDate,
-            resource: cls
-          }
-        })
-      })
+      // Group classes by subject and number
+      const grouped = groupClasses(classesData)
+      setGroupedClasses(grouped)
       
-      setEvents(calendarEvents)
+      // Extract unique subjects
+      const subjects = Array.from(new Set(classesData.map(cls => cls.subject))).sort()
+      setAvailableSubjects(subjects)
+      
       setLoading(false)
     }
     
     loadData()
   }, [])
 
-  const handleAddClass = (classId: string) => {
-    const classData = classes.find(cls => cls.id === classId)
-    if (classData) {
-      handleAddToSchedule(classData)
-    }
-  }
-
-  const parseTimeToDate = (timeString: string, baseDate: Date = new Date()) => {
-    // Check if timeString is valid
-    if (!timeString || timeString === 'TBA' || !timeString.includes(' ') || !timeString.includes('-')) {
-      return { classDays: [1], startHour: 9, startMin: 0, endHour: 10, endMin: 0 }
+  const parseTimeToEvents = (classData: ScheduledClass) => {
+    if (!classData.time || classData.time === 'TBA') return []
+    
+    // Parse "MWF 10:00 am-10:50 am" format
+    const parts = classData.time.split(' ')
+    if (parts.length < 3) return []
+    
+    const days = parts[0]
+    const timeRange = parts.slice(1).join(' ')
+    const [startTimeStr, endTimeStr] = timeRange.split('-')
+    
+    // Parse times
+    const parseTime = (timeStr: string) => {
+      const cleanTime = timeStr.trim()
+      const isPM = cleanTime.includes('pm')
+      const isAM = cleanTime.includes('am')
+      const timeOnly = cleanTime.replace(/[ap]m/g, '').trim()
+      const [hourStr, minStr] = timeOnly.split(':')
+      let hour = parseInt(hourStr)
+      const min = parseInt(minStr) || 0
+      
+      if (isPM && hour !== 12) hour += 12
+      if (isAM && hour === 12) hour = 0
+      
+      return { hour, min }
     }
     
-    // Parse "TTh 14:00-15:15" or "MWF 10:00-10:50" format
-    const [days, timeRange] = timeString.split(' ')
-    const [startTime, endTime] = timeRange.split('-')
-    const [startHour, startMin] = startTime.split(':').map(Number)
-    const [endHour, endMin] = endTime.split(':').map(Number)
+    const startTime = parseTime(startTimeStr)
+    const endTime = parseTime(endTimeStr)
     
+    // Map day letters to day numbers (0 = Sunday)
     const dayMap: { [key: string]: number } = {
-      'M': 1, 'T': 2, 'W': 3, 'Th': 4, 'F': 5
+      'M': 1, 'T': 2, 'W': 3, 'R': 4, 'F': 5
     }
     
     const classDays = []
     let i = 0
     while (i < days.length) {
       if (i < days.length - 1 && days.slice(i, i + 2) === 'Th') {
-        classDays.push(4) // Thursday
+        classDays.push(4)
         i += 2
+      } else if (days[i] === 'R') {
+        classDays.push(4)
+        i++
       } else {
         classDays.push(dayMap[days[i]] || 1)
         i++
       }
     }
     
-    return { classDays, startHour, startMin, endHour, endMin }
-  }
-
-  const handleAddToSchedule = (classData: ClassData) => {
-    const { classDays, startHour, startMin, endHour, endMin } = parseTimeToDate(classData.time)
-    
-    // Create events for each day of the week the class meets
-    const newEvents = classDays.map(dayOfWeek => {
-      const startDate = new Date(2025, 7, 4) // Start of week (Monday Aug 4, 2025)
-      startDate.setDate(startDate.getDate() + (dayOfWeek - 1)) // Adjust to correct day
-      startDate.setHours(startHour, startMin, 0, 0)
+    // Create calendar events for each day
+    const events = classDays.map(dayOfWeek => {
+      const today = new Date()
+      const startDate = new Date(today)
+      startDate.setDate(today.getDate() + (dayOfWeek - today.getDay()))
+      startDate.setHours(startTime.hour, startTime.min, 0, 0)
       
       const endDate = new Date(startDate)
-      endDate.setHours(endHour, endMin, 0, 0)
+      endDate.setHours(endTime.hour, endTime.min, 0, 0)
       
       return {
-        id: `${classData.id}-${dayOfWeek}-${Date.now()}`,
+        id: `${classData.id}-${dayOfWeek}`,
         title: `${classData.subject} ${classData.number}`,
         start: startDate,
         end: endDate,
@@ -308,214 +244,269 @@ export default function SchedulerPage() {
       }
     })
     
-    setEvents([...events, ...newEvents])
-    console.log(`Added ${classData.subject} ${classData.number} to schedule`)
+    return events
   }
 
-  const eventStyleGetter = (event: any) => {
-    const backgroundColor = event.resource?.subject === 'ECE' ? '#3174ad' : '#ad5131'
-    return {
-      style: {
-        backgroundColor,
-        borderRadius: '4px',
-        opacity: 0.8,
-        color: 'white',
-        border: '0px',
-        display: 'block'
-      }
+  const addToSchedule = (classData: ClassData) => {
+    if (scheduledClasses.find(cls => cls.id === classData.id)) return
+    
+    const colorIndex = scheduledClasses.length % classColors.length
+    const selectedColor = classColors[colorIndex]
+    
+    const newScheduledClass: ScheduledClass = {
+      ...classData,
+      colorBg: selectedColor.bg,
+      colorHex: selectedColor.hex
     }
+    
+    setScheduledClasses(prev => [...prev, newScheduledClass])
+    
+    // Add calendar events
+    const newEvents = parseTimeToEvents(newScheduledClass)
+    setEvents(prev => [...prev, ...newEvents])
   }
+
+  const removeFromSchedule = (classId: string) => {
+    setScheduledClasses(prev => prev.filter(cls => cls.id !== classId))
+    setEvents(prev => prev.filter(event => !event.id.startsWith(classId)))
+  }
+
 
   return (
-    <div className="h-screen bg-background text-foreground flex flex-col">
-        {/* Top Navigation Bar */}
-        <nav className="border-b border-border px-6 py-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            {/* Left side - Navigation Links */}
-            <div className="flex items-center space-x-8">
-              <div className="flex items-center space-x-6">
-                <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Home
-                </Link>
-                <Link href="/scheduler" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                  Scheduler
-                </Link>
-                <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Browse Classes
-                </Link>
-                <Link href="/progress" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Degree Progress
-                </Link>
-                <Link href="/professors" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Professors
-                </Link>
-                <Link href="/canvas" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                  Canvas
-                </Link>
-              </div>
-            </div>
-
-            {/* Right side - Search and Controls */}
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search classes..."
-                  className="pl-8 w-[250px] h-9 bg-muted/50 border-0"
-                />
-              </div>
-              <ThemeToggle />
-              <Button variant="ghost" size="sm">
-                <Settings className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <User className="h-4 w-4" />
-              </Button>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Top Navigation Bar */}
+      <nav className="border-b border-border px-6 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left side - Navigation Links */}
+          <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-6">
+              <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Home
+              </Link>
+              <Link href="/scheduler" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                Scheduler
+              </Link>
+              <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Browse Classes
+              </Link>
+              <Link href="/progress" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Degree Progress
+              </Link>
+              <Link href="/professors" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Professors
+              </Link>
+              <Link href="/canvas" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Canvas
+              </Link>
             </div>
           </div>
-        </nav>
 
-        {/* Main Content - 3 Column Layout */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Sidebar - Course Browser */}
-          <div 
-            className="border-r border-border bg-muted/20 flex flex-col flex-shrink-0"
-            style={{ width: `${leftPanelWidth}px` }}
-          >
-            <div className="p-4 border-b border-border">
-              <h2 className="font-semibold mb-3">Browse Courses</h2>
-              <div className="space-y-2">
-                <Input placeholder="Search courses..." className="h-8" />
-                <Button size="sm" className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Class
-                </Button>
-              </div>
+          {/* Right side - Search and Controls */}
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search classes..."
+                className="pl-8 w-[250px] h-9 bg-muted/50 border-0"
+              />
+            </div>
+            <ThemeToggle />
+            <Button variant="ghost" size="sm">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content - 2 Panel Layout */}
+      <div className="flex h-[calc(100vh-4rem)]">
+        
+        {/* Left Panel - Available Classes (25% width) */}
+        <div className="w-[25%] border-r border-border bg-muted/20 flex flex-col">
+          {/* Compact Filters */}
+          <div className="p-2 border-b border-border bg-background">
+            <div className="flex items-center gap-1 mb-2">
+              <h3 className="text-sm font-medium">Classes</h3>
+              {scheduledClasses.length > 0 && (
+                <Badge variant="secondary" className="px-1 py-0 text-xs">
+                  {scheduledClasses.length}
+                </Badge>
+              )}
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                  {loading ? "Loading..." : "Available Classes"}
-                </h3>
-                {loading ? (
-                  <div className="text-center text-muted-foreground py-4">Loading classes...</div>
-                ) : (
-                  classes.slice(0, 20).map((cls) => (
-                    <ClassItem
-                      key={cls.id}
-                      classData={cls}
-                      onClick={() => setSelectedClass(cls)}
+            <div className="space-y-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
+                <Input
+                  placeholder="Search by class code (ECE 2214)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-7 h-7 text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              </div>
+              
+              <div className="flex gap-1">
+                <Select 
+                  value={selectedSubject} 
+                  onValueChange={setSelectedSubject}
+                  open={openDropdown === 'subject'}
+                  onOpenChange={(open) => setOpenDropdown(open ? 'subject' : null)}
+                >
+                  <SelectTrigger className="h-7 text-xs w-1/2 focus:ring-2 focus:ring-red-500 focus:border-red-500 data-[state=open]:ring-2 data-[state=open]:ring-red-500 data-[state=open]:border-red-500">
+                    <SelectValue placeholder="Department" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[400px] overflow-y-auto p-1 w-fit min-w-[120px]">
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {availableSubjects.map((subject) => (
+                      <SelectItem key={subject} value={subject} className="text-left">{subject}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select 
+                  value={selectedCourseLevel} 
+                  onValueChange={setSelectedCourseLevel}
+                  open={openDropdown === 'level'}
+                  onOpenChange={(open) => setOpenDropdown(open ? 'level' : null)}
+                >
+                  <SelectTrigger className="h-7 text-xs w-1/2 focus:ring-2 focus:ring-red-500 focus:border-red-500 data-[state=open]:ring-2 data-[state=open]:ring-red-500 data-[state=open]:border-red-500">
+                    <SelectValue placeholder="Level" />
+                  </SelectTrigger>
+                  <SelectContent className="w-fit min-w-[100px]">
+                    <SelectItem value="all">All Levels</SelectItem>
+                    <SelectItem value="1000">1000-Level</SelectItem>
+                    <SelectItem value="2000">2000-Level</SelectItem>
+                    <SelectItem value="3000">3000-Level</SelectItem>
+                    <SelectItem value="4000">4000-Level</SelectItem>
+                    <SelectItem value="5000+">5000+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+            </div>
+            
+            <div className="text-xs text-muted-foreground mt-1">
+              {filteredGroupedClasses.length} found
+            </div>
+          </div>
+          
+          {/* Class List */}
+          <div className="flex-1 overflow-y-auto p-1">
+            <div className="grid grid-cols-1 gap-0.5">
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading classes...</div>
+              ) : filteredGroupedClasses.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-lg">No classes found</div>
+                  <div className="text-sm">Try adjusting your filters</div>
+                </div>
+              ) : (
+                <>
+                {filteredGroupedClasses.slice(0, displayLimit).map((group) => {
+                  const isAnyScheduled = group.sections.some(section => 
+                    scheduledClasses.find(scheduled => scheduled.id === section.id)
+                  )
+                  
+                  return (
+                    <GroupedClassCard
+                      key={`${group.subject}-${group.number}`}
+                      groupedClass={group}
+                      isAnyScheduled={isAnyScheduled}
+                      onAddToSchedule={addToSchedule}
+                      onRemoveFromSchedule={removeFromSchedule}
                     />
-                  ))
+                  )
+                })}
+                
+                {/* Load More Button */}
+                {filteredGroupedClasses.length > displayLimit && (
+                  <div className="text-center pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setDisplayLimit(prev => prev + 50)}
+                      size="sm"
+                    >
+                      Load More ({filteredGroupedClasses.length - displayLimit} remaining)
+                    </Button>
+                  </div>
+                )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Calendar (75% width) */}
+        <div className="w-[75%] flex flex-col">
+          <div className="p-2 border-b border-border bg-background">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Schedule</h3>
+              <div className="flex items-center gap-1">
+                {scheduledClasses.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {scheduledClasses.map(cls => (
+                      <div 
+                        key={cls.id}
+                        className="flex items-center gap-1 bg-muted px-1 py-0.5 rounded text-xs cursor-pointer hover:bg-muted/80"
+                        onClick={() => removeFromSchedule(cls.id)}
+                        title={`${cls.subject} ${cls.number} - Click to remove`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${cls.colorBg}`}></div>
+                        <span>{cls.subject} {cls.number}</span>
+                        <X className="h-2.5 w-2.5 opacity-60 hover:opacity-100" />
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           </div>
-
-          {/* Left Resize Handle */}
-          <div 
-            className="w-1 bg-border hover:bg-primary/50 cursor-col-resize flex-shrink-0 transition-colors"
-            onMouseDown={() => setIsResizing('left')}
-          />
-
-          {/* Center - Calendar */}
-          <div className="flex-1 flex flex-col">
-            <div className="p-4 border-b border-border bg-muted/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-lg font-semibold">Schedule Builder</h1>
-                  <p className="text-sm text-muted-foreground">Spring 2025</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline">Draft</Badge>
-                  <Tabs value={view} onValueChange={(v) => setView(v as View)}>
-                    <TabsList className="h-8">
-                      <TabsTrigger value="day" className="text-xs">Day</TabsTrigger>
-                      <TabsTrigger value="week" className="text-xs">Week</TabsTrigger>
-                      <TabsTrigger value="month" className="text-xs">Month</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <Button size="sm">
-                    Lock Schedule
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 p-4">
-              <ScheduleCalendar
+          
+          <div className="flex-1 p-2">
+            <div className="h-full relative">
+              <Calendar
+                localizer={localizer}
                 events={events}
+                startAccessor="start"
+                endAccessor="end"
                 view={view}
-                setView={setView}
-                eventStyleGetter={eventStyleGetter}
-                toolbar={false}
+                onView={setView}
+                style={{ height: '100%' }}
+                eventPropGetter={(event) => ({
+                  style: {
+                    backgroundColor: event.resource?.colorHex || '#3b82f6',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '12px',
+                    padding: '2px 4px'
+                  }
+                })}
+                formats={{
+                  timeGutterFormat: 'h:mm A',
+                  eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                    localizer.format(start, 'h:mm A', culture) + ' - ' +
+                    localizer.format(end, 'h:mm A', culture)
+                }}
+                min={new Date(0, 0, 0, 7, 0, 0)} // 7 AM
+                max={new Date(0, 0, 0, 22, 0, 0)} // 10 PM
               />
+              
+              {/* Empty state overlay */}
+              {events.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-center text-muted-foreground bg-background/80 p-6 rounded-lg">
+                    <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <div className="text-lg font-medium mb-1">No classes scheduled</div>
+                    <div className="text-sm">Add classes from the left panel to see them here</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Right Resize Handle */}
-          {selectedClass && (
-            <div 
-              className="w-1 bg-border hover:bg-primary/50 cursor-col-resize flex-shrink-0 transition-colors"
-              onMouseDown={() => setIsResizing('right')}
-            />
-          )}
-
-          {/* Right Panel - Class Details */}
-          {selectedClass && (
-            <div 
-              className="border-l border-border bg-muted/20 p-4 overflow-y-auto flex-shrink-0"
-              style={{ width: `${rightPanelWidth}px` }}
-            >
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-semibold">{selectedClass.subject} {selectedClass.number}</h2>
-                  <p className="text-muted-foreground">{selectedClass.title}</p>
-                </div>
-
-                <ClassCard classData={selectedClass} onAddToSchedule={handleAddClass} />
-
-                <div className="space-y-3">
-                  <h3 className="font-medium">Available Sections</h3>
-                  {selectedClass.sections.map((section) => (
-                    <div key={section.id} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Section {section.id}</span>
-                        <Badge variant={section.seats === "Full" ? "destructive" : "default"}>
-                          {section.seats}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3 w-3" />
-                          {section.time}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-3 w-3" />
-                          {section.instructor}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3 w-3" />
-                          {selectedClass.location}
-                        </div>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        className="w-full mt-2"
-                        disabled={section.seats === "Full"}
-                        onClick={() => handleAddClass(selectedClass.id)}
-                      >
-                        {section.seats === "Full" ? "Full" : "Add to Schedule"}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
+      </div>
     </div>
   )
 }

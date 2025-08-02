@@ -113,7 +113,17 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                     successful_saves += 1
                     logger.info(f"Saved class {i}/{len(processed_classes)}: {class_data.get('subject', '')} {class_data.get('courseNumber', '')}")
                     
-                    # Meeting times are now saved with the class in the Node.js script
+                    # Save meeting times for this class
+                    meeting_times = class_data.get('meetingTimes', [])
+                    if meeting_times:
+                        for meeting_time in meeting_times:
+                            processed_meeting_time = data_processor.process_meeting_time_data(meeting_time, class_data['id'])
+                            if processed_meeting_time and data_processor.validate_meeting_time_data(processed_meeting_time):
+                                if not db_client.save_meeting_time(processed_meeting_time):
+                                    logger.error(f"Failed to save meeting time for class {class_data['id']}")
+                        logger.info(f"Saved {len(meeting_times)} meeting times for class {class_data['id']}")
+                    else:
+                        logger.warning(f"No meeting times found for class {class_data['id']}")
                 else:
                     failed_saves += 1
                     logger.error(f"Failed to save class: {class_data.get('id', 'Unknown')}")

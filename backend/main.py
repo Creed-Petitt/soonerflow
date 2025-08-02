@@ -9,7 +9,7 @@ import os
 
 # Add the parent directory to the path to import database models
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import Class as ClassModel, MeetingTime, Professor as ProfessorModel, create_engine_and_session, Base
+from database.models import Class as ClassModel, MeetingTime, Professor as ProfessorModel, Rating, create_engine_and_session, Base
 
 app = FastAPI(title="OU Class Manager API", version="1.0.0")
 
@@ -55,10 +55,20 @@ class Assignment(BaseModel):
 
 class ProfessorResponse(BaseModel):
     id: str
-    name: str
-    rating: float
-    difficulty: float
+    firstName: str
+    lastName: str
+    name: str  # Combined first + last name
+    avgRating: float
+    avgDifficulty: float
+    wouldTakeAgainPercent: float
+    numRatings: int
     department: str
+    ratingDistribution: List[int]  # [1★, 2★, 3★, 4★, 5★]
+    tags: List[str]
+    comments: List[str] = []  # Student comments from ratings table
+    
+    class Config:
+        from_attributes = True
 
 # Database setup
 engine, SessionLocal = create_engine_and_session()
@@ -146,7 +156,8 @@ async def root():
 async def get_classes(
     subject: Optional[str] = None, 
     search: Optional[str] = None,
-    limit: Optional[int] = 100,
+    limit: Optional[int] = 500,
+    page: Optional[int] = 1,
     db: Session = Depends(get_db)
 ):
     """Get all classes with optional filtering"""
@@ -162,10 +173,16 @@ async def get_classes(
             (ClassModel.courseNumber.ilike(f"%{search}%"))
         )
     
-    classes = query.limit(limit).all()
+    # Add pagination
+    offset = (page - 1) * limit
+    total_count = query.count()
     
-    print(f"DEBUG: Found {len(classes)} classes")
+    # Order by courseNumber first to get diverse subjects, then by subject
+    classes = query.order_by(ClassModel.courseNumber, ClassModel.subject).offset(offset).limit(limit).all()
+    
+    print(f"DEBUG: Found {len(classes)} classes (page {page}, total: {total_count})")
     if classes:
+        print(f"DEBUG: Subjects: {list(set([c.subject for c in classes[:10]]))}")
         print(f"DEBUG: First class has {len(classes[0].meetingTimes)} meeting times")
     
     # Convert to response format  
@@ -186,11 +203,16 @@ async def get_classes(
         # Get location from first meeting time
         location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
         
+        # Clean up title by removing location info in parentheses
+        clean_title = cls.title
+        if " (" in clean_title and "@" in clean_title:
+            clean_title = clean_title.split(" (")[0]
+        
         response_classes.append(ClassResponse(
             id=cls.id,
             subject=cls.subject,
             number=cls.courseNumber,
-            title=cls.title,
+            title=clean_title,
             instructor=cls.instructor or "TBA",
             time=time_str,
             location=location,
@@ -212,24 +234,25 @@ async def get_classes(
         ))
     
     # Calculate pagination
-    total = len(response_classes)  # This is just current page, need total from query
-    totalPages = max(1, (total + limit - 1) // limit)
+    totalPages = max(1, (total_count + limit - 1) // limit)
     
-    # Get unique filter options from all classes (simplified for now)
-    departments = ["Computer Science", "Electrical Engineering", "Mathematics", "Physics", "English", "Aerospace Engineering"]
+    # Get unique subjects from database
+    all_subjects = db.query(ClassModel.subject).distinct().all()
+    departments = sorted([s[0] for s in all_subjects if s[0]])  # Get ALL departments, sorted
+    
     levels = ["Undergraduate", "Graduate"]
-    creditOptions = [1, 2, 3, 4]
+    creditOptions = [1, 2, 3, 4, 5, 6]
     semesters = ["Spring", "Fall", "Summer"]
     
     return {
         "classes": response_classes,
         "pagination": {
-            "page": 1,  # Will fix pagination later
+            "page": page,
             "limit": limit,
-            "total": total,
+            "total": total_count,
             "totalPages": totalPages,
-            "hasNext": False,
-            "hasPrev": False
+            "hasNext": offset + limit < total_count,
+            "hasPrev": page > 1
         },
         "filters": {
             "departments": departments,
@@ -262,11 +285,16 @@ async def get_class(class_id: str, db: Session = Depends(get_db)):
     # Get location from first meeting time
     location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
     
+    # Clean up title by removing location info in parentheses
+    clean_title = cls.title
+    if " (" in clean_title and "@" in clean_title:
+        clean_title = clean_title.split(" (")[0]
+    
     return ClassResponse(
         id=cls.id,
         subject=cls.subject,
         number=cls.courseNumber,
-        title=cls.title,
+        title=clean_title,
         instructor=cls.instructor or "TBA",
         time=time_str,
         location=location,
@@ -323,6 +351,104 @@ async def get_user_schedule(db: Session = Depends(get_db)):
         ))
     
     return response_classes
+
+@app.get("/api/professors/search")
+async def search_professor(name: str, db: Session = Depends(get_db)):
+    """Search for professor by name and return RateMyProfessor data"""
+    if not name or len(name.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
+    
+    # Handle different name formats: "Last, First Middle" or "First Last"
+    name_clean = name.lower().strip()
+    
+    # Build query for flexible matching
+    query = db.query(ProfessorModel)
+    
+    if ',' in name_clean:
+        # Format: "Last, First Middle" -> extract last and first parts
+        parts = name_clean.split(',')
+        last_part = parts[0].strip()
+        first_part = parts[1].strip().split()[0] if len(parts) > 1 else ""
+        
+        if last_part and first_part:
+            # Try exact match first, then flexible match
+            query = query.filter(
+                (ProfessorModel.lastName.ilike(f"%{last_part}%")) &
+                (ProfessorModel.firstName.ilike(f"%{first_part}%"))
+            )
+        elif last_part:
+            query = query.filter(ProfessorModel.lastName.ilike(f"%{last_part}%"))
+    else:
+        # Format: "First Last" or single name
+        name_parts = name_clean.split()
+        if len(name_parts) == 1:
+            # Single word - match either first or last name
+            search_term = f"%{name_parts[0]}%"
+            query = query.filter(
+                (ProfessorModel.firstName.ilike(search_term)) |
+                (ProfessorModel.lastName.ilike(search_term))
+            )
+        else:
+            # Multiple words - try to match first and last name
+            first_name = f"%{name_parts[0]}%"
+            last_name = f"%{name_parts[-1]}%"
+            query = query.filter(
+                (ProfessorModel.firstName.ilike(first_name)) &
+                (ProfessorModel.lastName.ilike(last_name))
+            )
+    
+    # Get professor with ratings
+    professor = query.filter(ProfessorModel.avgRating > 0).first()
+    
+    if not professor:
+        # Try broader search if no exact match
+        broad_search = f"%{name.lower()}%"
+        professor = db.query(ProfessorModel).filter(
+            (ProfessorModel.firstName.ilike(broad_search)) |
+            (ProfessorModel.lastName.ilike(broad_search))
+        ).filter(ProfessorModel.avgRating > 0).first()
+    
+    if not professor:
+        return {"error": "Professor not found", "name": name}
+    
+    # Get student comments from ratings table
+    comments = []
+    if professor.numRatings >= 10:  # Only get comments for professors with detailed data
+        ratings = db.query(Rating).filter(
+            Rating.professorId == professor.id,
+            Rating.comment.isnot(None),
+            Rating.comment != ""
+        ).limit(5).all()
+        comments = [r.comment for r in ratings if r.comment]
+    
+    # Parse tags from teacherTags column
+    tags = []
+    if professor.teacherTags:
+        tags = [tag.strip() for tag in professor.teacherTags.split(',') if tag.strip()]
+    
+    # Build rating distribution
+    rating_distribution = [
+        professor.ratingR1 or 0,
+        professor.ratingR2 or 0, 
+        professor.ratingR3 or 0,
+        professor.ratingR4 or 0,
+        professor.ratingR5 or 0
+    ]
+    
+    return ProfessorResponse(
+        id=professor.id,
+        firstName=professor.firstName or "",
+        lastName=professor.lastName or "",
+        name=f"{professor.firstName or ''} {professor.lastName or ''}".strip(),
+        avgRating=professor.avgRating or 0.0,
+        avgDifficulty=professor.avgDifficulty or 0.0,
+        wouldTakeAgainPercent=professor.wouldTakeAgainPercent or 0.0,
+        numRatings=professor.numRatings or 0,
+        department=professor.department or "",
+        ratingDistribution=rating_distribution,
+        tags=tags,
+        comments=comments
+    )
 
 @app.post("/api/user/schedule/{class_id}")
 async def add_to_schedule(class_id: str):
