@@ -225,22 +225,39 @@ export default function SchedulerPage() {
       }
     }
     
-    // Create calendar events for each day
-    const events = classDays.map(dayOfWeek => {
-      const today = new Date()
-      const startDate = new Date(today)
-      startDate.setDate(today.getDate() + (dayOfWeek - today.getDay()))
-      startDate.setHours(startTime.hour, startTime.min, 0, 0)
+    // Create calendar events for each day - generate for multiple weeks to support all views
+    const events = []
+    const today = new Date()
+    const startOfSemester = new Date(today.getFullYear(), today.getMonth() - 1, 1) // Start a month ago
+    const endOfSemester = new Date(today.getFullYear(), today.getMonth() + 4, 30) // End 4 months from now
+    
+    classDays.forEach(dayOfWeek => {
+      // Find all dates for this day of week within the semester
+      const currentDate = new Date(startOfSemester)
       
-      const endDate = new Date(startDate)
-      endDate.setHours(endTime.hour, endTime.min, 0, 0)
+      // Move to the first occurrence of this day of week
+      while (currentDate.getDay() !== dayOfWeek) {
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
       
-      return {
-        id: `${classData.id}-${dayOfWeek}`,
-        title: `${classData.subject} ${classData.number}`,
-        start: startDate,
-        end: endDate,
-        resource: classData
+      // Create events for every week until end of semester
+      while (currentDate <= endOfSemester) {
+        const startDate = new Date(currentDate)
+        startDate.setHours(startTime.hour, startTime.min, 0, 0)
+        
+        const endDate = new Date(startDate)
+        endDate.setHours(endTime.hour, endTime.min, 0, 0)
+        
+        events.push({
+          id: `${classData.id}-${dayOfWeek}-${startDate.getTime()}`,
+          title: `${classData.subject} ${classData.number}`,
+          start: startDate,
+          end: endDate,
+          resource: classData
+        })
+        
+        // Move to next week
+        currentDate.setDate(currentDate.getDate() + 7)
       }
     })
     
@@ -327,7 +344,6 @@ export default function SchedulerPage() {
           {/* Compact Filters */}
           <div className="p-2 border-b border-border bg-background">
             <div className="flex items-center gap-1 mb-2">
-              <h3 className="text-sm font-medium">Classes</h3>
               {scheduledClasses.length > 0 && (
                 <Badge variant="secondary" className="px-1 py-0 text-xs">
                   {scheduledClasses.length}
@@ -393,7 +409,7 @@ export default function SchedulerPage() {
           
           {/* Class List */}
           <div className="flex-1 overflow-y-auto p-1">
-            <div className="grid grid-cols-1 gap-0.5">
+            <div className="grid grid-cols-1 gap-2">
               {loading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading classes...</div>
               ) : filteredGroupedClasses.length === 0 ? (
@@ -439,29 +455,6 @@ export default function SchedulerPage() {
 
         {/* Right Panel - Calendar (75% width) */}
         <div className="w-[75%] flex flex-col">
-          <div className="p-2 border-b border-border bg-background">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium">Schedule</h3>
-              <div className="flex items-center gap-1">
-                {scheduledClasses.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {scheduledClasses.map(cls => (
-                      <div 
-                        key={cls.id}
-                        className="flex items-center gap-1 bg-muted px-1 py-0.5 rounded text-xs cursor-pointer hover:bg-muted/80"
-                        onClick={() => removeFromSchedule(cls.id)}
-                        title={`${cls.subject} ${cls.number} - Click to remove`}
-                      >
-                        <div className={`w-1.5 h-1.5 rounded-full ${cls.colorBg}`}></div>
-                        <span>{cls.subject} {cls.number}</span>
-                        <X className="h-2.5 w-2.5 opacity-60 hover:opacity-100" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
           
           <div className="flex-1 p-2">
             <div className="h-full relative">

@@ -5,9 +5,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Star, Plus, ChevronDown, Clock, MapPin, Users, TrendingUp, Award, BookOpen } from "lucide-react"
 import { ExpandableClassCard } from "@/components/expandable-class-card"
-import { RatingDistributionChart } from "@/components/rating-distribution-chart"
+import { RatingDistributionBarChart } from "@/components/rating-distribution-bar-chart"
 import { findProfessorRatingAsync, generateFallbackData } from "@/lib/professor-matcher"
 
 interface ClassData {
@@ -102,7 +108,11 @@ export function GroupedClassCard({
 
   const handleAddToSchedule = () => {
     if (selectedSection) {
-      onAddToSchedule(selectedSection)
+      if (isAnyScheduled) {
+        onRemoveFromSchedule(selectedSection.id)
+      } else {
+        onAddToSchedule(selectedSection)
+      }
     }
   }
 
@@ -111,92 +121,63 @@ export function GroupedClassCard({
   }
 
   return (
-    <div className="border rounded-md bg-card text-card-foreground hover:shadow-md transition-shadow px-2 py-1">
-        {/* Collapsed View */}
-        <div className="space-y-1">
+    <TooltipProvider delayDuration={0}>
+      <div className="border rounded-md bg-card text-card-foreground hover:shadow-md transition-shadow px-2 py-1 mb-1">
+          {/* Collapsed View */}
+          <div className="space-y-2">
           {/* Class Header */}
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-sm font-mono">
+                <Badge variant="outline" className="text-lg font-mono font-semibold">
                   {groupedClass.subject} {groupedClass.number}
                 </Badge>
-                {professorRating && professorRating.rating > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm font-medium">{professorRating.rating.toFixed(1)}</span>
-                    <span className="text-xs text-muted-foreground">({selectedSection.instructor})</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1">
+                  {professorRating && professorRating.rating > 0 && (
+                    <>
+                      <Star className={`h-5 w-5 ${
+                        professorRating.rating >= 4.0 
+                          ? 'fill-green-500 text-green-500' 
+                          : professorRating.rating >= 2.5 
+                          ? 'fill-yellow-400 text-yellow-400' 
+                          : 'fill-red-500 text-red-500'
+                      }`} />
+                      <span className={`text-base font-medium ${
+                        professorRating.rating >= 4.0 
+                          ? 'text-green-600' 
+                          : professorRating.rating >= 2.5 
+                          ? 'text-yellow-600' 
+                          : 'text-red-600'
+                      }`}>{professorRating.rating.toFixed(1)}</span>
+                    </>
+                  )}
+                  <span className="text-lg text-muted-foreground font-medium">({selectedSection.instructor})</span>
+                </div>
               </div>
-              <h3 className="font-semibold text-sm leading-tight mt-1 truncate">
+              <h3 className="font-semibold text-lg leading-tight mt-2 truncate">
                 {groupedClass.title}
               </h3>
-              <div className="text-xs text-muted-foreground mt-1 font-medium">
-                {groupedClass.sections.length} section{groupedClass.sections.length > 1 ? 's' : ''} available • {groupedClass.credits || 3} credits
+              <div className="text-base text-muted-foreground mt-1.5 font-medium">
+                {groupedClass.sections.length} section{groupedClass.sections.length > 1 ? 's' : ''} available  •  {groupedClass.credits || 3} credits
               </div>
             </div>
             
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              <Button
-                className="group h-8 px-3"
-                variant="outline"
-                onClick={handleAddToSchedule}
-                disabled={isAnyScheduled}
-                aria-expanded={isAnyScheduled}
-                aria-label={isAnyScheduled ? "Added to schedule" : "Add to schedule"}
-              >
-                <Plus
-                  className="h-4 w-4 mr-2 transition-transform duration-500 ease-[cubic-bezier(0.68,-0.6,0.32,1.6)] group-aria-expanded:rotate-[135deg]"
-                  aria-hidden="true"
-                />
-                <span className="text-xs">{isAnyScheduled ? 'Added' : 'Add'}</span>
-              </Button>
-              <Button
-                className="group h-8 px-3"
-                variant="outline"
-                onClick={handleToggleExpanded}
-                aria-expanded={isExpanded}
-                aria-label={isExpanded ? "Hide details" : "Show details"}
-              >
-                <svg
-                  className="pointer-events-none h-4 w-4 mr-2"
-                  width={16}
-                  height={16}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M4 12L20 12"
-                    className="origin-center -translate-y-[7px] transition-all duration-300 ease-[cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-x-0 group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[315deg]"
-                  />
-                  <path
-                    d="M4 12H20"
-                    className="origin-center transition-all duration-300 ease-[cubic-bezier(.5,.85,.25,1.8)] group-aria-expanded:rotate-45"
-                  />
-                  <path
-                    d="M4 12H20"
-                    className="origin-center translate-y-[7px] transition-all duration-300 ease-[cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[135deg]"
-                  />
-                </svg>
-                <span className="text-xs">{isExpanded ? 'Less' : 'Details'}</span>
-              </Button>
-            </div>
           </div>
 
-          {/* Section Selection - only show when collapsed */}
-          {!isExpanded && (
-            <div className="space-y-2">
+          {/* Section Selection - always show */}
+          <div className="flex items-start">
+            <div className="flex-1 pr-2">
               {groupedClass.sections.length > 1 ? (
-                <Select value={selectedSectionId || selectedSection.id} onValueChange={setSelectedSectionId}>
-                  <SelectTrigger className="h-12 text-sm">
-                    <SelectValue placeholder="Select section" />
+                <Select 
+                  value={selectedSectionId || selectedSection.id} 
+                  onValueChange={setSelectedSectionId}
+                  disabled={isExpanded}
+                >
+                  <SelectTrigger className="h-12 text-sm" disabled={isExpanded}>
+                    <div className="flex flex-col items-start w-full gap-1">
+                      <span className="font-medium text-sm">{selectedSection.time}</span>
+                      <span className="text-muted-foreground text-sm">{selectedSection.location}</span>
+                    </div>
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     {groupedClass.sections.map((section) => (
@@ -204,12 +185,6 @@ export function GroupedClassCard({
                         <div className="flex flex-col items-start w-full gap-1">
                           <div className="flex items-center justify-between w-full">
                             <span className="font-medium text-sm">{section.time}</span>
-                            {section.rating && section.rating > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                <span className="text-sm">{section.rating.toFixed(1)}</span>
-                              </div>
-                            )}
                           </div>
                           <span className="text-muted-foreground text-sm">
                             {section.instructor} • {section.location}
@@ -220,25 +195,84 @@ export function GroupedClassCard({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="text-sm text-foreground">
+                <div className={`text-sm text-foreground h-12 flex flex-col justify-center ${isExpanded ? 'opacity-50' : ''}`}>
                   <div className="font-medium">{selectedSection.time}</div>
-                  <div className="text-muted-foreground text-sm">{selectedSection.instructor}</div>
+                  <div className="text-muted-foreground text-sm">{selectedSection.location}</div>
                 </div>
               )}
-
             </div>
-          )}
+            
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    className="group h-12 w-12"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleToggleExpanded}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Hide details" : "Show details"}
+                  >
+                    <svg
+                      className="pointer-events-none"
+                      width={16}
+                      height={16}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M4 12L20 12"
+                        className="origin-center -translate-y-[7px] transition-all duration-300 ease-[cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-x-0 group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[315deg]"
+                      />
+                      <path
+                        d="M4 12H20"
+                        className="origin-center transition-all duration-300 ease-[cubic-bezier(.5,.85,.25,1.8)] group-aria-expanded:rotate-45"
+                      />
+                      <path
+                        d="M4 12H20"
+                        className="origin-center translate-y-[7px] transition-all duration-300 ease-[cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[135deg]"
+                      />
+                    </svg>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="dark px-2 py-1 text-xs">
+                  Course Details
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    className="group h-12 w-12"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleAddToSchedule}
+                    aria-expanded={isAnyScheduled}
+                    aria-label={isAnyScheduled ? "Remove from schedule" : "Add to schedule"}
+                  >
+                    <Plus
+                      className="transition-transform duration-500 ease-[cubic-bezier(0.68,-0.6,0.32,1.6)] group-aria-expanded:rotate-[135deg]"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="dark px-2 py-1 text-xs">
+                  {isAnyScheduled ? "Remove Class" : "Add Class"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
         </div>
 
         {/* Expanded View - show the beautiful detailed view directly */}
         {isExpanded && selectedSection && (
           <div className="mt-6 pt-4 border-t border-border space-y-4">
-            {/* Full class title */}
-            <div>
-              <h4 className="font-semibold text-base leading-tight">
-                {selectedSection.title}
-              </h4>
-            </div>
 
             {/* Class details */}
             <div className="space-y-2">
@@ -261,7 +295,7 @@ export function GroupedClassCard({
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-base font-semibold">
+                  <span className="text-lg font-semibold">
                     {selectedSection.instructor}
                   </span>
                   {loadingRating && (
@@ -270,11 +304,23 @@ export function GroupedClassCard({
                 </div>
 
                 {/* Rating metrics */}
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-3 gap-6 pb-2">
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center justify-center gap-2 mb-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-bold text-lg">
+                      <Star className={`h-4 w-4 ${
+                        professorRating?.rating >= 4.0 
+                          ? 'fill-green-500 text-green-500' 
+                          : professorRating?.rating >= 2.5 
+                          ? 'fill-yellow-400 text-yellow-400' 
+                          : 'fill-red-500 text-red-500'
+                      }`} />
+                      <span className={`font-bold text-lg ${
+                        professorRating?.rating >= 4.0 
+                          ? 'text-green-600' 
+                          : professorRating?.rating >= 2.5 
+                          ? 'text-yellow-600' 
+                          : 'text-red-600'
+                      }`}>
                         {loadingRating ? '...' : (professorRating?.rating?.toFixed(1) || 'N/A')}
                       </span>
                     </div>
@@ -301,41 +347,41 @@ export function GroupedClassCard({
                 </div>
 
                 {/* Rating Distribution Chart */}
-                <div className="space-y-3">
-                  <div className="text-base font-semibold">Rating Distribution</div>
-                  <RatingDistributionChart 
-                    ratingDistribution={professorRating?.ratingDistribution || [0, 0, 0, 0, 0]}
-                    className="w-full"
-                  />
-                </div>
+                {professorRating && professorRating.rating > 0 && (
+                  <div className="space-y-3">
+                    <RatingDistributionBarChart 
+                      ratingDistribution={professorRating?.ratingDistribution || [0, 0, 0, 0, 0]}
+                      professorName={selectedSection.instructor}
+                      className="w-full"
+                    />
+                  </div>
+                )}
 
                 {/* Student Comments */}
-                <div className="space-y-3">
-                  <div className="text-base font-semibold">Student Comments</div>
-                  <div className="flex flex-wrap gap-2">
-                    {loadingRating ? (
-                      <Badge variant="secondary" className="text-sm px-3 py-1.5">
-                        Loading tags...
+                <div className="flex flex-wrap gap-2 pb-2">
+                  {loadingRating ? (
+                    <Badge variant="secondary" className="text-sm px-3 py-1.5">
+                      Loading tags...
+                    </Badge>
+                  ) : (professorRating?.tags || []).length > 0 ? (
+                    (professorRating?.tags || []).slice(0, 3).map((tag, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="text-sm px-3 py-1.5"
+                      >
+                        {tag}
                       </Badge>
-                    ) : (professorRating?.tags || []).length > 0 ? (
-                      (professorRating?.tags || []).slice(0, 4).map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="text-sm px-3 py-1.5"
-                        >
-                          {tag}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-sm text-muted-foreground">No student tags available</span>
-                    )}
-                  </div>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No student tags available</span>
+                  )}
                 </div>
               </div>
             )}
           </div>
         )}
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
