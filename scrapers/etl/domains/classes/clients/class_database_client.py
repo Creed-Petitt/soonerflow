@@ -55,7 +55,7 @@ class ClassDatabaseClient:
                 semesterDates=class_data.get('semesterDates'),
                 examInfo=class_data.get('examInfo'),
                 repeatability=class_data.get('repeatability'),
-                additionalInfo=class_data.get('additionalInfo')
+                credits=class_data.get('credits', 3)
             )
             
             session.add(new_class)

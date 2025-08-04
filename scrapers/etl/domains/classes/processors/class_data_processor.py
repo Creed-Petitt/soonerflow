@@ -21,6 +21,7 @@ class ClassDataProcessor:
             9: 'gen_ed',
             10: 'term',
             11: 'dates',
+            12: 'credit_hours',
             13: 'meeting_times',
             14: 'description',
             15: 'all_instructors',
@@ -92,7 +93,7 @@ class ClassDataProcessor:
             'semesterDates': class_data.get('dates'),
             'examInfo': class_data.get('exam_info'),
             'repeatability': class_data.get('repeatability'),
-            'additionalInfo': class_data.get('additional_info'),
+            'credits': int(class_data.get('credit_hours', 3)) if class_data.get('credit_hours') and class_data.get('credit_hours').isdigit() else 3,
             'meetingTimes': self.parse_meeting_times(class_data.get('meeting_times', ''))
         }
     
@@ -119,7 +120,7 @@ class ClassDataProcessor:
                 'semesterDates': raw_class_data.get('semesterDates'),
                 'examInfo': raw_class_data.get('examInfo'),
                 'repeatability': raw_class_data.get('repeatability'),
-                'additionalInfo': raw_class_data.get('additionalInfo')
+                'credits': raw_class_data.get('credits', 3)
             }
             
             return processed_data

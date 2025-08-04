@@ -80,10 +80,10 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
             delivery = class_data.get('delivery', '')
             class_type = class_data.get('type', '')
             
-            # Include Traditional In-Person and Asynchronous Online
-            if delivery in ['Traditional In-Person', 'Asynchronous Online']:
-                # Include Lecture, Lecture/Lab Combined, and Seminar
-                if class_type in ['Lecture', 'Lecture/Lab Combined', 'Seminar']:
+            # Include Traditional In-Person, Asynchronous Online, and Synchronous Web
+            if delivery in ['Traditional In-Person', 'Asynchronous Online', 'Synchronous Web']:
+                # Include Lecture, Lab, Lecture/Lab Combined, and Seminar
+                if class_type in ['Lecture', 'Lab', 'Lecture/Lab Combined', 'Seminar']:
                     filtered_classes.append(class_data)
         
         logger.info(f"Filtered to {len(filtered_classes)} classes that meet criteria")

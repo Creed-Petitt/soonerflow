@@ -105,7 +105,6 @@ class SQLAlchemyDatabaseClient:
             new_major = Major(
                 id=major_data['id'],
                 name=major_data['name'],
-                code=major_data.get('code'),
                 college=major_data['college'],
                 department=major_data.get('department'),
                 totalCredits=major_data.get('totalCredits', 120),

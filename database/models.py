@@ -25,7 +25,7 @@ class Class(Base):
     semesterDates = Column(String)  # "Aug 25 - Dec 12"
     examInfo = Column(String)  # Final exam information
     repeatability = Column(String)  # Repeatability rules
-    additionalInfo = Column(String)  # Max hours, prerequisites, etc.
+    credits = Column(Integer)  # Credit hours for the course
     
     # Relationships
     meetingTimes = relationship("MeetingTime", back_populates="class_", cascade="all, delete-orphan")
@@ -55,21 +55,10 @@ class Professor(Base):
     __tablename__ = 'professors'
     
     id = Column(String, primary_key=True)  # GraphQL ID from RMP
-    legacyId = Column(String)  # Legacy ID from RMP
     firstName = Column(String, nullable=False)
     lastName = Column(String, nullable=False)
     department = Column(String)
-    departmentId = Column(String)
-    lockStatus = Column(String)
-    isSaved = Column(Boolean, default=False)
-    isProfCurrentUser = Column(Boolean, default=False)
-    
-    # School info
-    schoolName = Column(String)
-    schoolCity = Column(String)
-    schoolState = Column(String)
-    schoolCountry = Column(String)
-    
+
     # Rating info
     avgRating = Column(Float)
     numRatings = Column(Integer, default=0)
@@ -89,9 +78,6 @@ class Professor(Base):
     
     # Course codes (stored as JSON)
     courseCodes = Column(String)  # JSON array of course objects
-    
-    # Related teachers (stored as JSON)
-    relatedTeachers = Column(String)  # JSON array of related teacher IDs
     
     # Relationships
     ratings = relationship("Rating", back_populates="professor", cascade="all, delete-orphan")
@@ -141,7 +127,6 @@ class Major(Base):
     
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)  # "Computer Engineering"
-    code = Column(String)  # "CPE"
     college = Column(String, nullable=False)  # "Gallogly College of Engineering"
     department = Column(String)  # "Electrical and Computer Engineering"
     totalCredits = Column(Integer, default=120)
