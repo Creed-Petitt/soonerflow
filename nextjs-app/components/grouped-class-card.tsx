@@ -85,12 +85,27 @@ export function GroupedClassCard({
 
   // Load professor rating data when section changes
   React.useEffect(() => {
-    const loadProfessorRating = async () => {
-      if (!selectedSection.instructor || selectedSection.instructor.toLowerCase().includes('tba')) {
-        setProfessorRating(null)
-        return
-      }
+    if (!selectedSection.instructor || selectedSection.instructor.toLowerCase().includes('tba')) {
+      setProfessorRating(null)
+      return
+    }
 
+    // Use rating data from the selected section (already from backend API)
+    if (selectedSection.rating !== undefined || selectedSection.difficulty !== undefined || selectedSection.wouldTakeAgain !== undefined) {
+      setProfessorRating({
+        name: selectedSection.instructor,
+        rating: selectedSection.rating || 0,
+        difficulty: selectedSection.difficulty || 0,
+        wouldTakeAgain: selectedSection.wouldTakeAgain || 0,
+        ratingDistribution: [0, 0, 0, 0, 0], // Not available in class API
+        tags: [] // Not available in class API
+      })
+      setLoadingRating(false)
+      return
+    }
+
+    // Fallback to async API call for detailed data
+    const loadProfessorRating = async () => {
       setLoadingRating(true)
       try {
         const rating = await findProfessorRatingAsync(selectedSection.instructor)
@@ -104,7 +119,7 @@ export function GroupedClassCard({
     }
 
     loadProfessorRating()
-  }, [selectedSection.instructor])
+  }, [selectedSection.instructor, selectedSection.rating, selectedSection.difficulty, selectedSection.wouldTakeAgain])
 
   const handleAddToSchedule = () => {
     if (selectedSection) {

@@ -287,29 +287,46 @@ function levenshteinDistance(str1: string, str2: string): number {
   return matrix[str2.length][str1.length]
 }
 
-// Main function to find professor rating data - now uses REAL database API
-export function findProfessorRating(professorName: string): ProfessorRating | null {
+// Main function to find professor rating data - returns data from class API response
+export function findProfessorRating(professorName: string, classData?: any): ProfessorRating | null {
   // Handle edge cases
   if (!professorName || professorName.toLowerCase().includes('tba') || professorName.trim() === '') {
     return null
   }
   
-  // Check cache first
+  // If we have class data with ratings, use that directly (from backend API)
+  if (classData && classData.rating !== undefined) {
+    return {
+      name: professorName,
+      rating: classData.rating || 0,
+      difficulty: classData.difficulty || 0,
+      wouldTakeAgain: classData.wouldTakeAgain || 0,
+      ratingDistribution: [0, 0, 0, 0, 0], // Not available in class API
+      tags: [] // Not available in class API
+    }
+  }
+  
+  // Check cache for detailed professor data
   if (professorCache.has(professorName)) {
     return professorCache.get(professorName) || null
   }
   
-  // For synchronous operation, we'll trigger async fetch but return null initially
-  // The cache will be populated on subsequent calls
+  // Trigger async fetch for detailed data and cache it
   fetchProfessorFromAPI(professorName).then(result => {
     professorCache.set(professorName, result)
   }).catch(() => {
     professorCache.set(professorName, null)
   })
   
-  // Return null on first call - component will need to handle loading state
-  // Future calls will return cached data
-  return null
+  // Return fallback data if no class data provided
+  return {
+    name: professorName,
+    rating: 0,
+    difficulty: 0,
+    wouldTakeAgain: 0,
+    ratingDistribution: [0, 0, 0, 0, 0],
+    tags: []
+  }
 }
 
 // Async version for components that can handle promises

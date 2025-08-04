@@ -115,9 +115,6 @@ class Rating(Base):
     thumbsUpTotal = Column(Integer, default=0)
     thumbsDownTotal = Column(Integer, default=0)
     
-    # Professor response
-    teacherNote = Column(String)  # Professor's response to rating
-    
     # Relationships
     professor = relationship("Professor", back_populates="ratings")
 
