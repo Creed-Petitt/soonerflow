@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 import sys
 import os
 
@@ -103,16 +104,34 @@ def format_meeting_times(meeting_times: List[MeetingTime]) -> str:
     
     return ", ".join(formatted_times)
 
-def get_professor_rating(instructor_name: str, db: Session) -> dict:
-    """Get professor rating information from database"""
+def get_professor_rating(class_id: str, instructor_name: str, db: Session) -> dict:
+    """Get professor rating information using class-professor mapping"""
     if not instructor_name or instructor_name == "TBA":
         return {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0}
     
-    # Try to find professor by name (basic matching)
-    professor = db.query(ProfessorModel).filter(
-        ProfessorModel.firstName.contains(instructor_name.split()[-1]) if len(instructor_name.split()) > 1 else
-        ProfessorModel.lastName.contains(instructor_name)
-    ).first()
+    professor = None
+    
+    # First try exact mapping using class_professor_mappings
+    try:
+        mapping = db.execute(text("""
+            SELECT professorId FROM class_professor_mappings 
+            WHERE classId = :class_id
+        """), {"class_id": class_id}).first()
+        
+        if mapping:
+            professor = db.query(ProfessorModel).filter(
+                ProfessorModel.id == mapping[0]
+            ).first()
+    except Exception:
+        pass
+    
+    # Fallback to fuzzy name matching if no exact mapping
+    if not professor:
+        search_term = f"%{instructor_name.strip()}%"
+        professor = db.query(ProfessorModel).filter(
+            (ProfessorModel.lastName.ilike(search_term)) |
+            (ProfessorModel.firstName.ilike(search_term))
+        ).filter(ProfessorModel.avgRating > 0).first()
     
     if professor:
         return {
@@ -189,7 +208,7 @@ async def get_classes(
     response_classes = []
     for cls in classes:
         # Get professor ratings
-        ratings = get_professor_rating(cls.instructor, db)
+        ratings = get_professor_rating(cls.id, cls.instructor, db)
         
         # Format meeting times
         time_str = format_meeting_times(cls.meetingTimes)
@@ -221,7 +240,7 @@ async def get_classes(
             difficulty=ratings["difficulty"],
             wouldTakeAgain=ratings["wouldTakeAgain"],
             description=cls.description or "",
-            prerequisites=cls.additionalInfo or "",
+            prerequisites="",
             genEd=cls.genEd or "",
             sections=[
                 {
@@ -328,7 +347,7 @@ async def get_user_schedule(db: Session = Depends(get_db)):
     
     response_classes = []
     for cls in classes:
-        ratings = get_professor_rating(cls.instructor, db)
+        ratings = get_professor_rating(cls.id, cls.instructor, db)
         time_str = format_meeting_times(cls.meetingTimes)
         days = [mt.days for mt in cls.meetingTimes if mt.days]
         location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
@@ -346,7 +365,7 @@ async def get_user_schedule(db: Session = Depends(get_db)):
             difficulty=ratings["difficulty"],
             wouldTakeAgain=ratings["wouldTakeAgain"],
             description=cls.description or "",
-            prerequisites=cls.additionalInfo or "",
+            prerequisites="",
             genEd=cls.genEd or ""
         ))
     
@@ -358,58 +377,18 @@ async def search_professor(name: str, db: Session = Depends(get_db)):
     if not name or len(name.strip()) < 2:
         raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
     
-    # Handle different name formats: "Last, First Middle" or "First Last"
-    name_clean = name.lower().strip()
-    
-    # Build query for flexible matching
-    query = db.query(ProfessorModel)
-    
-    if ',' in name_clean:
-        # Format: "Last, First Middle" -> extract last and first parts
-        parts = name_clean.split(',')
-        last_part = parts[0].strip()
-        first_part = parts[1].strip().split()[0] if len(parts) > 1 else ""
-        
-        if last_part and first_part:
-            # Try exact match first, then flexible match
-            query = query.filter(
-                (ProfessorModel.lastName.ilike(f"%{last_part}%")) &
-                (ProfessorModel.firstName.ilike(f"%{first_part}%"))
-            )
-        elif last_part:
-            query = query.filter(ProfessorModel.lastName.ilike(f"%{last_part}%"))
-    else:
-        # Format: "First Last" or single name
-        name_parts = name_clean.split()
-        if len(name_parts) == 1:
-            # Single word - match either first or last name
-            search_term = f"%{name_parts[0]}%"
-            query = query.filter(
-                (ProfessorModel.firstName.ilike(search_term)) |
-                (ProfessorModel.lastName.ilike(search_term))
-            )
-        else:
-            # Multiple words - try to match first and last name
-            first_name = f"%{name_parts[0]}%"
-            last_name = f"%{name_parts[-1]}%"
-            query = query.filter(
-                (ProfessorModel.firstName.ilike(first_name)) &
-                (ProfessorModel.lastName.ilike(last_name))
-            )
-    
-    # Get professor with ratings
-    professor = query.filter(ProfessorModel.avgRating > 0).first()
-    
-    if not professor:
-        # Try broader search if no exact match
-        broad_search = f"%{name.lower()}%"
+    try:
+        # Simple search by last name or full name
+        search_term = f"%{name.strip()}%"
         professor = db.query(ProfessorModel).filter(
-            (ProfessorModel.firstName.ilike(broad_search)) |
-            (ProfessorModel.lastName.ilike(broad_search))
+            (ProfessorModel.lastName.ilike(search_term)) |
+            (ProfessorModel.firstName.ilike(search_term))
         ).filter(ProfessorModel.avgRating > 0).first()
-    
-    if not professor:
-        return {"error": "Professor not found", "name": name}
+        
+        if not professor:
+            return {"error": "Professor not found", "name": name}
+    except Exception as e:
+        return {"error": f"Search failed: {str(e)}", "name": name}
     
     # Get student comments from ratings table
     comments = []

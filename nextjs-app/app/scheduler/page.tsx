@@ -249,7 +249,7 @@ export default function SchedulerPage() {
         endDate.setHours(endTime.hour, endTime.min, 0, 0)
         
         events.push({
-          id: `${classData.id}-${dayOfWeek}-${startDate.getTime()}`,
+          id: `${classData.id}-${dayOfWeek}-${startDate.toISOString()}`,
           title: `${classData.subject} ${classData.number}`,
           start: startDate,
           end: endDate,
