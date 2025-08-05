@@ -21,10 +21,11 @@ class ClassDataProcessor:
             9: 'gen_ed',
             10: 'term',
             11: 'dates',
-            12: 'credit_hours',
+            12: 'seat_availability',  # This contains the "X out of Y" seats data
             13: 'meeting_times',
             14: 'description',
             15: 'all_instructors',
+            16: 'waitlist_info',  # Index 16 contains waitlist data
             17: 'exam_info',
             18: 'repeatability',
             19: 'additional_info'
@@ -68,6 +69,24 @@ class ClassDataProcessor:
         
         return meeting_times
     
+    def parse_seat_availability(self, seat_html: str) -> Dict[str, int]:
+        """Parse seat availability HTML to extract available and total seats"""
+        if not seat_html or seat_html.strip() == '':
+            return {'available_seats': 0, 'total_seats': 0}
+        
+        # Extract "X out of Y" from HTML like "<span data-failsafe='6 out of 48' class='loading'> </span>"
+        import re
+        
+        # Look for pattern like "X out of Y" in the HTML
+        match = re.search(r'(\d+)\s+out\s+of\s+(\d+)', seat_html)
+        if match:
+            available_seats = int(match.group(1))
+            total_seats = int(match.group(2))
+            return {'available_seats': available_seats, 'total_seats': total_seats}
+        
+        # If no match found, return zeros
+        return {'available_seats': 0, 'total_seats': 0}
+    
     def parse_class_data(self, class_array: List[Any]) -> Dict[str, Any]:
         """Convert API array to structured class object"""
         class_data = {}
@@ -76,6 +95,10 @@ class ClassDataProcessor:
             value = class_array[int(index)] if int(index) < len(class_array) else None
             if value and value != '' and value is not None:
                 class_data[field] = value
+        
+        # Parse seat availability data
+        seat_data = self.parse_seat_availability(class_data.get('seat_availability', ''))
+        class_data.update(seat_data)
         
         return {
             'id': class_data.get('class_id'),
@@ -93,8 +116,10 @@ class ClassDataProcessor:
             'semesterDates': class_data.get('dates'),
             'examInfo': class_data.get('exam_info'),
             'repeatability': class_data.get('repeatability'),
-            'credits': int(class_data.get('credit_hours', 3)) if class_data.get('credit_hours') and class_data.get('credit_hours').isdigit() else 3,
-            'meetingTimes': self.parse_meeting_times(class_data.get('meeting_times', ''))
+            'credits': 3,  # Default to 3 credits (credit hours not in this position anymore)
+            'meetingTimes': self.parse_meeting_times(class_data.get('meeting_times', '')),
+            'availableSeats': class_data.get('available_seats', 0),
+            'totalSeats': class_data.get('total_seats', 0)
         }
     
     def process_class_data(self, raw_class_data: Dict[str, Any]) -> Dict[str, Any]:

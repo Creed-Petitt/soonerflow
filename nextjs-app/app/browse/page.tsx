@@ -44,6 +44,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { 
   Settings, 
   User, 
@@ -55,7 +63,9 @@ import {
   MapPin,
   Info,
   BookOpen,
-  Award
+  Award,
+  ChevronDown,
+  Check
 } from "lucide-react"
 import Link from "next/link"
 import { usePagination } from "@/hooks/use-pagination"
@@ -124,6 +134,12 @@ export default function BrowsePage() {
   const [selectedSemester, setSelectedSemester] = React.useState("all")
   const [currentPage, setCurrentPage] = React.useState(1)
   
+  // Popover states for the new Command components
+  const [departmentOpen, setDepartmentOpen] = React.useState(false)
+  const [levelOpen, setLevelOpen] = React.useState(false)
+  const [creditsOpen, setCreditsOpen] = React.useState(false)
+  const [semesterOpen, setSemesterOpen] = React.useState(false)
+  
   const paginationData = usePagination({
     currentPage,
     totalPages: pagination.totalPages,
@@ -143,7 +159,7 @@ export default function BrowsePage() {
         ...(selectedSemester !== "all" && { semester: selectedSemester }),
       })
       
-      const url = `http://localhost:8000/api/classes?${params}`
+      const url = `http://127.0.0.1:8000/api/classes?${params}`
       console.log('Fetching from:', url)
       
       const response = await fetch(url)
@@ -185,7 +201,7 @@ export default function BrowsePage() {
   React.useEffect(() => {
     const loadDepartments = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/classes?limit=200')
+        const response = await fetch('http://127.0.0.1:8000/api/classes?limit=200')
         const data = await response.json()
         if (data.classes) {
           const uniqueSubjects = Array.from(new Set(data.classes.map((cls: any) => cls.subject))).sort()
@@ -227,9 +243,9 @@ export default function BrowsePage() {
 
   const getAvailabilityBadge = (cls: Class) => {
     // available_seats from backend is the number of available seats
-    if (cls.available_seats > 10) return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Open</Badge>
-    if (cls.available_seats > 0) return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Limited</Badge>
-    return <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">Full</Badge>
+    if (cls.available_seats > 10) return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-sm">Open</Badge>
+    if (cls.available_seats > 0) return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-sm">Limited</Badge>
+    return <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 rounded-sm">Full</Badge>
   }
 
   const getDifficultyColor = (difficulty?: number) => {
@@ -241,55 +257,7 @@ export default function BrowsePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top Navigation Bar */}
-      <nav className="border-b border-border px-6 py-3">
-        <div className="flex items-center justify-between">
-          {/* Left side - Navigation Links */}
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-6">
-              <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Home
-              </Link>
-              <Link href="/scheduler" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Scheduler
-              </Link>
-              <Link href="/browse" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                Browse Classes
-              </Link>
-              <Link href="/progress" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Degree Progress
-              </Link>
-              <Link href="/professors" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Professors
-              </Link>
-              <Link href="/canvas" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Canvas
-              </Link>
-            </div>
-          </div>
-
-          {/* Right side - Search and Controls */}
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search classes..."
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-8 w-[250px] h-9 bg-muted/50 border-0"
-              />
-            </div>
-            <ThemeToggle />
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <User className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <MainNavigation />
 
       {/* Main Content */}
       <main className="flex-1 p-6">
@@ -299,7 +267,7 @@ export default function BrowsePage() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
+        <Card className="mb-6 rounded-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -315,81 +283,263 @@ export default function BrowsePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Department</label>
-                <Select value={selectedDepartment} onValueChange={(value) => {
-                  setSelectedDepartment(value)
-                  handleFilterChange()
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Departments" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    {filters.departments.map((dept) => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={departmentOpen} onOpenChange={setDepartmentOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={departmentOpen}
+                      className="w-full justify-between px-3 font-normal"
+                    >
+                      {selectedDepartment === "all" ? "All Departments" : selectedDepartment}
+                      <ChevronDown
+                        size={16}
+                        className="text-muted-foreground/80 shrink-0"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search departments..." />
+                      <CommandList>
+                        <CommandEmpty>No department found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => {
+                              setSelectedDepartment("all")
+                              setDepartmentOpen(false)
+                              handleFilterChange()
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedDepartment === "all" ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            All Departments
+                          </CommandItem>
+                          {filters.departments.map((dept) => (
+                            <CommandItem
+                              key={dept}
+                              value={dept}
+                              onSelect={() => {
+                                setSelectedDepartment(dept)
+                                setDepartmentOpen(false)
+                                handleFilterChange()
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedDepartment === dept ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {dept}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-medium">Level</label>
-                <Select value={selectedLevel} onValueChange={(value) => {
-                  setSelectedLevel(value)
-                  handleFilterChange()
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Levels" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <SelectItem value="all">All Levels</SelectItem>
-                    {filters.levels.map((level) => (
-                      <SelectItem key={level} value={level}>{level}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={levelOpen} onOpenChange={setLevelOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={levelOpen}
+                      className="w-full justify-between px-3 font-normal"
+                    >
+                      {selectedLevel === "all" ? "All Levels" : selectedLevel}
+                      <ChevronDown
+                        size={16}
+                        className="text-muted-foreground/80 shrink-0"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandList>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => {
+                              setSelectedLevel("all")
+                              setLevelOpen(false)
+                              handleFilterChange()
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedLevel === "all" ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            All Levels
+                          </CommandItem>
+                          {filters.levels.map((level) => (
+                            <CommandItem
+                              key={level}
+                              value={level}
+                              onSelect={() => {
+                                setSelectedLevel(level)
+                                setLevelOpen(false)
+                                handleFilterChange()
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedLevel === level ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {level}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-medium">Credits</label>
-                <Select value={selectedCredits} onValueChange={(value) => {
-                  setSelectedCredits(value)
-                  handleFilterChange()
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Credits" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <SelectItem value="all">All Credits</SelectItem>
-                    {filters.credits.map((credit) => (
-                      <SelectItem key={credit} value={credit.toString()}>{credit} Credit{credit !== 1 ? 's' : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={creditsOpen} onOpenChange={setCreditsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={creditsOpen}
+                      className="w-full justify-between px-3 font-normal"
+                    >
+                      {selectedCredits === "all" ? "All Credits" : `${selectedCredits} Credit${selectedCredits !== "1" ? "s" : ""}`}
+                      <ChevronDown
+                        size={16}
+                        className="text-muted-foreground/80 shrink-0"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search credits..." />
+                      <CommandList>
+                        <CommandEmpty>No credit option found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => {
+                              setSelectedCredits("all")
+                              setCreditsOpen(false)
+                              handleFilterChange()
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedCredits === "all" ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            All Credits
+                          </CommandItem>
+                          {filters.credits.map((credit) => (
+                            <CommandItem
+                              key={credit}
+                              value={credit.toString()}
+                              onSelect={() => {
+                                setSelectedCredits(credit.toString())
+                                setCreditsOpen(false)
+                                handleFilterChange()
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedCredits === credit.toString() ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {credit} Credit{credit !== 1 ? 's' : ''}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-medium">Semester</label>
-                <Select value={selectedSemester} onValueChange={(value) => {
-                  setSelectedSemester(value)
-                  handleFilterChange()
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Semesters" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <SelectItem value="all">All Semesters</SelectItem>
-                    {filters.semesters.map((semester) => (
-                      <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={semesterOpen} onOpenChange={setSemesterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={semesterOpen}
+                      className="w-full justify-between px-3 font-normal"
+                    >
+                      {selectedSemester === "all" ? "All Semesters" : selectedSemester}
+                      <ChevronDown
+                        size={16}
+                        className="text-muted-foreground/80 shrink-0"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search semesters..." />
+                      <CommandList>
+                        <CommandEmpty>No semester found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => {
+                              setSelectedSemester("all")
+                              setSemesterOpen(false)
+                              handleFilterChange()
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedSemester === "all" ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            All Semesters
+                          </CommandItem>
+                          {filters.semesters.map((semester) => (
+                            <CommandItem
+                              key={semester}
+                              value={semester}
+                              onSelect={() => {
+                                setSelectedSemester(semester)
+                                setSemesterOpen(false)
+                                handleFilterChange()
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedSemester === semester ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {semester}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Results */}
-        <Card>
+        <Card className="rounded-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Available Classes</CardTitle>
@@ -494,7 +644,7 @@ export default function BrowsePage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{cls.credits}</Badge>
+                          <Badge variant="outline" className="rounded-sm">{cls.credits}</Badge>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">

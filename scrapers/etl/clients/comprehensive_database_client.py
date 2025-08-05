@@ -23,7 +23,27 @@ class SQLAlchemyDatabaseClient:
             # Check if class already exists
             existing_class = session.query(Class).filter(Class.id == class_data['id']).first()
             if existing_class:
-                self.logger.info(f"Class {class_data['id']} already exists, skipping...")
+                # Update existing class with new data (including seat availability)
+                existing_class.subject = class_data.get('subject', existing_class.subject)
+                existing_class.courseNumber = class_data.get('courseNumber', existing_class.courseNumber)
+                existing_class.section = class_data.get('section', existing_class.section)
+                existing_class.title = class_data.get('title', existing_class.title)
+                existing_class.description = class_data.get('description', existing_class.description)
+                existing_class.instructor = class_data.get('instructor', existing_class.instructor)
+                existing_class.allInstructors = class_data.get('allInstructors', existing_class.allInstructors)
+                existing_class.type = class_data.get('type', existing_class.type)
+                existing_class.delivery = class_data.get('delivery', existing_class.delivery)
+                existing_class.genEd = class_data.get('genEd', existing_class.genEd)
+                existing_class.term = class_data.get('term', existing_class.term)
+                existing_class.semesterDates = class_data.get('semesterDates', existing_class.semesterDates)
+                existing_class.examInfo = class_data.get('examInfo', existing_class.examInfo)
+                existing_class.repeatability = class_data.get('repeatability', existing_class.repeatability)
+                existing_class.credits = class_data.get('credits', existing_class.credits or 3)
+                existing_class.availableSeats = class_data.get('availableSeats', 0)
+                existing_class.totalSeats = class_data.get('totalSeats', 0)
+                
+                self.logger.info(f"Updated existing class {class_data['id']} with seat data: {class_data.get('availableSeats', 0)}/{class_data.get('totalSeats', 0)}")
+                session.commit()
                 return True
             
             # Create new class
@@ -43,7 +63,10 @@ class SQLAlchemyDatabaseClient:
                 semesterDates=class_data.get('semesterDates'),
                 examInfo=class_data.get('examInfo'),
                 repeatability=class_data.get('repeatability'),
-                additionalInfo=class_data.get('additionalInfo')
+                additionalInfo=class_data.get('additionalInfo'),
+                credits=class_data.get('credits', 3),
+                availableSeats=class_data.get('availableSeats', 0),
+                totalSeats=class_data.get('totalSeats', 0)
             )
             
             session.add(new_class)

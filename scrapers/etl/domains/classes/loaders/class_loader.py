@@ -82,8 +82,8 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
             
             # Include Traditional In-Person, Asynchronous Online, and Synchronous Web
             if delivery in ['Traditional In-Person', 'Asynchronous Online', 'Synchronous Web']:
-                # Include Lecture, Lab, Lecture/Lab Combined, and Seminar
-                if class_type in ['Lecture', 'Lab', 'Lecture/Lab Combined', 'Seminar']:
+                # Include Lecture, Lab, Lecture/Lab Combined, and Lab with No Credit
+                if class_type in ['Lecture', 'Lab', 'Lecture/Lab Combined', 'Lab with No Credit']:
                     filtered_classes.append(class_data)
         
         logger.info(f"Filtered to {len(filtered_classes)} classes that meet criteria")
@@ -103,10 +103,7 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                     failed_saves += 1
                     continue
                 
-                # Check if class already exists
-                if db_client.class_exists(class_data['id']):
-                    logger.info(f"Class {class_data['id']} already exists, skipping...")
-                    continue
+                # Always save/update class (the save_class method now handles updates)
                 
                 # Save class to database
                 if db_client.save_class(class_data):

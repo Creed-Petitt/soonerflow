@@ -26,6 +26,8 @@ class Class(Base):
     examInfo = Column(String)  # Final exam information
     repeatability = Column(String)  # Repeatability rules
     credits = Column(Integer)  # Credit hours for the course
+    availableSeats = Column(Integer, default=0)  # Available seats
+    totalSeats = Column(Integer, default=0)  # Total seats
     
     # Relationships
     meetingTimes = relationship("MeetingTime", back_populates="class_", cascade="all, delete-orphan")

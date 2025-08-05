@@ -26,7 +26,7 @@ interface RatingDistributionBarChartProps {
 const chartConfig = {
   ratings: {
     label: "Ratings",
-    color: "var(--chart-1)",
+    color: "#94a3b8",
   },
 } satisfies ChartConfig
 
@@ -46,13 +46,14 @@ export function RatingDistributionBarChart({
 
   const totalRatings = ratingDistribution.reduce((sum, count) => sum + count, 0)
 
+  // Don't render the chart if there are no ratings
+  if (totalRatings === 0) {
+    return null
+  }
+
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle>Rating Distribution</CardTitle>
-        <CardDescription>{professorName}</CardDescription>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <ChartContainer config={chartConfig}>
           <BarChart
             accessibilityLayer
@@ -61,29 +62,27 @@ export function RatingDistributionBarChart({
               top: 20,
             }}
           >
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
             <XAxis
               dataKey="star"
               tickLine={false}
               tickMargin={10}
               axisLine={false}
+              tick={{ fill: 'hsl(var(--muted-foreground))' }}
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar dataKey="ratings" fill="var(--color-ratings)" radius={8}>
+            <Bar dataKey="ratings" fill="#94a3b8" radius={8}>
               <LabelList
                 position="top"
                 offset={12}
                 className="fill-foreground"
                 fontSize={12}
+                formatter={(value: number) => value > 0 ? value : ''}
               />
             </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      <CardFooter className="flex-col items-start gap-2 text-sm pt-0">
         <div className="flex gap-2 leading-none font-medium">
           Based on {totalRatings} student ratings <TrendingUp className="h-4 w-4" />
         </div>

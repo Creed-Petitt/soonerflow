@@ -17,9 +17,9 @@ app = FastAPI(title="OU Class Manager API", version="1.0.0")
 # Enable CORS for Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],  # Support both ports
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -42,7 +42,10 @@ class ClassResponse(BaseModel):
     description: str = ""
     prerequisites: str = ""
     genEd: str = ""
+    type: str = ""  # ADDED: Class type (Lecture, Lab with No Credit, etc.)
     sections: List[dict] = []
+    ratingDistribution: List[int] = []  # ADDED: For bar charts
+    tags: List[str] = []  # ADDED: For professor tags
     
     class Config:
         from_attributes = True
@@ -99,7 +102,9 @@ def format_meeting_times(meeting_times: List[MeetingTime]) -> str:
     # Format each time group
     formatted_times = []
     for time_range, days_list in time_groups.items():
-        days_str = "".join(days_list)
+        # Remove duplicates by converting to set, then back to sorted list
+        unique_days = sorted(set(days_list))
+        days_str = "".join(unique_days)
         formatted_times.append(f"{days_str} {time_range}")
     
     return ", ".join(formatted_times)
@@ -107,7 +112,7 @@ def format_meeting_times(meeting_times: List[MeetingTime]) -> str:
 def get_professor_rating(class_id: str, instructor_name: str, db: Session) -> dict:
     """Get professor rating information using class-professor mapping"""
     if not instructor_name or instructor_name == "TBA":
-        return {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0}
+        return {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0, "ratingDistribution": [0, 0, 0, 0, 0], "tags": []}
     
     professor = None
     
@@ -125,22 +130,55 @@ def get_professor_rating(class_id: str, instructor_name: str, db: Session) -> di
     except Exception:
         pass
     
-    # Fallback to fuzzy name matching if no exact mapping
+    # FIXED: Fallback to fuzzy name matching - handle "Last, First" format
     if not professor:
-        search_term = f"%{instructor_name.strip()}%"
-        professor = db.query(ProfessorModel).filter(
-            (ProfessorModel.lastName.ilike(search_term)) |
-            (ProfessorModel.firstName.ilike(search_term))
-        ).filter(ProfessorModel.avgRating > 0).first()
+        # Parse "Last, First" format if present
+        if "," in instructor_name:
+            parts = instructor_name.split(",")
+            last_name = parts[0].strip()
+            first_name = parts[1].strip() if len(parts) > 1 else ""
+            
+            # Search by parsed names
+            if first_name and last_name:
+                professor = db.query(ProfessorModel).filter(
+                    (ProfessorModel.lastName.ilike(f"%{last_name}%")) &
+                    (ProfessorModel.firstName.ilike(f"%{first_name}%"))
+                ).first()
+            
+            # If not found, try just last name
+            if not professor:
+                professor = db.query(ProfessorModel).filter(
+                    ProfessorModel.lastName.ilike(f"%{last_name}%")
+                ).first()
+        else:
+            # Search full name in both fields
+            search_term = f"%{instructor_name.strip()}%"
+            professor = db.query(ProfessorModel).filter(
+                (ProfessorModel.lastName.ilike(search_term)) |
+                (ProfessorModel.firstName.ilike(search_term))
+            ).first()
     
     if professor:
+        # Parse tags from teacherTags column
+        tags = []
+        if professor.teacherTags:
+            tags = [tag.strip() for tag in professor.teacherTags.split(',') if tag.strip()]
+        
         return {
             "rating": professor.avgRating or 0.0,
             "difficulty": professor.avgDifficulty or 0.0,
-            "wouldTakeAgain": professor.wouldTakeAgainPercent or 0.0
+            "wouldTakeAgain": professor.wouldTakeAgainPercent or 0.0,
+            "ratingDistribution": [  # ADDED: Return rating distribution
+                professor.ratingR1 or 0,
+                professor.ratingR2 or 0,
+                professor.ratingR3 or 0,
+                professor.ratingR4 or 0,
+                professor.ratingR5 or 0
+            ],
+            "tags": tags  # ADDED: Return tags for student comments
         }
     
-    return {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0}
+    return {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0, "ratingDistribution": [0, 0, 0, 0, 0], "tags": []}
 
 mock_assignments = [
     Assignment(
@@ -199,16 +237,22 @@ async def get_classes(
     # Order by courseNumber first to get diverse subjects, then by subject
     classes = query.order_by(ClassModel.courseNumber, ClassModel.subject).offset(offset).limit(limit).all()
     
-    print(f"DEBUG: Found {len(classes)} classes (page {page}, total: {total_count})")
-    if classes:
-        print(f"DEBUG: Subjects: {list(set([c.subject for c in classes[:10]]))}")
-        print(f"DEBUG: First class has {len(classes[0].meetingTimes)} meeting times")
+    # PERFORMANCE FIX: Skip professor lookups for large requests
+    skip_ratings = limit > 1000
+    if not skip_ratings:
+        print(f"DEBUG: Found {len(classes)} classes (page {page}, total: {total_count})")
+        if classes:
+            print(f"DEBUG: Subjects: {list(set([c.subject for c in classes[:10]]))}")
+            print(f"DEBUG: First class has {len(classes[0].meetingTimes)} meeting times")
     
     # Convert to response format  
     response_classes = []
     for cls in classes:
-        # Get professor ratings
-        ratings = get_professor_rating(cls.id, cls.instructor, db)
+        # PERFORMANCE FIX: Skip professor ratings for bulk loads
+        if skip_ratings:
+            ratings = {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0, "ratingDistribution": [0, 0, 0, 0, 0], "tags": []}
+        else:
+            ratings = get_professor_rating(cls.id, cls.instructor, db)
         
         # Format meeting times
         time_str = format_meeting_times(cls.meetingTimes)
@@ -236,18 +280,23 @@ async def get_classes(
             time=time_str,
             location=location,
             days=days,
+            available_seats=cls.availableSeats or 0,  # Use actual database values
+            total_seats=cls.totalSeats or 0,          # Use actual database values
             rating=ratings["rating"],
             difficulty=ratings["difficulty"],
             wouldTakeAgain=ratings["wouldTakeAgain"],
+            ratingDistribution=ratings["ratingDistribution"],  # ADDED: Include rating distribution
+            tags=ratings["tags"],  # ADDED: Include professor tags
             description=cls.description or "",
             prerequisites="",
             genEd=cls.genEd or "",
+            type=cls.type or "",  # ADDED: Include class type
             sections=[
                 {
                     "id": cls.section,
                     "time": time_str,
                     "instructor": cls.instructor or "TBA",
-                    "seats": "TBA"
+                    "seats": f"{cls.availableSeats or 0}/{cls.totalSeats or 0}"
                 }
             ]
         ))
@@ -290,7 +339,7 @@ async def get_class(class_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Class not found")
     
     # Get professor ratings
-    ratings = get_professor_rating(cls.instructor, db)
+    ratings = get_professor_rating(cls.id, cls.instructor, db)
     
     # Format meeting times
     time_str = format_meeting_times(cls.meetingTimes)
@@ -321,9 +370,12 @@ async def get_class(class_id: str, db: Session = Depends(get_db)):
         rating=ratings["rating"],
         difficulty=ratings["difficulty"],
         wouldTakeAgain=ratings["wouldTakeAgain"],
+        ratingDistribution=ratings["ratingDistribution"],  # ADDED: Include rating distribution
+        tags=ratings["tags"],  # ADDED: Include professor tags
         description=cls.description or "",
-        prerequisites=cls.additionalInfo or "",
+        prerequisites=cls.description or "",
         genEd=cls.genEd or "",
+        type=cls.type or "",  # ADDED: Include class type
         sections=[
             {
                 "id": cls.section,
@@ -364,6 +416,8 @@ async def get_user_schedule(db: Session = Depends(get_db)):
             rating=ratings["rating"],
             difficulty=ratings["difficulty"],
             wouldTakeAgain=ratings["wouldTakeAgain"],
+            ratingDistribution=ratings["ratingDistribution"],  # ADDED: Include rating distribution
+            tags=ratings["tags"],  # ADDED: Include professor tags
             description=cls.description or "",
             prerequisites="",
             genEd=cls.genEd or ""
@@ -441,4 +495,4 @@ async def remove_from_schedule(class_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000, reload=False)

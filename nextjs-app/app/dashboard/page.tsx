@@ -3,58 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { MainNavigation } from "@/components/main-navigation"
 import Link from "next/link"
 
 export default function Page() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top Navigation Bar */}
-      <nav className="border-b border-border px-6 py-3">
-        <div className="flex items-center justify-between">
-          {/* Left side - Navigation Links */}
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-6">
-              <Link href="/dashboard" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                Home
-              </Link>
-              <Link href="/scheduler" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Scheduler
-              </Link>
-              <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Browse Classes
-              </Link>
-              <Link href="/progress" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Degree Progress
-              </Link>
-              <Link href="/professors" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Professors
-              </Link>
-              <Link href="/canvas" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Canvas
-              </Link>
-            </div>
-          </div>
-
-          {/* Right side - Search and Controls */}
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search classes..."
-                className="pl-8 w-[250px] h-9 bg-muted/50 border-0"
-              />
-            </div>
-            <ThemeToggle />
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <User className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <MainNavigation />
 
       {/* Main Content Area */}
       <main className="flex-1 p-6">

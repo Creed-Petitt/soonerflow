@@ -16,7 +16,7 @@ const professorCache = new Map<string, ProfessorRating | null>()
 // API call to get real professor data from database
 async function fetchProfessorFromAPI(professorName: string): Promise<ProfessorRating | null> {
   try {
-    const response = await fetch(`http://localhost:8000/api/professors/search?name=${encodeURIComponent(professorName)}`)
+    const response = await fetch(`http://127.0.0.1:8000/api/professors/search?name=${encodeURIComponent(professorName)}`)
     
     if (!response.ok) {
       return null
@@ -301,7 +301,7 @@ export function findProfessorRating(professorName: string, classData?: any): Pro
       rating: classData.rating || 0,
       difficulty: classData.difficulty || 0,
       wouldTakeAgain: classData.wouldTakeAgain || 0,
-      ratingDistribution: [0, 0, 0, 0, 0], // Not available in class API
+      ratingDistribution: classData.ratingDistribution || [0, 0, 0, 0, 0], // Now available in class API
       tags: [] // Not available in class API
     }
   }

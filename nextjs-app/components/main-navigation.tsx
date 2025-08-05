@@ -4,57 +4,96 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Settings, User } from "lucide-react"
+import { Settings, Search } from "lucide-react"
 
 export function MainNavigation() {
   const pathname = usePathname()
 
-  const navItems = [
-    { href: "/dashboard", label: "Home" },
-    { href: "/scheduler", label: "Scheduler" },
-    { href: "/browse", label: "Browse Classes" },
-    { href: "/degree-progress", label: "Degree Progress" },
-    { href: "/professors", label: "Professors" },
-    { href: "/canvas", label: "Canvas" },
-  ]
-
   return (
-    <nav className="sticky top-0 z-50 border-b border-b-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-6">
-        <div className="flex items-center space-x-6">
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              OU
-            </div>
-            <span className="font-semibold">Class Manager</span>
+    <header className="border-b px-4 md:px-6">
+      <div className="flex h-16 items-center justify-between gap-4">
+        {/* Left side - Navigation */}
+        <nav className="flex items-center gap-1">
+          <Link 
+            href="/dashboard" 
+            className={`py-2 px-3 font-medium transition-colors rounded-md ${
+              pathname === "/dashboard" 
+                ? "text-foreground bg-muted/50" 
+                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
+            }`}
+          >
+            Home
           </Link>
-          
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <Button 
-                  variant={pathname === item.href ? "default" : "ghost"} 
-                  size="sm"
-                >
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </div>
+          <Link 
+            href="/scheduler" 
+            className={`py-2 px-3 font-medium transition-colors rounded-md ${
+              pathname === "/scheduler" 
+                ? "text-foreground bg-muted/50" 
+                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
+            }`}
+          >
+            Scheduler
+          </Link>
+          <Link 
+            href="/browse" 
+            className={`py-2 px-3 font-medium transition-colors rounded-md ${
+              pathname === "/browse" 
+                ? "text-foreground bg-muted/50" 
+                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
+            }`}
+          >
+            Browse Classes
+          </Link>
+          <Link 
+            href="/progress" 
+            className={`py-2 px-3 font-medium transition-colors rounded-md ${
+              pathname === "/progress" 
+                ? "text-foreground bg-muted/50" 
+                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
+            }`}
+          >
+            Degree Progress
+          </Link>
+          <Link 
+            href="/professors" 
+            className={`py-2 px-3 font-medium transition-colors rounded-md ${
+              pathname === "/professors" 
+                ? "text-foreground bg-muted/50" 
+                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
+            }`}
+          >
+            Professors
+          </Link>
+          <Link 
+            href="/canvas" 
+            className={`py-2 px-3 font-medium transition-colors rounded-md ${
+              pathname === "/canvas" 
+                ? "text-foreground bg-muted/50" 
+                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
+            }`}
+          >
+            Canvas
+          </Link>
+        </nav>
 
-        <div className="flex items-center space-x-4">
+        {/* Right side - Search and Controls */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search classes..."
+              className="pl-9 w-[280px] h-10 bg-muted/50 border-border"
+            />
+          </div>
           <ThemeToggle />
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" className="h-10 w-10">
             <Settings className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm">
-            <User className="h-4 w-4" />
           </Button>
         </div>
       </div>
-    </nav>
+    </header>
   )
 }
