@@ -20,31 +20,38 @@ export function useCurrentTimeIndicator(
       const now = new Date()
       const hours = now.getHours()
       const minutes = now.getMinutes()
-      const totalMinutes = (hours - StartHour) * 60 + minutes
-      const dayStartMinutes = 0 // 12am
-      const dayEndMinutes = (EndHour - StartHour) * 60 // 12am next day
-
-      // Calculate position as percentage of day
-      const position =
-        ((totalMinutes - dayStartMinutes) / (dayEndMinutes - dayStartMinutes)) *
-        100
-
-      // Check if current day is in view based on the calendar view
+      
+      // Only show current time indicator if current time is within calendar range
+      const isTimeInRange = hours >= StartHour && hours < EndHour
+      
       let isCurrentTimeVisible = false
+      let position = 0
 
-      if (view === "day") {
-        isCurrentTimeVisible = isSameDay(now, currentDate)
-      } else if (view === "week") {
-        const startOfWeekDate = startOfWeek(currentDate, { weekStartsOn: 0 })
-        const endOfWeekDate = endOfWeek(currentDate, { weekStartsOn: 0 })
-        isCurrentTimeVisible = isWithinInterval(now, {
-          start: startOfWeekDate,
-          end: endOfWeekDate,
-        })
+      if (isTimeInRange) {
+        const totalMinutes = (hours - StartHour) * 60 + minutes
+        const dayStartMinutes = 0
+        const dayEndMinutes = (EndHour - StartHour) * 60
+
+        // Calculate position as percentage of day
+        position =
+          ((totalMinutes - dayStartMinutes) / (dayEndMinutes - dayStartMinutes)) *
+          100
+
+        // Check if current day is in view based on the calendar view
+        if (view === "day") {
+          isCurrentTimeVisible = isSameDay(now, currentDate)
+        } else if (view === "week") {
+          const startOfWeekDate = startOfWeek(currentDate, { weekStartsOn: 0 })
+          const endOfWeekDate = endOfWeek(currentDate, { weekStartsOn: 0 })
+          isCurrentTimeVisible = isWithinInterval(now, {
+            start: startOfWeekDate,
+            end: endOfWeekDate,
+          })
+        }
       }
 
-      setCurrentTimePosition(position)
-      setCurrentTimeVisible(isCurrentTimeVisible)
+      setCurrentTimePosition(isTimeInRange ? position : -1000)
+      setCurrentTimeVisible(isCurrentTimeVisible && isTimeInRange)
     }
 
     // Calculate immediately

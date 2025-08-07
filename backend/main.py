@@ -130,33 +130,61 @@ def get_professor_rating(class_id: str, instructor_name: str, db: Session) -> di
     except Exception:
         pass
     
-    # FIXED: Fallback to fuzzy name matching - handle "Last, First" format
+    # FIXED: Fallback to fuzzy name matching - handle "Last, First" format and "Mc" variations
     if not professor:
-        # Parse "Last, First" format if present
-        if "," in instructor_name:
-            parts = instructor_name.split(",")
-            last_name = parts[0].strip()
-            first_name = parts[1].strip() if len(parts) > 1 else ""
+        name_clean = instructor_name.strip()
+        
+        # Special handling for "Mc" names (e.g., "Mc Cann" vs "McCann")  
+        mc_variations = [name_clean]
+        if 'Mc ' in name_clean:
+            # "Mc Cann" -> "McCann"
+            mc_variations.append(name_clean.replace('Mc ', 'Mc'))
+        if 'Mc' in name_clean and 'Mc ' not in name_clean:
+            # "McCann" -> "Mc Cann" (reverse)
+            import re
+            mc_variations.append(re.sub(r'Mc([A-Z])', r'Mc \1', name_clean))
+        
+        # Try all Mc variations with different parsing strategies
+        for name_variation in mc_variations:
+            if professor:
+                break
+                
+            # Strategy 1: "Last, First" format
+            if "," in name_variation:
+                parts = name_variation.split(",", 1)
+                last_name = parts[0].strip()
+                first_name = parts[1].strip() if len(parts) > 1 else ""
+                
+                # Search by parsed names
+                if first_name and last_name:
+                    professor = db.query(ProfessorModel).filter(
+                        (ProfessorModel.lastName.ilike(f"%{last_name}%")) &
+                        (ProfessorModel.firstName.ilike(f"%{first_name}%"))
+                    ).first()
+                
+                # If not found, try just last name
+                if not professor:
+                    professor = db.query(ProfessorModel).filter(
+                        ProfessorModel.lastName.ilike(f"%{last_name}%")
+                    ).first()
             
-            # Search by parsed names
-            if first_name and last_name:
-                professor = db.query(ProfessorModel).filter(
-                    (ProfessorModel.lastName.ilike(f"%{last_name}%")) &
-                    (ProfessorModel.firstName.ilike(f"%{first_name}%"))
-                ).first()
+            # Strategy 2: "First Last" format
+            elif " " in name_variation:
+                parts = name_variation.split()
+                if len(parts) >= 2:
+                    first_name, last_name = parts[0], parts[-1]
+                    professor = db.query(ProfessorModel).filter(
+                        (ProfessorModel.firstName.ilike(f"%{first_name}%")) &
+                        (ProfessorModel.lastName.ilike(f"%{last_name}%"))
+                    ).first()
             
-            # If not found, try just last name
+            # Strategy 3: Single name search
             if not professor:
+                search_term = f"%{name_variation}%"
                 professor = db.query(ProfessorModel).filter(
-                    ProfessorModel.lastName.ilike(f"%{last_name}%")
+                    (ProfessorModel.lastName.ilike(search_term)) |
+                    (ProfessorModel.firstName.ilike(search_term))
                 ).first()
-        else:
-            # Search full name in both fields
-            search_term = f"%{instructor_name.strip()}%"
-            professor = db.query(ProfessorModel).filter(
-                (ProfessorModel.lastName.ilike(search_term)) |
-                (ProfessorModel.firstName.ilike(search_term))
-            ).first()
     
     if professor:
         # Parse tags from teacherTags column
@@ -277,6 +305,7 @@ async def get_classes(
             number=cls.courseNumber,
             title=clean_title,
             instructor=cls.instructor or "TBA",
+            credits=cls.credits or 3,  # FIXED: Use actual database credits
             time=time_str,
             location=location,
             days=days,
@@ -427,20 +456,113 @@ async def get_user_schedule(db: Session = Depends(get_db)):
 
 @app.get("/api/professors/search")
 async def search_professor(name: str, db: Session = Depends(get_db)):
-    """Search for professor by name and return RateMyProfessor data"""
+    """Search for professor by instructor name using the class_professor_mappings table"""
     if not name or len(name.strip()) < 2:
         raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
     
     try:
-        # Simple search by last name or full name
-        search_term = f"%{name.strip()}%"
-        professor = db.query(ProfessorModel).filter(
-            (ProfessorModel.lastName.ilike(search_term)) |
-            (ProfessorModel.firstName.ilike(search_term))
-        ).filter(ProfessorModel.avgRating > 0).first()
+        # First, find a class with this instructor name
+        instructor_name = name.strip()
+        class_with_instructor = db.execute(text("""
+            SELECT id FROM classes 
+            WHERE instructor = :instructor_name 
+            LIMIT 1
+        """), {"instructor_name": instructor_name}).fetchone()
+        
+        professor = None
+        
+        if class_with_instructor:
+            class_id = class_with_instructor[0]
+            
+            # Find the professor mapping for this class
+            mapping = db.execute(text("""
+                SELECT professorId FROM class_professor_mappings 
+                WHERE classId = :class_id
+            """), {"class_id": class_id}).fetchone()
+            
+            if mapping:
+                # Use the mapping if it exists
+                professor_id = mapping[0]
+                professor = db.query(ProfessorModel).filter(
+                    ProfessorModel.id == professor_id
+                ).first()
+        
+        # If no exact match or mapping failed, fall back to fuzzy matching
+        if not professor:
+            name_clean = instructor_name
+            
+            # Special handling for "Mc" names (e.g., "Mc Cann" vs "McCann")
+            mc_variations = []
+            if 'Mc ' in name_clean:
+                # "Mc Cann" -> "McCann"
+                mc_variations.append(name_clean.replace('Mc ', 'Mc'))
+            if 'Mc' in name_clean and 'Mc ' not in name_clean:
+                # "McCann" -> "Mc Cann" (reverse)
+                import re
+                mc_variations.append(re.sub(r'Mc([A-Z])', r'Mc \1', name_clean))
+            
+            # Try Mc variations first
+            for mc_name in mc_variations:
+                if "," in mc_name:
+                    last_name, first_name = [n.strip() for n in mc_name.split(",", 1)]
+                    professor = db.query(ProfessorModel).filter(
+                        ProfessorModel.lastName.ilike(f"%{last_name}%"),
+                        ProfessorModel.firstName.ilike(f"%{first_name}%")
+                    ).filter(ProfessorModel.avgRating > 0).first()
+                    if professor:
+                        break
+            
+            # Try multiple fuzzy matching strategies
+            
+            # Strategy 1: "Last, First" format
+            if "," in name_clean:
+                last_name, first_name = [n.strip() for n in name_clean.split(",", 1)]
+                # Try exact match first
+                professor = db.query(ProfessorModel).filter(
+                    ProfessorModel.lastName.ilike(f"%{last_name}%"),
+                    ProfessorModel.firstName.ilike(f"%{first_name}%")
+                ).filter(ProfessorModel.avgRating > 0).first()
+                
+                # If not found, try swapped (Tang, Choon Yik -> find Choon Tang)
+                if not professor:
+                    professor = db.query(ProfessorModel).filter(
+                        ProfessorModel.firstName.ilike(f"%{last_name}%"),
+                        ProfessorModel.lastName.ilike(f"%{first_name}%")
+                    ).filter(ProfessorModel.avgRating > 0).first()
+            
+            # Strategy 2: "First Last" format
+            if not professor and " " in name_clean:
+                parts = name_clean.split()
+                if len(parts) >= 2:
+                    first_name, last_name = parts[0], parts[-1]
+                    professor = db.query(ProfessorModel).filter(
+                        ProfessorModel.firstName.ilike(f"%{first_name}%"),
+                        ProfessorModel.lastName.ilike(f"%{last_name}%")
+                    ).filter(ProfessorModel.avgRating > 0).first()
+            
+            # Strategy 3: Individual word matching (for complex names)
+            if not professor:
+                words = name_clean.replace(",", " ").split()
+                for word in words:
+                    if len(word) > 2:  # Skip short words
+                        professor = db.query(ProfessorModel).filter(
+                            (ProfessorModel.lastName.ilike(f"%{word}%")) |
+                            (ProfessorModel.firstName.ilike(f"%{word}%"))
+                        ).filter(ProfessorModel.avgRating > 0).first()
+                        if professor:
+                            break
+            
+            # Strategy 4: Partial match on full string
+            if not professor:
+                search_term = f"%{name_clean}%"
+                professor = db.query(ProfessorModel).filter(
+                    (ProfessorModel.lastName.ilike(search_term)) |
+                    (ProfessorModel.firstName.ilike(search_term))
+                ).filter(ProfessorModel.avgRating > 0).first()
         
         if not professor:
             return {"error": "Professor not found", "name": name}
+            
     except Exception as e:
         return {"error": f"Search failed: {str(e)}", "name": name}
     

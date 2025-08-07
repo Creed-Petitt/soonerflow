@@ -274,11 +274,6 @@ export function LabSwitchingDropdown({
                         >
                           {lab.seatStatus.text}
                         </Badge>
-                        {lab.isSameInstructor && (
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                            Same Instructor
-                          </Badge>
-                        )}
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground">

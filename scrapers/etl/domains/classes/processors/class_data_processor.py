@@ -116,7 +116,7 @@ class ClassDataProcessor:
             'semesterDates': class_data.get('dates'),
             'examInfo': class_data.get('exam_info'),
             'repeatability': class_data.get('repeatability'),
-            'credits': 3,  # Default to 3 credits (credit hours not in this position anymore)
+            'credits': self.extract_credits_from_course_number(class_data.get('course_number', '')),
             'meetingTimes': self.parse_meeting_times(class_data.get('meeting_times', '')),
             'availableSeats': class_data.get('available_seats', 0),
             'totalSeats': class_data.get('total_seats', 0)
@@ -203,6 +203,27 @@ class ClassDataProcessor:
                 continue
         
         return processed_classes
+    
+    def extract_credits_from_course_number(self, course_number: str) -> int:
+        """Extract credit hours from course number (e.g., ENGR 1401 = 1 credit, ECE 2214 = 4 credits)"""
+        if not course_number:
+            return 3
+        
+        # Extract numeric part
+        numeric_part = ''.join(filter(str.isdigit, course_number))
+        
+        # Standard format: 4-digit course numbers where last digit is credit hours
+        if numeric_part and len(numeric_part) >= 4:
+            try:
+                last_digit = int(numeric_part[-1])
+                # Valid credit ranges (1-6 credits)
+                if 1 <= last_digit <= 6:
+                    return last_digit
+            except ValueError:
+                pass
+        
+        # Default fallback
+        return 3
     
     def validate_class_data(self, class_data: Dict[str, Any]) -> bool:
         """Validate that class data has required fields"""

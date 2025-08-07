@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { AuthButton } from "@/components/auth-button"
 import { Settings, Search } from "lucide-react"
 
 export function MainNavigation() {
@@ -37,16 +38,6 @@ export function MainNavigation() {
             Scheduler
           </Link>
           <Link 
-            href="/browse" 
-            className={`py-2 px-3 font-medium transition-colors rounded-md ${
-              pathname === "/browse" 
-                ? "text-foreground bg-muted/50" 
-                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
-            }`}
-          >
-            Browse Classes
-          </Link>
-          <Link 
             href="/progress" 
             className={`py-2 px-3 font-medium transition-colors rounded-md ${
               pathname === "/progress" 
@@ -55,16 +46,6 @@ export function MainNavigation() {
             }`}
           >
             Degree Progress
-          </Link>
-          <Link 
-            href="/professors" 
-            className={`py-2 px-3 font-medium transition-colors rounded-md ${
-              pathname === "/professors" 
-                ? "text-foreground bg-muted/50" 
-                : "text-muted-foreground hover:text-primary hover:bg-muted/50"
-            }`}
-          >
-            Professors
           </Link>
           <Link 
             href="/canvas" 
@@ -92,6 +73,7 @@ export function MainNavigation() {
           <Button variant="ghost" size="sm" className="h-10 w-10">
             <Settings className="h-4 w-4" />
           </Button>
+          <AuthButton />
         </div>
       </div>
     </header>

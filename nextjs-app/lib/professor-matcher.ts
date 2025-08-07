@@ -8,6 +8,7 @@ interface ProfessorRating {
   ratingDistribution: number[]
   tags: string[]
   comments?: string[]
+  totalRatings?: number
 }
 
 // Cache for API calls to avoid repeated requests
@@ -16,29 +17,65 @@ const professorCache = new Map<string, ProfessorRating | null>()
 // API call to get real professor data from database
 async function fetchProfessorFromAPI(professorName: string): Promise<ProfessorRating | null> {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/professors/search?name=${encodeURIComponent(professorName)}`)
+    // Try multiple variations of the name for better matching
+    const nameVariations = [
+      professorName, // Original name
+      professorName.replace(/\s+/g, ''), // Remove ALL spaces (McCann vs Mc Cann)
+      professorName.replace(/\s+/g, ' '), // Single space normalization
+      professorName.replace(/\s+/g, '').replace(/,/g, ', '), // Remove spaces, fix comma format
+      professorName.replace(/Mc\s+/gi, 'Mc'), // Fix "Mc Cann" -> "McCann"
+      professorName.replace(/Mc\s+(\w+)/gi, 'Mc$1'), // Fix "Mc Cann" -> "McCann" with word boundary
+      professorName.split(',')[0]?.trim(), // Last name only
+      professorName.split(',')[1]?.trim(), // First name only  
+      professorName.split(' ').pop()?.trim(), // Last word (surname)
+    ].filter(name => name && name.length > 1); // Remove empty/invalid variations
     
-    if (!response.ok) {
-      return null
+    // Try each variation until we find a match
+    for (const nameVariation of nameVariations) {
+      const url = `http://127.0.0.1:8000/api/professors/search?name=${encodeURIComponent(nameVariation)}`;
+      console.log('Fetching from URL:', url);
+      
+      const response = await fetch(url);
+      console.log('Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        console.log('Response not OK, trying next variation');
+        continue; // Try next name variation
+      }
+      
+      const data = await response.json();
+      console.log('Raw response data:', data);
+      
+      // Handle API error response
+      if (data.error) {
+        console.log('API returned error:', data.error);
+        continue; // Try next name variation
+      }
+      
+      // If we found valid data, return it
+      if (data.avgRating || data.name) {
+        console.log('Raw API data:', data);
+        
+        // Transform API response to our interface
+        const result = {
+          name: data.name || professorName,
+          rating: data.avgRating || 0,
+          difficulty: data.avgDifficulty || 0,
+          wouldTakeAgain: data.wouldTakeAgainPercent || 0,
+          ratingDistribution: Array.isArray(data.ratingDistribution) ? data.ratingDistribution : [0, 0, 0, 0, 0],
+          tags: Array.isArray(data.tags) ? data.tags : [],
+          comments: Array.isArray(data.comments) ? data.comments : [],
+          totalRatings: data.numRatings || 0
+        };
+        
+        console.log('Transformed result:', result);
+        return result;
+      }
     }
     
-    const data = await response.json()
-    
-    // Handle API error response
-    if (data.error) {
-      return null
-    }
-    
-    // Transform API response to our interface
-    return {
-      name: data.name || professorName,
-      rating: data.avgRating || 0,
-      difficulty: data.avgDifficulty || 0,
-      wouldTakeAgain: data.wouldTakeAgainPercent || 0,
-      ratingDistribution: data.ratingDistribution || [0, 0, 0, 0, 0],
-      tags: data.tags || [],
-      comments: data.comments || []
-    }
+    // If no variations worked, return null
+    console.log('No professor found for any name variation');
+    return null;
     
   } catch (error) {
     console.error('Failed to fetch professor data:', error)
@@ -243,7 +280,7 @@ function normalizeProfessorName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[.,]/g, '') // Remove punctuation
-    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/\s+/g, '') // Remove ALL spaces for better matching
     .trim()
 }
 
@@ -341,7 +378,7 @@ export async function findProfessorRatingAsync(professorName: string): Promise<P
     return professorCache.get(professorName) || null
   }
   
-  // Fetch from API
+  // Use the real API endpoint
   const result = await fetchProfessorFromAPI(professorName)
   professorCache.set(professorName, result)
   return result

@@ -266,60 +266,51 @@ export function EventCalendar({
       <CalendarDndProvider onEventUpdate={handleEventUpdate}>
         <div
           className={cn(
-            "flex items-center justify-between p-2 sm:p-4",
+            "flex items-center justify-between p-2",
             className
           )}
         >
-          <div className="flex items-center gap-1 sm:gap-4">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              className="max-[479px]:aspect-square max-[479px]:p-0!"
+              size="sm"
+              className="h-7 px-2 text-xs"
               onClick={handleToday}
             >
-              <RiCalendarCheckLine
-                className="min-[480px]:hidden"
-                size={16}
-                aria-hidden="true"
-              />
-              <span className="max-[479px]:sr-only">Today</span>
+              Today
             </Button>
-            <div className="flex items-center sm:gap-2">
+            <div className="flex items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-7 w-7"
                 onClick={handlePrevious}
                 aria-label="Previous"
               >
-                <ChevronLeftIcon size={16} aria-hidden="true" />
+                <ChevronLeftIcon size={14} aria-hidden="true" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-7 w-7"
                 onClick={handleNext}
                 aria-label="Next"
               >
-                <ChevronRightIcon size={16} aria-hidden="true" />
+                <ChevronRightIcon size={14} aria-hidden="true" />
               </Button>
             </div>
-            <h2 className="text-sm font-semibold sm:text-lg md:text-xl">
+            <h2 className="text-sm font-semibold">
               {viewTitle}
             </h2>
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-1.5 max-[479px]:h-8">
-                  <span>
-                    <span className="min-[480px]:hidden" aria-hidden="true">
-                      {view.charAt(0).toUpperCase()}
-                    </span>
-                    <span className="max-[479px]:sr-only">
-                      {view.charAt(0).toUpperCase() + view.slice(1)}
-                    </span>
-                  </span>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1">
+                  <span>{view.charAt(0).toUpperCase() + view.slice(1)}</span>
                   <ChevronDownIcon
                     className="-me-1 opacity-60"
-                    size={16}
+                    size={14}
                     aria-hidden="true"
                   />
                 </Button>
@@ -340,19 +331,20 @@ export function EventCalendar({
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
-              className="max-[479px]:aspect-square max-[479px]:p-0!"
+              variant="default"
               size="sm"
+              className="h-7 px-2 text-xs"
               onClick={() => {
                 setSelectedEvent(null) // Ensure we're creating a new event
                 setIsEventDialogOpen(true)
               }}
             >
               <PlusIcon
-                className="opacity-60 sm:-ms-1"
-                size={16}
+                className="opacity-60 -ms-0.5"
+                size={14}
                 aria-hidden="true"
               />
-              <span className="max-sm:sr-only">New event</span>
+              New event
             </Button>
           </div>
         </div>

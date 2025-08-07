@@ -5,26 +5,17 @@ import { useState, useEffect } from "react"
 import { EventCalendar, type CalendarEvent } from "@/components/event-calendar/event-calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { MainNavigation } from "@/components/main-navigation"
-import { Search, Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react"
+import { Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react"
 import { ExpandableClassCard } from "@/components/expandable-class-card"
 import { GroupedClassCard } from "@/components/grouped-class-card"
 import { LabSelectionModal } from "@/components/lab-selection-modal"
@@ -145,18 +136,10 @@ export default function SchedulerPage() {
   const [loading, setLoading] = useState(true)
   
   // Filter state
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedSubject, setSelectedSubject] = useState("all")
-  const [selectedLevel, setSelectedLevel] = useState("all")
-  const [selectedCourseLevel, setSelectedCourseLevel] = useState("all")
-  const [selectedMajor, setSelectedMajor] = useState("all")
+  const [selectedSubject, setSelectedSubject] = useState<string>("")
+  const [selectedCourseLevel, setSelectedCourseLevel] = useState<string>("")
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([])
   const [displayLimit, setDisplayLimit] = useState(50)
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
-  
-  // Popover states for Command components
-  const [departmentOpen, setDepartmentOpen] = useState(false)
-  const [levelOpen, setLevelOpen] = useState(false)
   
   // Lab selection modal state
   const [labModalOpen, setLabModalOpen] = useState(false)
@@ -168,58 +151,43 @@ export default function SchedulerPage() {
   const creditLimit = 21 // Standard semester limit
   const isOverLimit = totalCredits > creditLimit
   
-  // Filtered grouped classes
+  // Filtered grouped classes (Department and Course Level only)
   const filteredGroupedClasses = groupedClasses.filter(group => {
-    const classCode = `${group.subject} ${group.number}`.toLowerCase()
-    const matchesSearch = !searchTerm || 
-      classCode.includes(searchTerm.toLowerCase()) ||
-      group.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.number.toLowerCase().includes(searchTerm.toLowerCase())
+    // Filter by subject
+    const matchesSubject = !selectedSubject || selectedSubject === "all" || group.subject === selectedSubject
     
-    const matchesSubject = selectedSubject === "all" || group.subject === selectedSubject
-    
-    const matchesLevel = selectedLevel === "all" || 
-      (selectedLevel === "undergraduate" && parseInt(group.number[0]) < 5) ||
-      (selectedLevel === "graduate" && parseInt(group.number[0]) >= 5)
-    
+    // Filter by course level
     const courseNum = parseInt(group.number)
-    const matchesCourseLevel = selectedCourseLevel === "all" ||
+    const matchesCourseLevel = !selectedCourseLevel || selectedCourseLevel === "" || selectedCourseLevel === "all" ||
       (selectedCourseLevel === "1000" && courseNum >= 1000 && courseNum < 2000) ||
       (selectedCourseLevel === "2000" && courseNum >= 2000 && courseNum < 3000) ||
       (selectedCourseLevel === "3000" && courseNum >= 3000 && courseNum < 4000) ||
       (selectedCourseLevel === "4000" && courseNum >= 4000 && courseNum < 5000) ||
       (selectedCourseLevel === "5000+" && courseNum >= 5000)
     
-    
-    // TODO: Implement major filtering when major data is available
-    const matchesMajor = selectedMajor === "all" // For now, always true
-    
-    return matchesSearch && matchesSubject && matchesLevel && matchesCourseLevel && matchesMajor
+    return matchesSubject && matchesCourseLevel
   })
 
   // Reset display limit when filters change
   useEffect(() => {
     setDisplayLimit(50)
-  }, [searchTerm, selectedSubject, selectedCourseLevel, selectedMajor])
+  }, [selectedSubject, selectedCourseLevel])
 
-  // Load initial data (subjects only)
+  // Load initial subjects list
   useEffect(() => {
     const loadInitialData = async () => {
       setLoading(true)
       try {
-        // Just load a small sample to get available subjects list
+        // Load subjects list
         const response = await fetch('http://127.0.0.1:8000/api/classes?limit=200')
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         const data = await response.json()
-        // Get departments from filters, not from classes
         const subjects = data.filters?.departments || []
         setAvailableSubjects(subjects)
       } catch (error) {
         console.error('Failed to load subjects:', error)
-        // Set some default subjects if API fails
         setAvailableSubjects(['CS', 'MATH', 'PHYS', 'CHEM', 'BIOL', 'ENGL', 'HIST'])
       }
       setLoading(false)
@@ -228,12 +196,11 @@ export default function SchedulerPage() {
     loadInitialData()
   }, [])
 
-  // Load classes based on selected filters (optimized loading)
+  // Load classes based on selected filters
   useEffect(() => {
     const loadFilteredData = async () => {
-      // Only load if we have specific filters selected
-      if (selectedSubject === "all" && !searchTerm) {
-        // Don't clear immediately to avoid flash - just set empty state
+      // Only load if we have a subject selected
+      if (!selectedSubject || selectedSubject === "all") {
         setClasses([])
         setGroupedClasses([])
         setLoading(false)
@@ -242,13 +209,10 @@ export default function SchedulerPage() {
 
       setLoading(true)
       try {
-        const filters: any = {}
-        if (selectedSubject !== "all") filters.subject = selectedSubject
-        if (searchTerm) filters.search = searchTerm
-        
+        // Load classes for selected subject
+        const filters = { subject: selectedSubject }
         const classesData = await fetchClasses(filters)
         
-        // Only update state if we got results or if this is still the current request
         setClasses(classesData)
         
         // Group classes by subject and number
@@ -256,16 +220,13 @@ export default function SchedulerPage() {
         setGroupedClasses(grouped)
       } catch (error) {
         console.error('Failed to load classes:', error)
-        // Don't clear data on error - keep showing previous results
       }
       setLoading(false)
     }
     
-    // Reduce debounce for snappier department switching, but keep debounce for search
-    const debounceTime = searchTerm ? 300 : 100 // Fast department switch, slower search
-    const timeoutId = setTimeout(loadFilteredData, debounceTime)
+    const timeoutId = setTimeout(loadFilteredData, 100)
     return () => clearTimeout(timeoutId)
-  }, [selectedSubject, searchTerm])
+  }, [selectedSubject])
 
   const parseTimeToEvents = (classData: ScheduledClass) => {
     if (!classData.time || classData.time === 'TBA') return []
@@ -643,177 +604,54 @@ export default function SchedulerPage() {
       {/* Main Content - 2 Panel Layout */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         
-        {/* Left Panel - Available Classes (25% width) */}
-        <div className="w-[25%] border-r border-border bg-muted/20 flex flex-col">
-          {/* Modern Filter Section */}
-          <div className="p-4 border-b border-border bg-background" data-filter-section>
-            <div className="space-y-3">
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by class code (ECE 2214)..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 h-10 [--ring:var(--color-indigo-300)] dark:[--ring:var(--color-indigo-900)]"
-                />
-              </div>
-              
-              {/* Filter Dropdowns */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="[--ring:var(--color-indigo-300)] dark:[--ring:var(--color-indigo-900)]">
-                  <Label htmlFor="department-select" className="text-sm font-medium mb-1.5 block">Department</Label>
-                  <Popover open={departmentOpen} onOpenChange={setDepartmentOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="department-select"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={departmentOpen}
-                        className="w-full h-10 justify-between px-3 font-normal"
-                      >
-                        {selectedSubject === "all" ? "All Departments" : selectedSubject}
-                        <ChevronDown
-                          size={16}
-                          className="text-muted-foreground/80 shrink-0"
-                          aria-hidden="true"
-                        />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-full p-0" 
-                      align="start" 
-                      side="bottom" 
-                      sideOffset={8}
-                      container={typeof document !== 'undefined' ? document.querySelector('[data-scroll-container="class-list"]') : undefined}
-                    >
-                      <Command>
-                        <CommandInput placeholder="Search departments..." />
-                        <CommandList>
-                          <CommandEmpty>No department found.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem
-                              value="all"
-                              onSelect={() => {
-                                setSelectedSubject("all")
-                                setDepartmentOpen(false)
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedSubject === "all" ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              All Departments
-                            </CommandItem>
-                            {availableSubjects.map((subject) => (
-                              <CommandItem
-                                key={subject}
-                                value={subject}
-                                onSelect={() => {
-                                  setSelectedSubject(subject)
-                                  setDepartmentOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 ${
-                                    selectedSubject === subject ? "opacity-100" : "opacity-0"
-                                  }`}
-                                />
-                                {subject}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                
-                <div className="[--ring:var(--color-indigo-300)] dark:[--ring:var(--color-indigo-900)]">
-                  <Label htmlFor="level-select" className="text-sm font-medium mb-1.5 block">Course Level</Label>
-                  <Popover open={levelOpen} onOpenChange={setLevelOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="level-select"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={levelOpen}
-                        className="w-full h-10 justify-between px-3 font-normal"
-                      >
-                        {selectedCourseLevel === "all" ? "All Levels" : 
-                         selectedCourseLevel === "5000+" ? "5000+" : `${selectedCourseLevel}-Level`}
-                        <ChevronDown
-                          size={16}
-                          className="text-muted-foreground/80 shrink-0"
-                          aria-hidden="true"
-                        />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-full p-0" 
-                      align="start" 
-                      side="bottom" 
-                      sideOffset={8}
-                      container={typeof document !== 'undefined' ? document.querySelector('[data-scroll-container="class-list"]') : undefined}
-                    >
-                      <Command>
-                        <CommandList>
-                          <CommandGroup>
-                            <CommandItem
-                              value="all"
-                              onSelect={() => {
-                                setSelectedCourseLevel("all")
-                                setLevelOpen(false)
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedCourseLevel === "all" ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              All Levels
-                            </CommandItem>
-                            {["1000", "2000", "3000", "4000", "5000+"].map((level) => (
-                              <CommandItem
-                                key={level}
-                                value={level}
-                                onSelect={() => {
-                                  setSelectedCourseLevel(level)
-                                  setLevelOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 ${
-                                    selectedCourseLevel === level ? "opacity-100" : "opacity-0"
-                                  }`}
-                                />
-                                {level === "5000+" ? "5000+" : `${level}-Level`}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              
-              {/* Results Count */}
-              <div className="text-sm text-muted-foreground">
-                {loading ? "Loading..." : `${filteredGroupedClasses.length} classes found`}
-              </div>
+        {/* Left Panel - Available Classes (wider width) */}
+        <div className="w-[200px] border-r border-border bg-muted/20 flex flex-col">
+          {/* Filter Section - Stacked Dropdowns */}
+          <div className="p-3 border-b border-border bg-background space-y-2.5" data-filter-section>
+            {/* Department Filter */}
+            <div>
+              <Label className="text-xs font-medium block mb-1.5">Department</Label>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger className="h-9 w-full text-sm px-3">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent className="[&_[role=option]]:!ps-2 [&_[data-slot=select-item]]:!ps-2 min-w-[180px]">
+                  {availableSubjects.map((subject) => (
+                    <SelectItem key={subject} value={subject} className="text-sm">
+                      {subject}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Course Level Filter */}
+            <div>
+              <Label className="text-xs font-medium block mb-1.5">Level</Label>
+              <Select value={selectedCourseLevel} onValueChange={setSelectedCourseLevel}>
+                <SelectTrigger className="h-9 w-full text-sm px-3">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent className="[&_[role=option]]:!ps-2 [&_[data-slot=select-item]]:!ps-2 min-w-[180px] [&_.lucide-check]:hidden">
+                  <SelectItem value="all" className="text-sm">All</SelectItem>
+                  <SelectItem value="1000" className="text-sm">1000</SelectItem>
+                  <SelectItem value="2000" className="text-sm">2000</SelectItem>
+                  <SelectItem value="3000" className="text-sm">3000</SelectItem>
+                  <SelectItem value="4000" className="text-sm">4000</SelectItem>
+                  <SelectItem value="5000+" className="text-sm">5000+</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           
           {/* Class List */}
-          <div className="flex-1 overflow-y-auto p-1 relative" data-scroll-container="class-list">
-            <div className="grid grid-cols-1 gap-2">
-              {selectedSubject === "all" && !searchTerm && !loading ? (
-                // Welcome state - only show when explicitly no filters
+          <div className="flex-1 overflow-y-auto px-1 py-0.5 relative [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-0 [&::-webkit-scrollbar-button]:hidden scrollbar-thin" data-scroll-container="class-list">
+            <div>
+              {!selectedSubject && !loading ? (
+                // Welcome state - show when no department selected
                 <div className="text-center py-12 text-muted-foreground">
                   <div className="text-lg font-medium mb-2">Find Your Classes</div>
-                  <div className="text-sm">Choose a department or search to get started</div>
+                  <div className="text-sm">Select departments to get started</div>
                 </div>
               ) : loading && filteredGroupedClasses.length === 0 ? (
                 // Loading state - only when no previous results
@@ -824,12 +662,12 @@ export default function SchedulerPage() {
                 // No results state
                 <div className="text-center py-8 text-muted-foreground">
                   <div className="text-lg font-medium mb-1">No classes found</div>
-                  <div className="text-sm">Try adjusting your filters or search terms</div>
+                  <div className="text-sm">Try adjusting your filters</div>
                 </div>
               ) : (
                 // Results - show even while loading to prevent flash
                 <>
-                  <div className={`space-y-2 ${loading ? 'opacity-75' : ''}`}>
+                  <div className={`space-y-1 ${loading ? 'opacity-75' : ''} pt-1`}>
                     {filteredGroupedClasses.slice(0, displayLimit).map((group) => {
                       const isAnyScheduled = group.sections.some(section => 
                         scheduledClasses.find(scheduled => scheduled.id === section.id)
@@ -866,97 +704,81 @@ export default function SchedulerPage() {
           </div>
         </div>
 
-        {/* Right Panel - Calendar with Header Badges (75% width) */}
-        <div className="w-[75%] flex flex-col overflow-y-auto">
+        {/* Right Panel - Calendar with Header Badges */}
+        <div className="flex-1 flex flex-col overflow-y-auto ml-2">
           
           {/* Calendar Section - Full Height */}
-          <div className="flex-1 p-2 flex flex-col min-h-0">
+          <div className="flex-1 p-2 pt-0 flex flex-col min-h-0">
             {/* Custom Calendar Header */}
-            <div className="flex items-center justify-between mb-4 px-2">
+            <div className="flex items-center justify-between mb-2 px-2">
               {/* Left Side - Credits and Course Badges */}
-              <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-center gap-2 flex-1">
                 {/* Credits Display */}
                 {scheduledClasses.length > 0 && (
-                  <div className="text-sm font-medium text-foreground">
+                  <div className="text-xs font-medium text-foreground flex items-center py-1 mt-1 -mb-1">
                     {totalCredits} credits
                   </div>
                 )}
                 
-                {/* Course Badges */}
-                <div className="flex items-center gap-2">
-                {scheduledClasses.map((cls) => {
-                  const isLab = cls.type === 'Lab with No Credit'
-                  const badgeColor = isLab 
-                    ? { backgroundColor: `${cls.colorHex}dd` } // Slightly darker for labs
-                    : { backgroundColor: cls.colorHex }
-                  
-                  // For lab badges, find the corresponding lecture and available lab sections
-                  if (isLab) {
-                    const lectureClass = scheduledClasses.find(lecture => 
-                      lecture.subject === cls.subject && 
-                      lecture.number === cls.number && 
-                      lecture.type !== 'Lab with No Credit'
-                    )
+                {/* Course Badges - Group lectures and labs together */}
+                <div className="flex items-center gap-1.5 flex-wrap place-items-center">
+                {Object.entries(
+                  scheduledClasses.reduce((groups: Record<string, { lecture?: ScheduledClass, lab?: ScheduledClass }>, cls) => {
+                    const key = `${cls.subject}-${cls.number}`
+                    if (!groups[key]) groups[key] = {}
                     
-                    const relatedGroupedClass = groupedClasses.find(group => 
-                      `${group.subject} ${group.number}` === `${cls.subject} ${cls.number}`
-                    )
-                    
-                    const availableLabSections = relatedGroupedClass?.labSections || []
-                    
-                    // Only show dropdown if we have a lecture class and multiple lab options
-                    if (lectureClass && availableLabSections.length > 1) {
-                      return (
-                        <LabSwitchingDropdown
-                          key={cls.id}
-                          lectureClass={lectureClass}
-                          currentLabClass={cls}
-                          availableLabSections={availableLabSections}
-                          scheduledClasses={scheduledClasses}
-                          onSwitchLab={(newLab) => handleLabSwitch(cls, newLab)}
-                        >
-                          <div
-                            className="group relative flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium border transition-all duration-200 hover:shadow-sm cursor-pointer bg-muted/50 border-border/50 text-foreground hover:bg-muted/70"
-                            title={`${cls.title} - ${cls.time} - ${cls.instructor} (Click to switch lab)`}
-                          >
-                            <span className="font-mono font-semibold">
-                              {cls.subject} {cls.number} Lab
-                            </span>
-                            <ChevronDown className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                removeFromSchedule(cls.id)
-                              }}
-                              className="opacity-0 group-hover:opacity-100 ml-0.5 hover:bg-white/20 rounded-sm p-0.5 transition-all duration-200"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </LabSwitchingDropdown>
-                      )
+                    if (cls.type === 'Lab with No Credit') {
+                      groups[key].lab = cls
+                    } else {
+                      groups[key].lecture = cls
                     }
-                  }
+                    return groups
+                  }, {})
+                ).map(([key, group]) => {
+                  const { lecture, lab } = group
+                  const displayClass = lecture || lab! // Use lecture as primary, or lab if no lecture
                   
-                  // Regular badge (lecture or lab without switching options)
+                  // Find related grouped class for lab switching
+                  const relatedGroupedClass = groupedClasses.find(gc => 
+                    `${gc.subject}-${gc.number}` === key
+                  )
+                  const availableLabSections = relatedGroupedClass?.labSections || []
+                  
                   return (
                     <div
-                      key={cls.id}
-                      className="group relative flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium border transition-all duration-200 hover:shadow-sm cursor-pointer bg-muted/50 border-border/50 text-foreground hover:bg-muted/70"
-                      title={`${cls.title} - ${cls.time} - ${cls.instructor}`}
+                      key={key}
+                      className="group relative inline-flex items-baseline gap-1 px-2 py-1 mt-1 -mb-1 rounded-md text-xs font-medium bg-muted/30 transition-all duration-200 hover:bg-muted/50"
                     >
                       <span className="font-mono font-semibold">
-                        {cls.subject} {cls.number}{isLab ? ' Lab' : ''}
+                        {displayClass.subject} {displayClass.number}
                       </span>
-                      <button
+                      
+                      {/* Lab Switch Button - only show if we have a lab and multiple lab options */}
+                      {lab && availableLabSections.length > 1 && (
+                        <LabSwitchingDropdown
+                          lectureClass={lecture || lab}
+                          currentLabClass={lab}
+                          availableLabSections={availableLabSections}
+                          scheduledClasses={scheduledClasses}
+                          onSwitchLab={(newLab) => handleLabSwitch(lab, newLab)}
+                        >
+                          <button className="opacity-60 hover:opacity-100 transition-opacity">
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </LabSwitchingDropdown>
+                      )}
+                      
+                      {/* Remove button */}
+                      <X 
+                        className="h-3 w-3 opacity-0 group-hover:opacity-100 ml-1 cursor-pointer transition-all duration-200 relative"
+                        style={{ top: '1.9px' }}
                         onClick={(e) => {
                           e.stopPropagation()
-                          removeFromSchedule(cls.id)
+                          // Remove both lecture and lab if they exist
+                          if (lecture) removeFromSchedule(lecture.id)
+                          if (lab) removeFromSchedule(lab.id)
                         }}
-                        className="opacity-0 group-hover:opacity-100 ml-1 hover:bg-white/20 rounded-sm p-0.5 transition-all duration-200"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      />
                     </div>
                   )
                 })}
