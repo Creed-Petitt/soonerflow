@@ -15,11 +15,13 @@ import {
 import { Label } from "@/components/ui/label"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { MainNavigation } from "@/components/main-navigation"
-import { Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react"
+import { Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown, Save } from "lucide-react"
 import { ExpandableClassCard } from "@/components/expandable-class-card"
 import { GroupedClassCard } from "@/components/grouped-class-card"
 import { LabSelectionModal } from "@/components/lab-selection-modal"
 import { LabSwitchingDropdown } from "@/components/lab-switching-dropdown"
+import { AuthButton } from "@/components/auth-button"
+import { useSchedule } from "@/hooks/use-schedule"
 import Link from "next/link"
 
 // Removed momentLocalizer as Origin UI calendar handles this internally
@@ -131,9 +133,21 @@ const classColors = [
 export default function SchedulerPage() {
   const [classes, setClasses] = useState<ClassData[]>([])
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
-  const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([])
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Use the schedule hook for persistent storage
+  const {
+    scheduledClasses: persistedClasses,
+    addClass: addToPersistedSchedule,
+    removeClass: removeFromPersistedSchedule,
+    isAuthenticated,
+    isSaving,
+    loading: scheduleLoading,
+  } = useSchedule()
+  
+  // Local scheduled classes state (includes color info)
+  const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([])
   
   // Filter state
   const [selectedSubject, setSelectedSubject] = useState<string>("")
@@ -148,6 +162,27 @@ export default function SchedulerPage() {
   
   // Credit tracking
   const totalCredits = scheduledClasses.reduce((sum, cls) => sum + (cls.credits || 3), 0)
+  
+  // Sync persisted classes with local state on load
+  useEffect(() => {
+    if (!scheduleLoading && persistedClasses && persistedClasses.length > 0) {
+      const mappedClasses = persistedClasses.map((cls: any, index: number) => ({
+        ...cls,
+        number: cls.number || cls.courseNumber,
+        colorBg: classColors[index % classColors.length].bg,
+        colorHex: cls.color || classColors[index % classColors.length].hex,
+      }))
+      setScheduledClasses(mappedClasses)
+      
+      // Generate calendar events for the restored classes
+      const allEvents: CalendarEvent[] = []
+      mappedClasses.forEach(cls => {
+        const events = parseTimeToEvents(cls)
+        allEvents.push(...events)
+      })
+      setCalendarEvents(allEvents)
+    }
+  }, [persistedClasses, scheduleLoading])
   const creditLimit = 21 // Standard semester limit
   const isOverLimit = totalCredits > creditLimit
   
@@ -518,6 +553,15 @@ export default function SchedulerPage() {
       
       setScheduledClasses(prev => [...prev, newScheduledClass])
       
+      // Persist to backend if authenticated
+      if (isAuthenticated) {
+        addToPersistedSchedule({
+          ...cls,
+          color: selectedColor.hex,
+          number: cls.number || cls.courseNumber || '',
+        } as any)
+      }
+      
       // Add calendar events
       const newEvents = parseTimeToEvents(newScheduledClass)
       setCalendarEvents(prev => [...prev, ...newEvents])
@@ -538,6 +582,11 @@ export default function SchedulerPage() {
     setScheduledClasses(prev => prev.filter(cls => cls.id !== currentLabClass.id))
     setCalendarEvents(prev => prev.filter(event => !event.id.startsWith(currentLabClass.id)))
     
+    // Remove from persisted schedule if authenticated
+    if (isAuthenticated) {
+      removeFromPersistedSchedule(currentLabClass.id)
+    }
+    
     // Add the new lab with the same color as the lecture
     const lectureClass = scheduledClasses.find(cls => 
       cls.subject === currentLabClass.subject && 
@@ -553,6 +602,15 @@ export default function SchedulerPage() {
       }
       
       setScheduledClasses(prev => [...prev, newScheduledLab])
+      
+      // Persist new lab to backend if authenticated
+      if (isAuthenticated) {
+        addToPersistedSchedule({
+          ...newLabSection,
+          color: lectureClass.colorHex,
+          number: newLabSection.number || '',
+        } as any)
+      }
       
       // Add calendar events for new lab
       const newEvents = parseTimeToEvents(newScheduledLab)
@@ -578,6 +636,11 @@ export default function SchedulerPage() {
     
     // Remove all classes and their events
     setScheduledClasses(prev => prev.filter(cls => !classesToRemove.includes(cls.id)))
+    
+    // Remove from persisted schedule if authenticated
+    if (isAuthenticated) {
+      classesToRemove.forEach(id => removeFromPersistedSchedule(id))
+    }
     setCalendarEvents(prev => prev.filter(event => !classesToRemove.some(id => event.id.startsWith(id))))
   }
 
@@ -717,6 +780,17 @@ export default function SchedulerPage() {
                 {scheduledClasses.length > 0 && (
                   <div className="text-xs font-medium text-foreground flex items-center py-1 mt-1 -mb-1">
                     {totalCredits} credits
+                    {isSaving && (
+                      <span className="ml-2 text-muted-foreground flex items-center gap-1">
+                        <Save className="h-3 w-3 animate-pulse" />
+                        Saving...
+                      </span>
+                    )}
+                    {!isSaving && isAuthenticated && !scheduleLoading && (
+                      <span className="ml-2 text-muted-foreground">
+                        Saved
+                      </span>
+                    )}
                   </div>
                 )}
                 

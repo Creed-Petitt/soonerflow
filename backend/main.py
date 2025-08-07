@@ -10,7 +10,11 @@ import os
 
 # Add the parent directory to the path to import database models
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import Class as ClassModel, MeetingTime, Professor as ProfessorModel, Rating, create_engine_and_session, Base
+from database.models import (
+    Class as ClassModel, MeetingTime, Professor as ProfessorModel, Rating,
+    User, Schedule, ScheduledClass,
+    create_engine_and_session, Base
+)
 
 app = FastAPI(title="OU Class Manager API", version="1.0.0")
 
@@ -605,15 +609,246 @@ async def search_professor(name: str, db: Session = Depends(get_db)):
         comments=comments
     )
 
-@app.post("/api/user/schedule/{class_id}")
-async def add_to_schedule(class_id: str):
-    """Add class to user's schedule"""
-    return {"message": f"Added class {class_id} to schedule"}
+# User Authentication & Profile Endpoints
+class UserCreate(BaseModel):
+    github_id: str
+    email: str
+    name: str
+    avatar_url: Optional[str] = None
 
-@app.delete("/api/user/schedule/{class_id}")
-async def remove_from_schedule(class_id: str):
-    """Remove class from user's schedule"""
-    return {"message": f"Removed class {class_id} from schedule"}
+class UserResponse(BaseModel):
+    id: int
+    github_id: str
+    email: str
+    name: str
+    avatar_url: Optional[str]
+    major: Optional[str]
+    created_at: datetime
+    
+class ScheduleResponse(BaseModel):
+    id: int
+    name: str
+    is_active: bool
+    semester: str
+    created_at: datetime
+    class_ids: List[str]
+
+@app.post("/api/auth/user", response_model=UserResponse)
+async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get_db)):
+    """Create or update user from GitHub OAuth"""
+    # Check if user exists
+    user = db.query(User).filter(User.github_id == user_data.github_id).first()
+    
+    if user:
+        # Update existing user
+        user.email = user_data.email
+        user.name = user_data.name
+        user.avatar_url = user_data.avatar_url
+    else:
+        # Create new user
+        user = User(
+            github_id=user_data.github_id,
+            email=user_data.email,
+            name=user_data.name,
+            avatar_url=user_data.avatar_url
+        )
+        db.add(user)
+        db.flush()
+        
+        # Create default schedule for new user
+        default_schedule = Schedule(
+            user_id=user.id,
+            name="Spring 2025 Schedule",
+            is_active=True,
+            semester="202510"
+        )
+        db.add(default_schedule)
+    
+    db.commit()
+    db.refresh(user)
+    
+    return UserResponse(
+        id=user.id,
+        github_id=user.github_id,
+        email=user.email,
+        name=user.name,
+        avatar_url=user.avatar_url,
+        major=user.major,
+        created_at=user.created_at
+    )
+
+@app.get("/api/users/{github_id}/schedules", response_model=List[ScheduleResponse])
+async def get_user_schedules(github_id: str, db: Session = Depends(get_db)):
+    """Get all schedules for a user"""
+    user = db.query(User).filter(User.github_id == github_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    schedules = db.query(Schedule).filter(Schedule.user_id == user.id).all()
+    
+    response = []
+    for schedule in schedules:
+        class_ids = [sc.class_id for sc in schedule.scheduled_classes]
+        response.append(ScheduleResponse(
+            id=schedule.id,
+            name=schedule.name,
+            is_active=schedule.is_active,
+            semester=schedule.semester,
+            created_at=schedule.created_at,
+            class_ids=class_ids
+        ))
+    
+    return response
+
+@app.get("/api/users/{github_id}/active-schedule")
+async def get_active_schedule(github_id: str, db: Session = Depends(get_db)):
+    """Get user's active schedule with full class details"""
+    user = db.query(User).filter(User.github_id == github_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get active schedule
+    schedule = db.query(Schedule).filter(
+        Schedule.user_id == user.id,
+        Schedule.is_active == True
+    ).first()
+    
+    if not schedule:
+        # Create default schedule if none exists
+        schedule = Schedule(
+            user_id=user.id,
+            name="Spring 2025 Schedule",
+            is_active=True,
+            semester="202510"
+        )
+        db.add(schedule)
+        db.commit()
+        db.refresh(schedule)
+    
+    # Get scheduled classes with full details
+    scheduled_classes = []
+    for sc in schedule.scheduled_classes:
+        cls = sc.class_
+        ratings = get_professor_rating(cls.id, cls.instructor, db)
+        time_str = format_meeting_times(cls.meetingTimes)
+        days = [mt.days for mt in cls.meetingTimes if mt.days]
+        location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
+        
+        # Clean up title (remove "Lab-" prefix if present)
+        clean_title = cls.title
+        if clean_title.startswith("Lab-"):
+            clean_title = clean_title[4:]
+        
+        scheduled_classes.append({
+            "id": cls.id,
+            "subject": cls.subject,
+            "number": cls.courseNumber,
+            "title": clean_title,
+            "instructor": cls.instructor or "TBA",
+            "credits": cls.credits or 3,
+            "time": time_str,
+            "location": location,
+            "days": days,
+            "type": cls.type or "",
+            "color": sc.color,
+            "available_seats": cls.availableSeats or 0,
+            "total_seats": cls.totalSeats or 0,
+            "rating": ratings["rating"],
+            "difficulty": ratings["difficulty"],
+            "wouldTakeAgain": ratings["wouldTakeAgain"]
+        })
+    
+    return {
+        "schedule_id": schedule.id,
+        "schedule_name": schedule.name,
+        "classes": scheduled_classes
+    }
+
+class ScheduleUpdate(BaseModel):
+    class_ids: List[str]
+    colors: Optional[dict] = {}  # Map of class_id to color
+
+@app.put("/api/schedules/{schedule_id}/classes")
+async def update_schedule_classes(
+    schedule_id: int, 
+    update: ScheduleUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update classes in a schedule (add/remove)"""
+    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    # Remove all existing scheduled classes
+    db.query(ScheduledClass).filter(ScheduledClass.schedule_id == schedule_id).delete()
+    
+    # Add new scheduled classes
+    for class_id in update.class_ids:
+        # Verify class exists
+        cls = db.query(ClassModel).filter(ClassModel.id == class_id).first()
+        if not cls:
+            continue
+        
+        color = update.colors.get(class_id, "#3b82f6")
+        scheduled_class = ScheduledClass(
+            schedule_id=schedule_id,
+            class_id=class_id,
+            color=color
+        )
+        db.add(scheduled_class)
+    
+    schedule.updated_at = datetime.utcnow()
+    db.commit()
+    
+    return {"message": "Schedule updated successfully", "class_count": len(update.class_ids)}
+
+@app.put("/api/users/{github_id}/major")
+async def update_user_major(github_id: str, major: str, db: Session = Depends(get_db)):
+    """Update user's selected major"""
+    user = db.query(User).filter(User.github_id == github_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.major = major
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    
+    return {"message": "Major updated successfully", "major": major}
+
+@app.post("/api/schedules")
+async def create_schedule(
+    github_id: str,
+    name: str,
+    semester: str = "202510",
+    db: Session = Depends(get_db)
+):
+    """Create a new schedule for a user"""
+    user = db.query(User).filter(User.github_id == github_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Set all other schedules as inactive
+    db.query(Schedule).filter(Schedule.user_id == user.id).update({"is_active": False})
+    
+    # Create new schedule
+    schedule = Schedule(
+        user_id=user.id,
+        name=name,
+        is_active=True,
+        semester=semester
+    )
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    
+    return ScheduleResponse(
+        id=schedule.id,
+        name=schedule.name,
+        is_active=schedule.is_active,
+        semester=schedule.semester,
+        created_at=schedule.created_at,
+        class_ids=[]
+    )
 
 if __name__ == "__main__":
     import uvicorn
