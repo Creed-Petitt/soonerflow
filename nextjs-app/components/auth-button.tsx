@@ -24,11 +24,11 @@ export function AuthButton() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-            <Avatar className="h-10 w-10">
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
               <AvatarImage src={session.user?.image || ""} alt={session.user?.name || ""} />
               <AvatarFallback>
-                <User className="h-4 w-4" />
+                <User className="h-3 w-3" />
               </AvatarFallback>
             </Avatar>
           </Button>

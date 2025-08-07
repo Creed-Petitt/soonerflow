@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { MainNavigation } from "@/components/main-navigation"
+import CustomNavbar from "@/components/custom-navbar"
 import Link from "next/link"
 
 export default function Page() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <MainNavigation />
+      <CustomNavbar />
 
       {/* Main Content Area */}
       <main className="flex-1 p-6">

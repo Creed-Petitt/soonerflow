@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { MainNavigation } from "@/components/main-navigation"
-import { Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown, Save } from "lucide-react"
+import CustomNavbar from "@/components/custom-navbar"
+import { Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown, Save, PanelLeftClose, PanelLeft } from "lucide-react"
 import { ExpandableClassCard } from "@/components/expandable-class-card"
 import { GroupedClassCard } from "@/components/grouped-class-card"
 import { LabSelectionModal } from "@/components/lab-selection-modal"
@@ -151,7 +151,6 @@ export default function SchedulerPage() {
   
   // Filter state
   const [selectedSubject, setSelectedSubject] = useState<string>("")
-  const [selectedCourseLevel, setSelectedCourseLevel] = useState<string>("")
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([])
   const [displayLimit, setDisplayLimit] = useState(50)
   
@@ -163,9 +162,30 @@ export default function SchedulerPage() {
   // Credit tracking
   const totalCredits = scheduledClasses.reduce((sum, cls) => sum + (cls.credits || 3), 0)
   
-  // Sync persisted classes with local state on load
+  // Sidebar collapse state with localStorage persistence
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Hydration effect - load from localStorage after hydration
+  useEffect(() => {
+    setIsHydrated(true)
+    const savedState = localStorage.getItem('scheduler-sidebar-collapsed')
+    if (savedState !== null) {
+      setSidebarCollapsed(JSON.parse(savedState))
+    }
+  }, [])
+
+  // Save to localStorage whenever state changes (after hydration)
+  useEffect(() => {
+    if (isHydrated) {
+      localStorage.setItem('scheduler-sidebar-collapsed', JSON.stringify(sidebarCollapsed))
+    }
+  }, [sidebarCollapsed, isHydrated])
+  
+  // Sync persisted classes with local state on load (only if authenticated)
   useEffect(() => {
     if (!scheduleLoading && persistedClasses && persistedClasses.length > 0) {
+      // Load persisted data for authenticated users
       const mappedClasses = persistedClasses.map((cls: any, index: number) => ({
         ...cls,
         number: cls.number || cls.courseNumber,
@@ -186,27 +206,17 @@ export default function SchedulerPage() {
   const creditLimit = 21 // Standard semester limit
   const isOverLimit = totalCredits > creditLimit
   
-  // Filtered grouped classes (Department and Course Level only)
+  // Filtered grouped classes (Department only)
   const filteredGroupedClasses = groupedClasses.filter(group => {
-    // Filter by subject
+    // Filter by subject only
     const matchesSubject = !selectedSubject || selectedSubject === "all" || group.subject === selectedSubject
-    
-    // Filter by course level
-    const courseNum = parseInt(group.number)
-    const matchesCourseLevel = !selectedCourseLevel || selectedCourseLevel === "" || selectedCourseLevel === "all" ||
-      (selectedCourseLevel === "1000" && courseNum >= 1000 && courseNum < 2000) ||
-      (selectedCourseLevel === "2000" && courseNum >= 2000 && courseNum < 3000) ||
-      (selectedCourseLevel === "3000" && courseNum >= 3000 && courseNum < 4000) ||
-      (selectedCourseLevel === "4000" && courseNum >= 4000 && courseNum < 5000) ||
-      (selectedCourseLevel === "5000+" && courseNum >= 5000)
-    
-    return matchesSubject && matchesCourseLevel
+    return matchesSubject
   })
 
   // Reset display limit when filters change
   useEffect(() => {
     setDisplayLimit(50)
-  }, [selectedSubject, selectedCourseLevel])
+  }, [selectedSubject])
 
   // Load initial subjects list
   useEffect(() => {
@@ -662,75 +672,68 @@ export default function SchedulerPage() {
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
-      <MainNavigation />
+      <CustomNavbar />
 
       {/* Main Content - 2 Panel Layout */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         
-        {/* Left Panel - Available Classes (wider width) */}
-        <div className="w-[200px] border-r border-border bg-muted/20 flex flex-col">
-          {/* Filter Section - Stacked Dropdowns */}
-          <div className="p-3 border-b border-border bg-background space-y-2.5" data-filter-section>
-            {/* Department Filter */}
-            <div>
-              <Label className="text-xs font-medium block mb-1.5">Department</Label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger className="h-9 w-full text-sm px-3">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent className="[&_[role=option]]:!ps-2 [&_[data-slot=select-item]]:!ps-2 min-w-[180px]">
-                  {availableSubjects.map((subject) => (
-                    <SelectItem key={subject} value={subject} className="text-sm">
-                      {subject}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Course Level Filter */}
-            <div>
-              <Label className="text-xs font-medium block mb-1.5">Level</Label>
-              <Select value={selectedCourseLevel} onValueChange={setSelectedCourseLevel}>
-                <SelectTrigger className="h-9 w-full text-sm px-3">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent className="[&_[role=option]]:!ps-2 [&_[data-slot=select-item]]:!ps-2 min-w-[180px] [&_.lucide-check]:hidden">
-                  <SelectItem value="all" className="text-sm">All</SelectItem>
-                  <SelectItem value="1000" className="text-sm">1000</SelectItem>
-                  <SelectItem value="2000" className="text-sm">2000</SelectItem>
-                  <SelectItem value="3000" className="text-sm">3000</SelectItem>
-                  <SelectItem value="4000" className="text-sm">4000</SelectItem>
-                  <SelectItem value="5000+" className="text-sm">5000+</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Left Panel - Available Classes (narrower width) */}
+        <div className={`bg-background flex flex-col transition-all duration-300 ease-in-out ${
+          sidebarCollapsed ? 'w-8 overflow-hidden' : 'w-[180px]'
+        } ${!isHydrated ? 'opacity-0' : 'opacity-100'}`}>
+          {/* Filter Section - Department Only */}
+          <div className={sidebarCollapsed ? "py-2 px-0 bg-background" : "p-2 bg-background"} data-filter-section>
+            {sidebarCollapsed ? (
+              /* Collapsed State - Only Show Toggle Button */
+              <div className="flex justify-center items-center px-0 py-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="h-8 w-8 p-0 rounded-sm ml-2 hover:bg-transparent"
+                  title="Show sidebar"
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              /* Expanded State - Show Department Filter with Collapse Icon */
+              <div className="flex items-center gap-2">
+                <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                  <SelectTrigger className="h-8 w-32 text-xs px-2">
+                    <SelectValue placeholder="Department" />
+                  </SelectTrigger>
+                  <SelectContent className="[&_[role=option]]:!ps-2 [&_[data-slot=select-item]]:!ps-2 min-w-[140px] [&_.lucide-check]:hidden">
+                    {availableSubjects.map((subject) => (
+                      <SelectItem key={subject} value={subject} className="text-xs relative [&[data-state=checked]]:bg-transparent [&[data-state=checked]]:before:content-[''] [&[data-state=checked]]:before:absolute [&[data-state=checked]]:before:left-0 [&[data-state=checked]]:before:top-0 [&[data-state=checked]]:before:bottom-0 [&[data-state=checked]]:before:w-0.5 [&[data-state=checked]]:before:bg-red-500">
+                        {subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {/* Sidebar Toggle Button - right next to filter */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="h-8 w-8 p-0 hover:bg-muted rounded-sm"
+                  title="Hide sidebar"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
           
           {/* Class List */}
-          <div className="flex-1 overflow-y-auto px-1 py-0.5 relative [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-0 [&::-webkit-scrollbar-button]:hidden scrollbar-thin" data-scroll-container="class-list">
+          {!sidebarCollapsed && (
+            <div className="flex-1 overflow-y-auto px-3 py-1 relative [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-0 [&::-webkit-scrollbar-button]:hidden scrollbar-thin" data-scroll-container="class-list">
             <div>
-              {!selectedSubject && !loading ? (
-                // Welcome state - show when no department selected
-                <div className="text-center py-12 text-muted-foreground">
-                  <div className="text-lg font-medium mb-2">Find Your Classes</div>
-                  <div className="text-sm">Select departments to get started</div>
-                </div>
-              ) : loading && filteredGroupedClasses.length === 0 ? (
-                // Loading state - only when no previous results
-                <div className="text-center py-8 text-muted-foreground">
-                  <div className="animate-pulse">Loading classes...</div>
-                </div>
-              ) : filteredGroupedClasses.length === 0 && !loading ? (
-                // No results state
-                <div className="text-center py-8 text-muted-foreground">
-                  <div className="text-lg font-medium mb-1">No classes found</div>
-                  <div className="text-sm">Try adjusting your filters</div>
-                </div>
-              ) : (
+              {filteredGroupedClasses.length > 0 && (
                 // Results - show even while loading to prevent flash
                 <>
-                  <div className={`space-y-1 ${loading ? 'opacity-75' : ''} pt-1`}>
+                  <div className={`space-y-2 ${loading ? 'opacity-75' : ''} pt-1`}>
                     {filteredGroupedClasses.slice(0, displayLimit).map((group) => {
                       const isAnyScheduled = group.sections.some(section => 
                         scheduledClasses.find(scheduled => scheduled.id === section.id)
@@ -764,102 +767,16 @@ export default function SchedulerPage() {
                 </>
               )}
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
+        
         {/* Right Panel - Calendar with Header Badges */}
-        <div className="flex-1 flex flex-col overflow-y-auto ml-2">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           
           {/* Calendar Section - Full Height */}
           <div className="flex-1 p-2 pt-0 flex flex-col min-h-0">
-            {/* Custom Calendar Header */}
-            <div className="flex items-center justify-between mb-2 px-2">
-              {/* Left Side - Credits and Course Badges */}
-              <div className="flex items-center gap-2 flex-1">
-                {/* Credits Display */}
-                {scheduledClasses.length > 0 && (
-                  <div className="text-xs font-medium text-foreground flex items-center py-1 mt-1 -mb-1">
-                    {totalCredits} credits
-                    {isSaving && (
-                      <span className="ml-2 text-muted-foreground flex items-center gap-1">
-                        <Save className="h-3 w-3 animate-pulse" />
-                        Saving...
-                      </span>
-                    )}
-                    {!isSaving && isAuthenticated && !scheduleLoading && (
-                      <span className="ml-2 text-muted-foreground">
-                        Saved
-                      </span>
-                    )}
-                  </div>
-                )}
-                
-                {/* Course Badges - Group lectures and labs together */}
-                <div className="flex items-center gap-1.5 flex-wrap place-items-center">
-                {Object.entries(
-                  scheduledClasses.reduce((groups: Record<string, { lecture?: ScheduledClass, lab?: ScheduledClass }>, cls) => {
-                    const key = `${cls.subject}-${cls.number}`
-                    if (!groups[key]) groups[key] = {}
-                    
-                    if (cls.type === 'Lab with No Credit') {
-                      groups[key].lab = cls
-                    } else {
-                      groups[key].lecture = cls
-                    }
-                    return groups
-                  }, {})
-                ).map(([key, group]) => {
-                  const { lecture, lab } = group
-                  const displayClass = lecture || lab! // Use lecture as primary, or lab if no lecture
-                  
-                  // Find related grouped class for lab switching
-                  const relatedGroupedClass = groupedClasses.find(gc => 
-                    `${gc.subject}-${gc.number}` === key
-                  )
-                  const availableLabSections = relatedGroupedClass?.labSections || []
-                  
-                  return (
-                    <div
-                      key={key}
-                      className="group relative inline-flex items-baseline gap-1 px-2 py-1 mt-1 -mb-1 rounded-md text-xs font-medium bg-muted/30 transition-all duration-200 hover:bg-muted/50"
-                    >
-                      <span className="font-mono font-semibold">
-                        {displayClass.subject} {displayClass.number}
-                      </span>
-                      
-                      {/* Lab Switch Button - only show if we have a lab and multiple lab options */}
-                      {lab && availableLabSections.length > 1 && (
-                        <LabSwitchingDropdown
-                          lectureClass={lecture || lab}
-                          currentLabClass={lab}
-                          availableLabSections={availableLabSections}
-                          scheduledClasses={scheduledClasses}
-                          onSwitchLab={(newLab) => handleLabSwitch(lab, newLab)}
-                        >
-                          <button className="opacity-60 hover:opacity-100 transition-opacity">
-                            <ChevronDown className="h-3 w-3" />
-                          </button>
-                        </LabSwitchingDropdown>
-                      )}
-                      
-                      {/* Remove button */}
-                      <X 
-                        className="h-3 w-3 opacity-0 group-hover:opacity-100 ml-1 cursor-pointer transition-all duration-200 relative"
-                        style={{ top: '1.9px' }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // Remove both lecture and lab if they exist
-                          if (lecture) removeFromSchedule(lecture.id)
-                          if (lab) removeFromSchedule(lab.id)
-                        }}
-                      />
-                    </div>
-                  )
-                })}
-                </div>
-              </div>
-            </div>
-            
             <div className="flex-1 relative">
               <EventCalendar
                 events={calendarEvents}
@@ -868,6 +785,12 @@ export default function SchedulerPage() {
                 onEventDelete={handleEventDelete}
                 initialView="week"
                 className="h-full"
+                scheduledClasses={scheduledClasses}
+                totalCredits={totalCredits}
+                isSaving={isSaving}
+                groupedClasses={groupedClasses}
+                onRemoveFromSchedule={removeFromSchedule}
+                onLabSwitch={handleLabSwitch}
               />
               
               {/* Empty state overlay */}

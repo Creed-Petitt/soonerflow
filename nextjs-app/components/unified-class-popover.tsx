@@ -184,14 +184,14 @@ export function UnifiedClassPopover({
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
         <Button 
-          variant="outline" 
+          variant="ghost" 
           size="sm" 
-          className="h-10 px-4 text-sm font-medium sans-serif hover:bg-accent w-full justify-center"
+          className="h-8 px-3 text-sm font-medium sans-serif hover:bg-accent/50 w-full justify-start rounded-md border-0 shadow-none"
         >
           <span className="flex items-center gap-2">
-            <span>{groupedClass.subject} {groupedClass.number}</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground font-medium">{toRomanNumeral(groupedClass.credits || 3)}</span>
+            <span className="font-semibold">{groupedClass.subject} {groupedClass.number}</span>
+            <span className="text-muted-foreground text-xs">•</span>
+            <span className="text-muted-foreground font-medium text-xs">{toRomanNumeral(groupedClass.credits || 3)}</span>
           </span>
         </Button>
       </DialogTrigger>

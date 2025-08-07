@@ -18,6 +18,9 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PlusIcon,
+  X,
+  ChevronDown,
+  Save,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -39,6 +42,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { LabSwitchingDropdown } from "@/components/lab-switching-dropdown"
 
 export interface EventCalendarProps {
   events?: CalendarEvent[]
@@ -47,6 +51,12 @@ export interface EventCalendarProps {
   onEventDelete?: (eventId: string) => void
   className?: string
   initialView?: CalendarView
+  scheduledClasses?: any[]
+  totalCredits?: number
+  isSaving?: boolean
+  groupedClasses?: any[]
+  onRemoveFromSchedule?: (id: string) => void
+  onLabSwitch?: (currentLab: any, newLab: any) => void
 }
 
 export function EventCalendar({
@@ -56,6 +66,12 @@ export function EventCalendar({
   onEventDelete,
   className,
   initialView = "month",
+  scheduledClasses = [],
+  totalCredits = 0,
+  isSaving = false,
+  groupedClasses = [],
+  onRemoveFromSchedule,
+  onLabSwitch,
 }: EventCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<CalendarView>(initialView)
@@ -271,14 +287,89 @@ export function EventCalendar({
           )}
         >
           <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={handleToday}
-            >
-              Today
-            </Button>
+            {/* Class Badges - replacing Today button */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {Object.entries(
+                scheduledClasses.reduce((groups: Record<string, { lecture?: any, lab?: any }>, cls) => {
+                  const key = `${cls.subject}-${cls.number}`
+                  if (!groups[key]) groups[key] = {}
+                  
+                  if (cls.type === 'Lab with No Credit') {
+                    groups[key].lab = cls
+                  } else {
+                    groups[key].lecture = cls
+                  }
+                  return groups
+                }, {})
+              ).map(([key, group]) => {
+                const { lecture, lab } = group
+                const displayClass = lecture || lab! // Use lecture as primary, or lab if no lecture
+                
+                // Find related grouped class for lab switching
+                const relatedGroupedClass = groupedClasses.find((gc: any) => 
+                  `${gc.subject}-${gc.number}` === key
+                )
+                const availableLabSections = relatedGroupedClass?.labSections || []
+                
+                return (
+                  <div
+                    key={key}
+                    className="group relative inline-flex items-baseline gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 hover:opacity-80"
+                    style={{ backgroundColor: `${displayClass.colorHex}15`, borderLeft: `2px solid ${displayClass.colorHex}` }}
+                  >
+                    <span className="font-mono font-semibold">
+                      {displayClass.subject} {displayClass.number}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {displayClass.credits || 3}cr
+                    </span>
+                    
+                    {/* Lab Switch Button - only show if we have a lab and multiple lab options */}
+                    {lab && availableLabSections.length > 1 && onLabSwitch && (
+                      <LabSwitchingDropdown
+                        lectureClass={lecture || lab}
+                        currentLabClass={lab}
+                        availableLabSections={availableLabSections}
+                        scheduledClasses={scheduledClasses}
+                        onSwitchLab={(newLab) => onLabSwitch(lab, newLab)}
+                      >
+                        <button className="opacity-60 hover:opacity-100 transition-opacity">
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </LabSwitchingDropdown>
+                    )}
+                    
+                    {/* Remove button */}
+                    {onRemoveFromSchedule && (
+                      <X 
+                        className="h-3 w-3 opacity-0 group-hover:opacity-100 ml-1 cursor-pointer transition-all duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Remove both lecture and lab if they exist
+                          if (lecture) onRemoveFromSchedule(lecture.id)
+                          if (lab) onRemoveFromSchedule(lab.id)
+                        }}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            
+            {/* Total Credits - right after class badges */}
+            {scheduledClasses.length > 0 && (
+              <div className="text-xs font-medium text-foreground ml-3">
+                {totalCredits} credits
+                {isSaving && (
+                  <span className="ml-2 text-muted-foreground">
+                    <Save className="h-3 w-3 animate-pulse inline ml-1" />
+                    Saving...
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-0.5">
               <Button
                 variant="ghost"
