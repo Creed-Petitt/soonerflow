@@ -34,7 +34,7 @@ import {
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/scheduler", label: "Scheduler", icon: CalendarDaysIcon },
-  { href: "#", label: "Degree Progress", icon: TrendingUpIcon, disabled: true },
+  { href: "/progress", label: "Degree Progress", icon: TrendingUpIcon },
 ]
 
 export default function CustomNavbar() {
