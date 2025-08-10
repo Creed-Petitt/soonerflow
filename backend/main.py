@@ -12,7 +12,7 @@ import os
 sys.path.append('/home/highs/ou-class-manager')
 from database.models import (
     Class as ClassModel, MeetingTime, Professor as ProfessorModel, Rating,
-    User, Schedule, ScheduledClass,
+    User, Schedule, ScheduledClass, Major, MajorCourse,
     create_engine_and_session, Base
 )
 
@@ -677,6 +677,23 @@ async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get
         created_at=user.created_at
     )
 
+@app.get("/api/users/{github_id}", response_model=UserResponse)
+async def get_user(github_id: str, db: Session = Depends(get_db)):
+    """Get user by GitHub ID"""
+    user = db.query(User).filter(User.github_id == github_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return UserResponse(
+        id=user.id,
+        github_id=user.github_id,
+        email=user.email,
+        name=user.name,
+        avatar_url=user.avatar_url,
+        major=user.major,
+        created_at=user.created_at
+    )
+
 @app.get("/api/users/{github_id}/schedules", response_model=List[ScheduleResponse])
 async def get_user_schedules(github_id: str, db: Session = Depends(get_db)):
     """Get all schedules for a user"""
@@ -802,18 +819,21 @@ async def update_schedule_classes(
     
     return {"message": "Schedule updated successfully", "class_count": len(update.class_ids)}
 
+class MajorUpdate(BaseModel):
+    major: str
+
 @app.put("/api/users/{github_id}/major")
-async def update_user_major(github_id: str, major: str, db: Session = Depends(get_db)):
+async def update_user_major(github_id: str, major_data: MajorUpdate, db: Session = Depends(get_db)):
     """Update user's selected major"""
     user = db.query(User).filter(User.github_id == github_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user.major = major
+    user.major = major_data.major
     user.updated_at = datetime.utcnow()
     db.commit()
     
-    return {"message": "Major updated successfully", "major": major}
+    return {"message": "Major updated successfully", "major": major_data.major}
 
 @app.post("/api/schedules")
 async def create_schedule(
@@ -849,6 +869,58 @@ async def create_schedule(
         created_at=schedule.created_at,
         class_ids=[]
     )
+
+@app.get("/api/majors")
+async def get_majors(db: Session = Depends(get_db)):
+    """Get all available majors"""
+    majors = db.query(Major).all()
+    return [
+        {
+            "id": major.id,
+            "name": major.name,
+            "department": major.department,
+            "college": major.college,
+        }
+        for major in majors
+    ]
+
+@app.get("/api/major-courses")
+async def get_major_courses(major_name: str, db: Session = Depends(get_db)):
+    """Get all courses for a specific major by name"""
+    # Find the major
+    major = db.query(Major).filter(Major.name == major_name).first()
+    if not major:
+        raise HTTPException(status_code=404, detail="Major not found")
+    
+    # Get all courses across all requirements for this major, with actual titles from classes table
+    courses = db.execute(text("""
+        SELECT 
+            mc.subject, 
+            mc.courseNumber, 
+            COALESCE(c.title, mc.title) as title, 
+            COALESCE(c.credits, mc.credits, 3) as credits, 
+            r.categoryName
+        FROM major_courses mc
+        JOIN requirements r ON mc.requirementId = r.id
+        LEFT JOIN (
+            SELECT DISTINCT subject, courseNumber, title, credits
+            FROM classes 
+            WHERE title NOT LIKE 'Lab-%'
+        ) c ON mc.subject = c.subject AND mc.courseNumber = c.courseNumber
+        WHERE r.majorId = :major_id
+        ORDER BY r.categoryName, mc.subject, mc.courseNumber
+    """), {"major_id": major.id}).fetchall()
+    
+    return [
+        {
+            "subject": course.subject,
+            "courseNumber": course.courseNumber, 
+            "title": course.title or f"{course.subject} {course.courseNumber}",
+            "credits": course.credits or 3,
+            "category": course.categoryName
+        }
+        for course in courses
+    ]
 
 if __name__ == "__main__":
     import uvicorn

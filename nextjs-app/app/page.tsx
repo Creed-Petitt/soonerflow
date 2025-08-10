@@ -10,19 +10,23 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If user is authenticated, redirect to dashboard/scheduler
+    // If user is authenticated, check if they need onboarding
     if (status === "authenticated" && session) {
-      router.push("/scheduler"); // For now, redirect to scheduler since dashboard doesn't exist yet
+      if (session.user.needsOnboarding) {
+        router.push("/onboarding");
+      } else {
+        router.push("/dashboard"); // Changed from scheduler to dashboard
+      }
     }
   }, [status, session, router]);
 
   // Show loading state while checking authentication
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white via-gray-50/50 to-white">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-gray-400">Loading...</p>
         </div>
       </div>
     );

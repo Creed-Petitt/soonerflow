@@ -47,6 +47,49 @@ class MeetingTime(Base):
     # Relationships
     class_ = relationship("Class", back_populates="meetingTimes")
 
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    github_id = Column(String, unique=True, nullable=False, index=True)  # GitHub user ID
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String)
+    avatar_url = Column(String)
+    major = Column(String)  # Selected major (e.g., "Computer Science")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    schedules = relationship("Schedule", back_populates="user", cascade="all, delete-orphan")
+
+class Schedule(Base):
+    __tablename__ = 'schedules'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    name = Column(String, default="My Schedule")  # Schedule name
+    is_active = Column(Boolean, default=True)  # Currently active schedule
+    semester = Column(String, default="202510")  # Semester code
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="schedules")
+    scheduled_classes = relationship("ScheduledClass", back_populates="schedule", cascade="all, delete-orphan")
+
+class ScheduledClass(Base):
+    __tablename__ = 'scheduled_classes'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    schedule_id = Column(Integer, ForeignKey('schedules.id', ondelete='CASCADE'), nullable=False)
+    class_id = Column(String, ForeignKey('classes.id', ondelete='CASCADE'), nullable=False)
+    color = Column(String, default="#3b82f6")  # Hex color for calendar display
+    added_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    schedule = relationship("Schedule", back_populates="scheduled_classes")
+    class_ = relationship("Class")
+
 class Department(Base):
     __tablename__ = 'departments'
     

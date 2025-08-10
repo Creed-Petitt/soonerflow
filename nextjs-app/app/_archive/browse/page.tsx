@@ -159,7 +159,7 @@ export default function BrowsePage() {
         ...(selectedSemester !== "all" && { semester: selectedSemester }),
       })
       
-      const url = `http://127.0.0.1:8000/api/classes?${params}`
+      const url = `/api/classes?${params}`
       console.log('Fetching from:', url)
       
       const response = await fetch(url)
@@ -201,7 +201,7 @@ export default function BrowsePage() {
   React.useEffect(() => {
     const loadDepartments = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/classes?limit=200')
+        const response = await fetch('/api/classes?limit=200')
         const data = await response.json()
         if (data.classes) {
           const uniqueSubjects = Array.from(new Set(data.classes.map((cls: any) => cls.subject))).sort()

@@ -3,28 +3,37 @@
 import * as React from "react"
 import { useState, useEffect } from "react"
 import { EventCalendar, type CalendarEvent } from "@/components/event-calendar/event-calendar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { Calendar } from "@/components/ui/calendar"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 import CustomNavbar from "@/components/custom-navbar"
-import { Plus, X, Clock, MapPin, Users, Star, Calendar as CalendarIcon, Settings, ChevronLeft, ChevronRight, ChevronDown, Save, PanelLeftClose, PanelLeft } from "lucide-react"
-import { ExpandableClassCard } from "@/components/expandable-class-card"
-import { GroupedClassCard } from "@/components/grouped-class-card"
-import { LabSelectionModal } from "@/components/lab-selection-modal"
+import { 
+  X, 
+  Calendar as CalendarIcon, 
+  ChevronRight, 
+  FileDown, 
+  Printer, 
+  BookOpen, 
+  GraduationCap,
+  Clock,
+  MapPin,
+  User
+} from "lucide-react"
 import { LabSwitchingDropdown } from "@/components/lab-switching-dropdown"
-import { AuthButton } from "@/components/auth-button"
 import { useSchedule } from "@/hooks/use-schedule"
+import useCourseStore from "@/stores/useCourseStore"
 import Link from "next/link"
-
-// Removed momentLocalizer as Origin UI calendar handles this internally
+import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface ClassData {
   id: string
@@ -41,7 +50,9 @@ interface ClassData {
   available_seats?: number
   total_seats?: number
   description?: string
-  type?: string  // ADDED: Class type (Lecture, Lab with No Credit, etc.)
+  type?: string
+  grade?: string  // For completed courses
+  semester?: string  // When the course was/will be taken
 }
 
 interface ScheduledClass extends ClassData {
@@ -58,66 +69,6 @@ interface GroupedClass {
   labSections?: ClassData[]
 }
 
-// API function
-const fetchClasses = async (filters: any = {}): Promise<ClassData[]> => {
-  try {
-    const params = new URLSearchParams()
-    if (filters.subject) params.set('subject', filters.subject)
-    if (filters.search) params.set('search', filters.search)
-    if (filters.level) params.set('level', filters.level)
-    // Only fetch a reasonable number - filtered by subject/search on backend
-    params.set('limit', '500')
-    
-    const url = `http://127.0.0.1:8000/api/classes?${params}`
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Failed to fetch classes')
-    
-    const data = await response.json()
-    return data.classes || []
-  } catch (error) {
-    console.error('Error fetching classes:', error)
-    return []
-  }
-}
-
-// Group classes by subject and number, handling lecture/lab separation using type field
-const groupClasses = (classes: ClassData[]): GroupedClass[] => {
-  const groups = new Map<string, GroupedClass>()
-  
-  classes.forEach(cls => {
-    const key = `${cls.subject}-${cls.number}`
-    const isLabSection = cls.type === 'Lab with No Credit'
-    
-    if (!groups.has(key)) {
-      groups.set(key, {
-        subject: cls.subject,
-        number: cls.number,
-        title: cls.title,
-        credits: cls.credits,
-        sections: [],
-        labSections: []
-      })
-    }
-    
-    const group = groups.get(key)!
-    
-    if (isLabSection) {
-      // Add to lab sections
-      group.labSections!.push(cls)
-    } else {
-      // Add to regular sections (lectures, seminars, etc.)
-      group.sections.push(cls)
-    }
-  })
-  
-  // Filter out groups that only have lab sections (orphaned labs)
-  const validGroups = Array.from(groups.values()).filter(group => 
-    group.sections.length > 0
-  )
-  
-  return validGroups
-}
-
 // Class colors for visual distinction
 const classColors = [
   { bg: 'bg-blue-500', hex: '#3b82f6' },
@@ -130,11 +81,59 @@ const classColors = [
   { bg: 'bg-red-500', hex: '#ef4444' }
 ]
 
+// Enrolled Class Card Component
+function EnrolledClassCard({ 
+  classData, 
+  onRemove, 
+  onSwitchSection,
+  availableSections,
+  availableLabSections 
+}: { 
+  classData: ScheduledClass
+  onRemove: () => void
+  onSwitchSection?: (newSection: ClassData) => void
+  availableSections?: ClassData[]
+  availableLabSections?: ClassData[]
+}) {
+  const hasMultipleSections = (availableSections && availableSections.length > 1) || 
+                              (classData.type === 'Lab with No Credit' && availableLabSections && availableLabSections.length > 1)
+  
+  return (
+    <Card className="p-2 relative group hover:shadow-md transition-shadow">
+      {/* Color indicator bar */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${classData.colorBg} rounded-l`} />
+      
+      <div className="pl-2">
+        {/* Header with course code and remove button */}
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="font-semibold text-sm">{classData.subject} {classData.number}</span>
+            {/* Course title */}
+            <p className="text-xs text-muted-foreground line-clamp-1">
+              {classData.title}
+            </p>
+          </div>
+          
+          {/* Remove button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export default function SchedulerPage() {
-  const [classes, setClasses] = useState<ClassData[]>([])
-  const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
+  const router = useRouter()
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
-  const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
   
   // Use the schedule hook for persistent storage
   const {
@@ -146,46 +145,21 @@ export default function SchedulerPage() {
     loading: scheduleLoading,
   } = useSchedule()
   
+  // Get scheduled courses from Zustand store
+  const scheduledCoursesFromStore = useCourseStore((state) => state.scheduledCourses)
+  const removeFromSchedule = useCourseStore((state) => state.removeFromSchedule)
+  const addToScheduleStore = useCourseStore((state) => state.addToSchedule)
+  
   // Local scheduled classes state (includes color info)
   const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([])
   
-  // Filter state
-  const [selectedSubject, setSelectedSubject] = useState<string>("")
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>([])
-  const [displayLimit, setDisplayLimit] = useState(50)
-  
-  // Lab selection modal state
-  const [labModalOpen, setLabModalOpen] = useState(false)
-  const [pendingLectureSection, setPendingLectureSection] = useState<ClassData | null>(null)
-  const [pendingLabSections, setPendingLabSections] = useState<ClassData[]>([])
-  
   // Credit tracking
   const totalCredits = scheduledClasses.reduce((sum, cls) => sum + (cls.credits || 3), 0)
+  const creditLimit = 21
   
-  // Sidebar collapse state with localStorage persistence
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [isHydrated, setIsHydrated] = useState(false)
-
-  // Hydration effect - load from localStorage after hydration
-  useEffect(() => {
-    setIsHydrated(true)
-    const savedState = localStorage.getItem('scheduler-sidebar-collapsed')
-    if (savedState !== null) {
-      setSidebarCollapsed(JSON.parse(savedState))
-    }
-  }, [])
-
-  // Save to localStorage whenever state changes (after hydration)
-  useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem('scheduler-sidebar-collapsed', JSON.stringify(sidebarCollapsed))
-    }
-  }, [sidebarCollapsed, isHydrated])
-  
-  // Sync persisted classes with local state on load (only if authenticated)
+  // Sync persisted classes with local state on load
   useEffect(() => {
     if (!scheduleLoading && persistedClasses && persistedClasses.length > 0) {
-      // Load persisted data for authenticated users
       const mappedClasses = persistedClasses.map((cls: any, index: number) => ({
         ...cls,
         number: cls.number || cls.courseNumber,
@@ -194,7 +168,21 @@ export default function SchedulerPage() {
       }))
       setScheduledClasses(mappedClasses)
       
-      // Generate calendar events for the restored classes
+      // Also sync with Zustand store for status tracking
+      mappedClasses.forEach(cls => {
+        addToScheduleStore({
+          id: cls.id,
+          code: `${cls.subject} ${cls.number}`,
+          name: cls.title,
+          credits: cls.credits || 3,
+          section: cls.id,
+          time: cls.time || 'TBA',
+          location: cls.location || 'TBA',
+          instructor: cls.instructor || 'TBA'
+        }, 'Spring 2025')
+      })
+      
+      // Generate calendar events
       const allEvents: CalendarEvent[] = []
       mappedClasses.forEach(cls => {
         const events = parseTimeToEvents(cls)
@@ -202,76 +190,60 @@ export default function SchedulerPage() {
       })
       setCalendarEvents(allEvents)
     }
-  }, [persistedClasses, scheduleLoading])
-  const creditLimit = 21 // Standard semester limit
-  const isOverLimit = totalCredits > creditLimit
+  }, [persistedClasses, scheduleLoading, addToScheduleStore])
   
-  // Filtered grouped classes (Department only)
-  const filteredGroupedClasses = groupedClasses.filter(group => {
-    // Filter by subject only
-    const matchesSubject = !selectedSubject || selectedSubject === "all" || group.subject === selectedSubject
-    return matchesSubject
-  })
-
-  // Reset display limit when filters change
+  // Also sync with Zustand store
   useEffect(() => {
-    setDisplayLimit(50)
-  }, [selectedSubject])
-
-  // Load initial subjects list
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setLoading(true)
-      try {
-        // Load subjects list
-        const response = await fetch('http://127.0.0.1:8000/api/classes?limit=200')
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const data = await response.json()
-        const subjects = data.filters?.departments || []
-        setAvailableSubjects(subjects)
-      } catch (error) {
-        console.error('Failed to load subjects:', error)
-        setAvailableSubjects(['CS', 'MATH', 'PHYS', 'CHEM', 'BIOL', 'ENGL', 'HIST'])
-      }
-      setLoading(false)
+    const coursesArray = Array.from(scheduledCoursesFromStore.values())
+    if (coursesArray.length > 0) {
+      const mappedClasses = coursesArray.map((cls: any, index: number) => ({
+        ...cls,
+        subject: cls.code?.split(' ')[0] || cls.subject,
+        number: cls.code?.split(' ')[1] || cls.number,
+        colorBg: classColors[index % classColors.length].bg,
+        colorHex: classColors[index % classColors.length].hex,
+      }))
+      setScheduledClasses(mappedClasses)
+      
+      // Generate calendar events
+      const allEvents: CalendarEvent[] = []
+      mappedClasses.forEach(cls => {
+        const events = parseTimeToEvents(cls)
+        allEvents.push(...events)
+      })
+      setCalendarEvents(allEvents)
     }
-    
-    loadInitialData()
-  }, [])
+  }, [scheduledCoursesFromStore])
 
-  // Load classes based on selected filters
+  // Load grouped classes for section switching
   useEffect(() => {
-    const loadFilteredData = async () => {
-      // Only load if we have a subject selected
-      if (!selectedSubject || selectedSubject === "all") {
-        setClasses([])
-        setGroupedClasses([])
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
+    const loadGroupedClasses = async () => {
       try {
-        // Load classes for selected subject
-        const filters = { subject: selectedSubject }
-        const classesData = await fetchClasses(filters)
+        // Get unique subject codes from scheduled classes
+        const subjects = [...new Set(scheduledClasses.map(cls => cls.subject))]
         
-        setClasses(classesData)
+        // Load classes for each subject
+        const allClasses: ClassData[] = []
+        for (const subject of subjects) {
+          const response = await fetch(`/api/classes?subject=${subject}&limit=500`)
+          if (response.ok) {
+            const data = await response.json()
+            allClasses.push(...(data.classes || []))
+          }
+        }
         
-        // Group classes by subject and number
-        const grouped = groupClasses(classesData)
+        // Group classes
+        const grouped = groupClasses(allClasses)
         setGroupedClasses(grouped)
       } catch (error) {
-        console.error('Failed to load classes:', error)
+        console.error('Error loading grouped classes:', error)
       }
-      setLoading(false)
     }
     
-    const timeoutId = setTimeout(loadFilteredData, 100)
-    return () => clearTimeout(timeoutId)
-  }, [selectedSubject])
+    if (scheduledClasses.length > 0) {
+      loadGroupedClasses()
+    }
+  }, [scheduledClasses])
 
   const parseTimeToEvents = (classData: ScheduledClass) => {
     if (!classData.time || classData.time === 'TBA') return []
@@ -323,22 +295,19 @@ export default function SchedulerPage() {
       }
     }
     
-    // Create calendar events for each day - generate for multiple weeks to support all views
+    // Create calendar events for the semester
     const events = []
     const today = new Date()
-    const startOfSemester = new Date(today.getFullYear(), today.getMonth() - 1, 1) // Start a month ago
-    const endOfSemester = new Date(today.getFullYear(), today.getMonth() + 4, 30) // End 4 months from now
+    const startOfSemester = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const endOfSemester = new Date(today.getFullYear(), today.getMonth() + 4, 30)
     
     classDays.forEach(dayOfWeek => {
-      // Find all dates for this day of week within the semester
       const currentDate = new Date(startOfSemester)
       
-      // Move to the first occurrence of this day of week
       while (currentDate.getDay() !== dayOfWeek) {
         currentDate.setDate(currentDate.getDate() + 1)
       }
       
-      // Create events for every week until end of semester
       while (currentDate <= endOfSemester) {
         const startDate = new Date(currentDate)
         startDate.setHours(startTime.hour, startTime.min, 0, 0)
@@ -352,16 +321,17 @@ export default function SchedulerPage() {
           description: `${classData.title}\nInstructor: ${classData.instructor}\nLocation: ${classData.location}`,
           start: startDate,
           end: endDate,
-          color: classData.colorHex === '#3b82f6' ? 'sky' : 
-                 classData.colorHex === '#10b981' ? 'emerald' :
-                 classData.colorHex === '#8b5cf6' ? 'violet' :
-                 classData.colorHex === '#f97316' ? 'orange' :
-                 classData.colorHex === '#ec4899' ? 'rose' :
-                 classData.colorHex === '#f59e0b' ? 'amber' : 'sky',
+          color: classData.colorBg === 'bg-blue-500' ? 'sky' : 
+                 classData.colorBg === 'bg-green-500' ? 'emerald' :
+                 classData.colorBg === 'bg-purple-500' ? 'violet' :
+                 classData.colorBg === 'bg-orange-500' ? 'orange' :
+                 classData.colorBg === 'bg-pink-500' ? 'rose' :
+                 classData.colorBg === 'bg-teal-500' ? 'teal' :
+                 classData.colorBg === 'bg-indigo-500' ? 'indigo' :
+                 classData.colorBg === 'bg-red-500' ? 'red' : 'gray',
           location: classData.location
         })
         
-        // Move to next week
         currentDate.setDate(currentDate.getDate() + 7)
       }
     })
@@ -369,266 +339,38 @@ export default function SchedulerPage() {
     return events
   }
 
-  // Time conflict detection utility
-  const checkTimeConflict = (class1: ClassData, class2: ClassData): boolean => {
-    if (!class1.time || !class2.time || class1.time === 'TBA' || class2.time === 'TBA') {
-      return false
-    }
-
-    // Parse time format "MWF 10:00 am-10:50 am"
-    const parseClassTime = (timeStr: string) => {
-      const parts = timeStr.split(' ')
-      if (parts.length < 3) return null
-      
-      const days = parts[0]
-      const timeRange = parts.slice(1).join(' ')
-      const [startStr, endStr] = timeRange.split('-')
-      
-      if (!startStr || !endStr) return null
-      
-      const parseTime = (time: string) => {
-        const cleanTime = time.trim()
-        const isPM = cleanTime.includes('pm')
-        const isAM = cleanTime.includes('am')
-        const timeOnly = cleanTime.replace(/[ap]m/g, '').trim()
-        const [hourStr, minStr] = timeOnly.split(':')
-        let hour = parseInt(hourStr)
-        const min = parseInt(minStr) || 0
-        
-        if (isPM && hour !== 12) hour += 12
-        if (isAM && hour === 12) hour = 0
-        
-        return hour * 60 + min // Convert to minutes for easy comparison
-      }
-      
-      return {
-        days,
-        startMinutes: parseTime(startStr),
-        endMinutes: parseTime(endStr)
-      }
-    }
-
-    const time1 = parseClassTime(class1.time)
-    const time2 = parseClassTime(class2.time)
+  // Group classes helper
+  const groupClasses = (classes: ClassData[]): GroupedClass[] => {
+    const groups = new Map<string, GroupedClass>()
     
-    if (!time1 || !time2) return false
-
-    // Check if days overlap
-    const daysOverlap = (days1: string, days2: string): boolean => {
-      // Convert day letters to sets for comparison
-      const daySet1 = new Set()
-      const daySet2 = new Set()
+    classes.forEach(cls => {
+      const key = `${cls.subject}-${cls.number}`
+      const isLabSection = cls.type === 'Lab with No Credit'
       
-      // Handle 'Th' and 'R' for Thursday
-      let i = 0
-      while (i < days1.length) {
-        if (i < days1.length - 1 && days1.slice(i, i + 2) === 'Th') {
-          daySet1.add('R')
-          i += 2
-        } else if (days1[i] === 'R') {
-          daySet1.add('R')
-          i++
-        } else {
-          daySet1.add(days1[i])
-          i++
-        }
+      if (!groups.has(key)) {
+        groups.set(key, {
+          subject: cls.subject,
+          number: cls.number,
+          title: cls.title,
+          credits: cls.credits,
+          sections: [],
+          labSections: []
+        })
       }
       
-      i = 0
-      while (i < days2.length) {
-        if (i < days2.length - 1 && days2.slice(i, i + 2) === 'Th') {
-          daySet2.add('R')
-          i += 2
-        } else if (days2[i] === 'R') {
-          daySet2.add('R')
-          i++
-        } else {
-          daySet2.add(days2[i])
-          i++
-        }
-      }
+      const group = groups.get(key)!
       
-      // Check for any common days
-      for (const day of daySet1) {
-        if (daySet2.has(day)) return true
+      if (isLabSection) {
+        group.labSections!.push(cls)
+      } else {
+        group.sections.push(cls)
       }
-      return false
-    }
-
-    // If no day overlap, no conflict
-    if (!daysOverlap(time1.days, time2.days)) {
-      return false
-    }
-
-    // Check time overlap (classes conflict if one starts before the other ends)
-    return !(time1.endMinutes <= time2.startMinutes || time2.endMinutes <= time1.startMinutes)
+    })
+    
+    return Array.from(groups.values()).filter(group => group.sections.length > 0)
   }
 
-  // Check for lecture/lab pairs and auto-enrollment
-  const findLabOrLectureCompanion = (classData: ClassData): ClassData | null => {
-    const baseCode = `${classData.subject} ${classData.number}`
-    
-    // Look for corresponding lab or lecture in the same grouped class
-    const relatedGroup = groupedClasses.find(group => 
-      `${group.subject} ${group.number}` === baseCode
-    )
-    
-    if (!relatedGroup || relatedGroup.sections.length <= 1) return null
-    
-    // Check if this is a lecture looking for lab or vice versa
-    const currentTitle = classData.title.toLowerCase()
-    const isCurrentLab = currentTitle.includes('lab') || currentTitle.includes('laboratory')
-    const isCurrentLecture = currentTitle.includes('lecture') || (!isCurrentLab && classData.credits >= 3)
-    
-    // Find companion section
-    for (const section of relatedGroup.sections) {
-      if (section.id === classData.id) continue // Skip self
-      
-      const sectionTitle = section.title.toLowerCase()
-      const isSectionLab = sectionTitle.includes('lab') || sectionTitle.includes('laboratory')
-      const isSectionLecture = sectionTitle.includes('lecture') || (!isSectionLab && section.credits >= 3)
-      
-      // If current is lab, look for lecture; if current is lecture, look for lab
-      if ((isCurrentLab && isSectionLecture) || (isCurrentLecture && isSectionLab)) {
-        return section
-      }
-    }
-    
-    return null
-  }
-
-  const addToSchedule = (classData: ClassData) => {
-    if (scheduledClasses.find(cls => cls.id === classData.id)) return
-    
-    // Find the grouped class to check for lab requirements
-    const groupedClass = groupedClasses.find(group => 
-      `${group.subject} ${group.number}` === `${classData.subject} ${classData.number}`
-    )
-    
-    // Check if this class requires a lab section
-    if (groupedClass?.labSections && groupedClass.labSections.length > 0) {
-      // Show the lab selection modal
-      setPendingLectureSection(classData)
-      setPendingLabSections(groupedClass.labSections)
-      setLabModalOpen(true)
-      return
-    }
-    
-    // No labs required - proceed with normal scheduling
-    scheduleClasses([classData])
-  }
-
-  // Helper function to actually schedule classes (extracted from old addToSchedule)
-  const scheduleClasses = (classesToAdd: ClassData[]) => {
-    // Check credit limit for all classes to be added
-    const totalNewCredits = classesToAdd.reduce((sum, cls) => sum + (cls.credits || 3), 0)
-    const newTotalCredits = totalCredits + totalNewCredits
-    if (newTotalCredits > creditLimit) {
-      if (!confirm(`Adding ${classesToAdd.length > 1 ? 'these classes' : 'this class'} will put you at ${newTotalCredits} credits, exceeding the recommended limit of ${creditLimit}.\n\nDo you want to continue?`)) {
-        return
-      }
-    }
-    
-    // Check for time conflicts with existing classes
-    const allConflicts = []
-    for (const cls of classesToAdd) {
-      const conflicts = scheduledClasses.filter(existing => 
-        checkTimeConflict(cls, existing)
-      )
-      if (conflicts.length > 0) {
-        allConflicts.push({ class: cls, conflicts })
-      }
-    }
-    
-    if (allConflicts.length > 0) {
-      const conflictMessage = allConflicts.map(({ class: cls, conflicts }) => 
-        `${cls.subject} ${cls.number} conflicts with: ${conflicts.map(c => `${c.subject} ${c.number}`).join(', ')}`
-      ).join('\n')
-      
-      if (!confirm(`Time conflicts detected:\n\n${conflictMessage}\n\nDo you want to add anyway?`)) {
-        return
-      }
-    }
-    
-    // Add all classes
-    for (const cls of classesToAdd) {
-      const colorIndex = scheduledClasses.length % classColors.length
-      const selectedColor = classColors[colorIndex]
-      
-      const newScheduledClass: ScheduledClass = {
-        ...cls,
-        colorBg: selectedColor.bg,
-        colorHex: selectedColor.hex
-      }
-      
-      setScheduledClasses(prev => [...prev, newScheduledClass])
-      
-      // Persist to backend if authenticated
-      if (isAuthenticated) {
-        addToPersistedSchedule({
-          ...cls,
-          color: selectedColor.hex,
-          number: cls.number || cls.courseNumber || '',
-        } as any)
-      }
-      
-      // Add calendar events
-      const newEvents = parseTimeToEvents(newScheduledClass)
-      setCalendarEvents(prev => [...prev, ...newEvents])
-    }
-  }
-
-  // Handle lab selection from modal
-  const handleLabSelection = (lectureSection: ClassData, labSection: ClassData) => {
-    scheduleClasses([lectureSection, labSection])
-    setLabModalOpen(false)
-    setPendingLectureSection(null)
-    setPendingLabSections([])
-  }
-
-  // Handle lab switching from dropdown
-  const handleLabSwitch = (currentLabClass: ClassData, newLabSection: ClassData) => {
-    // Remove the current lab
-    setScheduledClasses(prev => prev.filter(cls => cls.id !== currentLabClass.id))
-    setCalendarEvents(prev => prev.filter(event => !event.id.startsWith(currentLabClass.id)))
-    
-    // Remove from persisted schedule if authenticated
-    if (isAuthenticated) {
-      removeFromPersistedSchedule(currentLabClass.id)
-    }
-    
-    // Add the new lab with the same color as the lecture
-    const lectureClass = scheduledClasses.find(cls => 
-      cls.subject === currentLabClass.subject && 
-      cls.number === currentLabClass.number && 
-      cls.type !== 'Lab with No Credit'
-    )
-    
-    if (lectureClass) {
-      const newScheduledLab: ScheduledClass = {
-        ...newLabSection,
-        colorBg: lectureClass.colorBg,
-        colorHex: lectureClass.colorHex
-      }
-      
-      setScheduledClasses(prev => [...prev, newScheduledLab])
-      
-      // Persist new lab to backend if authenticated
-      if (isAuthenticated) {
-        addToPersistedSchedule({
-          ...newLabSection,
-          color: lectureClass.colorHex,
-          number: newLabSection.number || '',
-        } as any)
-      }
-      
-      // Add calendar events for new lab
-      const newEvents = parseTimeToEvents(newScheduledLab)
-      setCalendarEvents(prev => [...prev, ...newEvents])
-    }
-  }
-
-  const removeFromSchedule = (classId: string) => {
+  const handleRemoveFromSchedule = (classId: string) => {
     const classToRemove = scheduledClasses.find(cls => cls.id === classId)
     if (!classToRemove) return
     
@@ -644,17 +386,63 @@ export default function SchedulerPage() {
       classesToRemove.push(...associatedLabs.map(lab => lab.id))
     }
     
-    // Remove all classes and their events
+    // Remove from local state
     setScheduledClasses(prev => prev.filter(cls => !classesToRemove.includes(cls.id)))
     
     // Remove from persisted schedule if authenticated
     if (isAuthenticated) {
       classesToRemove.forEach(id => removeFromPersistedSchedule(id))
     }
+    
+    // Remove from Zustand store
+    classesToRemove.forEach(id => removeFromSchedule(id))
+    
+    // Remove calendar events
     setCalendarEvents(prev => prev.filter(event => !classesToRemove.some(id => event.id.startsWith(id))))
   }
 
-  // Event handlers for the new calendar
+  const handleSectionSwitch = (currentClass: ClassData, newSection: ClassData) => {
+    // Remove the current section
+    setScheduledClasses(prev => prev.filter(cls => cls.id !== currentClass.id))
+    setCalendarEvents(prev => prev.filter(event => !event.id.startsWith(currentClass.id)))
+    
+    // Remove from persisted schedule if authenticated
+    if (isAuthenticated) {
+      removeFromPersistedSchedule(currentClass.id)
+    }
+    
+    // Find the color of the current class
+    const currentScheduledClass = scheduledClasses.find(cls => cls.id === currentClass.id)
+    
+    // Add the new section with the same color
+    const newScheduledClass: ScheduledClass = {
+      ...newSection,
+      colorBg: currentScheduledClass?.colorBg || classColors[0].bg,
+      colorHex: currentScheduledClass?.colorHex || classColors[0].hex
+    }
+    
+    setScheduledClasses(prev => [...prev, newScheduledClass])
+    
+    // Persist new section if authenticated
+    if (isAuthenticated) {
+      addToPersistedSchedule({
+        ...newSection,
+        color: newScheduledClass.colorHex,
+        number: newSection.number || '',
+      } as any)
+    }
+    
+    // Add calendar events for new section
+    const newEvents = parseTimeToEvents(newScheduledClass)
+    setCalendarEvents(prev => [...prev, ...newEvents])
+  }
+
+  // Handle lab switching
+  const handleLabSwitch = (currentLabClass: ClassData, newLabSection: ClassData) => {
+    handleSectionSwitch(currentLabClass, newLabSection)
+  }
+
+  // Calendar event handlers
   const handleEventAdd = (event: CalendarEvent) => {
     setCalendarEvents(prev => [...prev, event])
   }
@@ -666,163 +454,120 @@ export default function SchedulerPage() {
   }
   
   const handleEventDelete = (eventId: string) => {
+    // This is for manual calendar events, not class events
     setCalendarEvents(prev => prev.filter(event => event.id !== eventId))
   }
 
+  // Calculate current semester dates for calendar highlighting
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
+  const semesterStart = currentMonth < 5 ? new Date(currentYear, 0, 15) : new Date(currentYear, 7, 20)
+  const semesterEnd = currentMonth < 5 ? new Date(currentYear, 4, 15) : new Date(currentYear, 11, 15)
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
       <CustomNavbar />
 
-      {/* Main Content - 2 Panel Layout */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        
-        {/* Left Panel - Available Classes (narrower width) */}
-        <div className={`bg-background flex flex-col transition-all duration-300 ease-in-out ${
-          sidebarCollapsed ? 'w-8 overflow-hidden' : 'w-[180px]'
-        } ${!isHydrated ? 'opacity-0' : 'opacity-100'}`}>
-          {/* Filter Section - Department Only */}
-          <div className={sidebarCollapsed ? "py-2 px-0 bg-background" : "p-2 bg-background"} data-filter-section>
-            {sidebarCollapsed ? (
-              /* Collapsed State - Only Show Toggle Button */
-              <div className="flex justify-center items-center px-0 py-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="h-8 w-8 p-0 rounded-sm ml-2 hover:bg-transparent"
-                  title="Show sidebar"
-                >
-                  <PanelLeft className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              /* Expanded State - Show Department Filter with Collapse Icon */
-              <div className="flex items-center gap-2">
-                <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                  <SelectTrigger className="h-8 w-32 text-xs px-2">
-                    <SelectValue placeholder="Department" />
-                  </SelectTrigger>
-                  <SelectContent className="[&_[role=option]]:!ps-2 [&_[data-slot=select-item]]:!ps-2 min-w-[140px] [&_.lucide-check]:hidden">
-                    {availableSubjects.map((subject) => (
-                      <SelectItem key={subject} value={subject} className="text-xs relative [&[data-state=checked]]:bg-transparent [&[data-state=checked]]:before:content-[''] [&[data-state=checked]]:before:absolute [&[data-state=checked]]:before:left-0 [&[data-state=checked]]:before:top-0 [&[data-state=checked]]:before:bottom-0 [&[data-state=checked]]:before:w-0.5 [&[data-state=checked]]:before:bg-red-500">
-                        {subject}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {/* Sidebar Toggle Button - right next to filter */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="h-8 w-8 p-0 hover:bg-muted rounded-sm"
-                  title="Hide sidebar"
-                >
-                  <PanelLeftClose className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+        {/* Left Sidebar - Expanded for Date Picker and Course Ledger */}
+        <div className="w-[350px] bg-background flex flex-col">
+          {/* Date Picker */}
+          <div className="flex justify-center p-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              className="rounded-md border"
+              modifiers={{
+                semester: { from: semesterStart, to: semesterEnd }
+              }}
+              modifiersStyles={{
+                semester: { backgroundColor: 'hsl(var(--accent))' }
+              }}
+            />
           </div>
-          
-          {/* Class List */}
-          {!sidebarCollapsed && (
-            <div className="flex-1 overflow-y-auto px-3 py-1 relative [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-0 [&::-webkit-scrollbar-button]:hidden scrollbar-thin" data-scroll-container="class-list">
-            <div>
-              {filteredGroupedClasses.length > 0 && (
-                // Results - show even while loading to prevent flash
-                <>
-                  <div className={`space-y-2 ${loading ? 'opacity-75' : ''} pt-1`}>
-                    {filteredGroupedClasses.slice(0, displayLimit).map((group) => {
-                      const isAnyScheduled = group.sections.some(section => 
-                        scheduledClasses.find(scheduled => scheduled.id === section.id)
-                      )
-                      
-                      return (
-                        <GroupedClassCard
-                          key={`${group.subject}-${group.number}`}
-                          groupedClass={group}
-                          isAnyScheduled={isAnyScheduled}
-                          onAddToSchedule={addToSchedule}
-                          onRemoveFromSchedule={removeFromSchedule}
-                          scheduledClasses={scheduledClasses}
-                        />
-                      )
-                    })}
+
+          {/* Enrolled Classes Ledger */}
+          <div className="flex-1 flex flex-col px-4 pb-4">
+            <ScrollArea className="flex-1">
+              <div className="space-y-2">
+                {scheduledClasses.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <GraduationCap className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm font-medium mb-1">No classes scheduled</p>
+                    <p className="text-xs">
+                      Add classes from your{" "}
+                      <Link href="/dashboard" className="text-primary underline">
+                        degree tracker
+                      </Link>
+                    </p>
                   </div>
-                  
-                  {/* Load More Button */}
-                  {filteredGroupedClasses.length > displayLimit && (
-                    <div className="text-center pt-4">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setDisplayLimit(prev => prev + 50)}
-                        size="sm"
-                      >
-                        Load More ({filteredGroupedClasses.length - displayLimit} remaining)
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
+                ) : (
+                  scheduledClasses.map((cls) => {
+                    const groupedClass = groupedClasses.find(g => 
+                      g.subject === cls.subject && g.number === cls.number
+                    )
+                    return (
+                      <EnrolledClassCard
+                        key={cls.id}
+                        classData={cls}
+                        onRemove={() => handleRemoveFromSchedule(cls.id)}
+                        onSwitchSection={(newSection) => handleSectionSwitch(cls, newSection)}
+                        availableSections={groupedClass?.sections}
+                        availableLabSections={groupedClass?.labSections}
+                      />
+                    )
+                  })
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Actions */}
+            <div className="pt-3 mt-3 space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => router.push('/dashboard')}
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                Browse & Add Classes
+              </Button>
+              
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1">
+                  <FileDown className="h-4 w-4 mr-1" />
+                  Export
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1">
+                  <Printer className="h-4 w-4 mr-1" />
+                  Print
+                </Button>
+              </div>
             </div>
-            </div>
-          )}
+          </div>
         </div>
 
-        
-        {/* Right Panel - Calendar with Header Badges */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          
-          {/* Calendar Section - Full Height */}
-          <div className="flex-1 p-2 pt-0 flex flex-col min-h-0">
-            <div className="flex-1 relative">
-              <EventCalendar
-                events={calendarEvents}
-                onEventAdd={handleEventAdd}
-                onEventUpdate={handleEventUpdate}
-                onEventDelete={handleEventDelete}
-                initialView="week"
-                className="h-full"
-                scheduledClasses={scheduledClasses}
-                totalCredits={totalCredits}
-                isSaving={isSaving}
-                groupedClasses={groupedClasses}
-                onRemoveFromSchedule={removeFromSchedule}
-                onLabSwitch={handleLabSwitch}
-              />
-              
-              {/* Empty state overlay */}
-              {calendarEvents.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="text-center text-muted-foreground bg-background/80 p-6 rounded-lg">
-                    <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <div className="text-lg font-medium mb-1">No classes scheduled</div>
-                    <div className="text-sm">Add classes from the left panel to see them here</div>
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Right Panel - Calendar */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Calendar - EventCalendar already has the pills */}
+          <div className="flex-1 p-4 overflow-auto">
+            <EventCalendar
+              events={calendarEvents}
+              onEventAdd={handleEventAdd}
+              onEventUpdate={handleEventUpdate}
+              onEventDelete={handleEventDelete}
+              initialView="week"
+              className="h-full"
+              scheduledClasses={scheduledClasses}
+              totalCredits={totalCredits}
+              isSaving={isSaving}
+              groupedClasses={groupedClasses}
+              onRemoveFromSchedule={handleRemoveFromSchedule}
+              onLabSwitch={handleLabSwitch}
+            />
           </div>
         </div>
       </div>
-
-      {/* Lab Selection Modal */}
-      {pendingLectureSection && (
-        <LabSelectionModal
-          isOpen={labModalOpen}
-          onClose={() => {
-            setLabModalOpen(false)
-            setPendingLectureSection(null)
-            setPendingLabSections([])
-          }}
-          onSelectLab={handleLabSelection}
-          lectureSection={pendingLectureSection}
-          labSections={pendingLabSections}
-          scheduledClasses={scheduledClasses}
-        />
-      )}
     </div>
   )
 }

@@ -62,7 +62,7 @@ export function useSchedule() {
     try {
       setLoading(true)
       const response = await fetch(
-        `http://127.0.0.1:8000/api/users/${session.user.githubId}/active-schedule`
+        `/api/users/${session.user.githubId}/active-schedule`
       )
       
       if (response.ok) {
@@ -92,7 +92,7 @@ export function useSchedule() {
       })
       
       const response = await fetch(
-        `http://127.0.0.1:8000/api/schedules/${schedule.schedule_id}/classes`,
+        `/api/schedules/${schedule.schedule_id}/classes`,
         {
           method: 'PUT',
           headers: {

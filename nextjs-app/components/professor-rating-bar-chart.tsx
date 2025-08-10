@@ -39,12 +39,15 @@ const chartConfig = {
 
 export function ProfessorRatingBarChart({ ratingDistribution }: ProfessorRatingBarChartProps) {
   // Fix the rating order: [1★, 2★, 3★, 4★, 5★] -> display as [5★, 4★, 3★, 2★, 1★]
+  // Handle undefined or empty ratingDistribution
+  const safeDistribution = ratingDistribution || [0, 0, 0, 0, 0];
+  
   const chartData = [
-    { rating: "5", count: ratingDistribution[4] || 0, fill: "hsl(220, 70%, 50%)" },
-    { rating: "4", count: ratingDistribution[3] || 0, fill: "hsl(220, 70%, 60%)" },
-    { rating: "3", count: ratingDistribution[2] || 0, fill: "hsl(220, 70%, 70%)" },
-    { rating: "2", count: ratingDistribution[1] || 0, fill: "hsl(220, 70%, 80%)" },
-    { rating: "1", count: ratingDistribution[0] || 0, fill: "hsl(220, 70%, 90%)" },
+    { rating: "5", count: safeDistribution[4] || 0, fill: "hsl(220, 70%, 50%)" },
+    { rating: "4", count: safeDistribution[3] || 0, fill: "hsl(220, 70%, 60%)" },
+    { rating: "3", count: safeDistribution[2] || 0, fill: "hsl(220, 70%, 70%)" },
+    { rating: "2", count: safeDistribution[1] || 0, fill: "hsl(220, 70%, 80%)" },
+    { rating: "1", count: safeDistribution[0] || 0, fill: "hsl(220, 70%, 90%)" },
   ]
 
   return (

@@ -1,6 +1,7 @@
 "use client"
 
 import { useSession, signIn, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -11,10 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User, LogOut, Github } from "lucide-react"
+import { User, LogOut, Github, Settings } from "lucide-react"
 
 export function AuthButton() {
   const { data: session, status } = useSession()
+  const router = useRouter()
 
   if (status === "loading") {
     return <Button variant="ghost" size="sm" disabled>Loading...</Button>
@@ -43,6 +45,10 @@ export function AuthButton() {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => router.push("/settings")}>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => signOut()}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>

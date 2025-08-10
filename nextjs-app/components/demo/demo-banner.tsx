@@ -28,7 +28,7 @@ export function DemoBanner() {
           </div>
           <span className="font-medium">Demo Mode</span>
           <span className="text-blue-100 text-sm hidden sm:inline">
-            You're exploring SoonerSync with sample data
+            You're exploring SoonerFlow with sample data
           </span>
         </div>
         
