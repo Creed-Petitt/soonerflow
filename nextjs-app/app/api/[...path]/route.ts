@@ -4,9 +4,10 @@ const BACKEND_URL = 'http://127.0.0.1:8000'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const { path: pathArray } = await params
+  const path = pathArray.join('/')
   const url = new URL(request.url)
   const queryString = url.search
 
@@ -30,9 +31,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const { path: pathArray } = await params
+  const path = pathArray.join('/')
   const body = await request.json()
 
   try {
@@ -57,9 +59,10 @@ export async function POST(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const { path: pathArray } = await params
+  const path = pathArray.join('/')
   const body = await request.json()
 
   try {
@@ -84,9 +87,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const path = params.path.join('/')
+  const { path: pathArray } = await params
+  const path = pathArray.join('/')
 
   try {
     const response = await fetch(`${BACKEND_URL}/api/${path}`, {

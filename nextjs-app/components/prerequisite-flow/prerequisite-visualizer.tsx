@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -14,6 +14,7 @@ import "@xyflow/react/dist/base.css";
 import CourseNode from "./course-node";
 import PrerequisiteEdge from "./prerequisite-edge";
 import useCourseStore from "@/stores/useCourseStore";
+import { generatePrerequisiteEdges, commonPrerequisites } from "@/lib/prerequisite-parser";
 
 // Register custom node types and edge types
 const nodeTypes = {
@@ -30,10 +31,68 @@ function PrerequisiteVisualizerInner() {
   const flowChartEdges = useCourseStore((state) => state.flowChartEdges);
   const updateFlowChartNodes = useCourseStore((state) => state.updateFlowChartNodes);
   const updateFlowChartEdges = useCourseStore((state) => state.updateFlowChartEdges);
+  const completedCourses = useCourseStore((state) => state.completedCourses);
+  
+  // Generate edges based on prerequisites
+  const generatedEdges = useMemo(() => {
+    const edges: any[] = [];
+    
+    // For each node, check if any other nodes are prerequisites
+    flowChartNodes.forEach(node => {
+      const courseCode = node.data.code;
+      const courseKey = courseCode.replace(' ', '');
+      
+      // Check common prerequisites map
+      const prereqs = commonPrerequisites[courseCode] || [];
+      
+      prereqs.forEach(prereqCode => {
+        const prereqKey = prereqCode.replace(' ', '').toLowerCase();
+        const sourceNode = flowChartNodes.find(n => 
+          n.data.code === prereqCode || n.id === prereqKey
+        );
+        
+        if (sourceNode) {
+          // Check if prerequisite is completed
+          const isCompleted = Array.from(completedCourses.values()).some(
+            course => course.code === prereqCode
+          );
+          
+          edges.push({
+            id: `e-${prereqKey}-${node.id}`,
+            source: sourceNode.id,
+            target: node.id,
+            type: 'prerequisite',
+            data: { 
+              satisfied: isCompleted
+            }
+          });
+        }
+      });
+    });
+    
+    return edges;
+  }, [flowChartNodes, completedCourses]);
+  
+  // Combine store edges with generated edges (prefer store edges)
+  const combinedEdges = useMemo(() => {
+    const edgeMap = new Map();
+    
+    // Add generated edges first
+    generatedEdges.forEach(edge => {
+      edgeMap.set(edge.id, edge);
+    });
+    
+    // Override with store edges (user customizations)
+    flowChartEdges.forEach(edge => {
+      edgeMap.set(edge.id, edge);
+    });
+    
+    return Array.from(edgeMap.values());
+  }, [flowChartEdges, generatedEdges]);
   
   // Use store data as initial state
   const [nodes, setNodes, onNodesChange] = useNodesState(flowChartNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(flowChartEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(combinedEdges);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
   
@@ -43,8 +102,8 @@ function PrerequisiteVisualizerInner() {
   }, [flowChartNodes, setNodes]);
   
   useEffect(() => {
-    setEdges(flowChartEdges);
-  }, [flowChartEdges, setEdges]);
+    setEdges(combinedEdges);
+  }, [combinedEdges, setEdges]);
   
   // Update store when nodes change (from dragging)
   const handleNodesChange = useCallback((changes: any) => {

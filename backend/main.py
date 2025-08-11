@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ import os
 sys.path.append('/home/highs/ou-class-manager')
 from database.models import (
     Class as ClassModel, MeetingTime, Professor as ProfessorModel, Rating,
-    User, Schedule, ScheduledClass, Major, MajorCourse,
+    User, Schedule, ScheduledClass, Major, MajorCourse, CompletedCourse,
     create_engine_and_session, Base
 )
 
@@ -21,7 +21,7 @@ app = FastAPI(title="OU Class Manager API", version="1.0.0")
 # Enable CORS for Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],  # Support both ports
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3002", "http://127.0.0.1:3002"],  # Support all ports
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -77,6 +77,15 @@ class ProfessorResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class DashboardData(BaseModel):
+    creditsCompleted: int
+    totalCredits: int
+    gpa: Optional[float]
+    enrollmentYear: Optional[int]
+    graduationYear: Optional[int]
+    majorName: Optional[str]
+    completedCourses: List[dict]
 
 # Database setup
 engine, SessionLocal = create_engine_and_session()
@@ -608,6 +617,233 @@ async def search_professor(name: str, db: Session = Depends(get_db)):
         tags=tags,
         comments=comments
     )
+
+@app.get("/api/user/dashboard", response_model=DashboardData)
+async def get_user_dashboard(
+    user_email: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get user dashboard data including credits, GPA, and progress"""
+    
+    if not user_email:
+        # Return default data if no email provided
+        return DashboardData(
+            creditsCompleted=0,
+            totalCredits=120,
+            gpa=None,
+            enrollmentYear=None,
+            graduationYear=None,
+            majorName=None,
+            completedCourses=[]
+        )
+    
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        return DashboardData(
+            creditsCompleted=0,
+            totalCredits=120,
+            gpa=None,
+            enrollmentYear=None,
+            graduationYear=None,
+            majorName=None,
+            completedCourses=[]
+        )
+    
+    # Get major information if user has selected one
+    total_credits = 120  # Default
+    major_name = None
+    if user.major_id:
+        major = db.query(Major).filter(Major.id == user.major_id).first()
+        if major:
+            total_credits = major.totalCredits or 120
+            major_name = major.name
+    elif user.major:
+        # Fallback to major name if ID not set
+        major_name = user.major
+    
+    # Get completed courses
+    completed_courses = db.query(CompletedCourse).filter(
+        CompletedCourse.user_id == user.id
+    ).all()
+    
+    # Calculate total credits completed (ONLY from completed courses)
+    credits_completed = sum(course.credits for course in completed_courses)
+    
+    # Note: We NO LONGER add scheduled credits to completed credits
+    # Scheduled classes are "In Progress", not "Completed"
+    # Only completed courses count towards creditsCompleted
+    
+    # Calculate GPA if there are completed courses with grades
+    gpa = None
+    if completed_courses:
+        grade_points = {
+            'A': 4.0, 'A-': 3.7,
+            'B+': 3.3, 'B': 3.0, 'B-': 2.7,
+            'C+': 2.3, 'C': 2.0, 'C-': 1.7,
+            'D+': 1.3, 'D': 1.0, 'D-': 0.7,
+            'F': 0.0
+        }
+        
+        total_grade_points = 0
+        total_graded_credits = 0
+        
+        for course in completed_courses:
+            if course.grade and course.grade in grade_points:
+                total_grade_points += grade_points[course.grade] * course.credits
+                total_graded_credits += course.credits
+        
+        if total_graded_credits > 0:
+            gpa = round(total_grade_points / total_graded_credits, 2)
+    
+    # Format completed courses for response
+    completed_courses_data = [
+        {
+            "course_code": course.course_code,
+            "course_name": course.course_name,
+            "credits": course.credits,
+            "grade": course.grade,
+            "semester": course.semester_completed
+        }
+        for course in completed_courses
+    ]
+    
+    return DashboardData(
+        creditsCompleted=credits_completed,  # Only completed credits, not scheduled
+        totalCredits=total_credits,
+        gpa=gpa,
+        enrollmentYear=user.enrollment_year,
+        graduationYear=user.graduation_year,
+        majorName=major_name,
+        completedCourses=completed_courses_data
+    )
+
+@app.post("/api/user/onboarding")
+async def save_onboarding_data(
+    data: dict,
+    db: Session = Depends(get_db)
+):
+    """Save user onboarding selections"""
+    email = data.get('email')
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user with onboarding data
+    if 'major' in data:
+        user.major = data['major']
+        # Try to find major ID from name
+        major = db.query(Major).filter(Major.name == data['major']).first()
+        if major:
+            user.major_id = major.id
+    
+    if 'enrollmentYear' in data:
+        user.enrollment_year = data['enrollmentYear']
+    
+    if 'graduationYear' in data:
+        user.graduation_year = data['graduationYear']
+    
+    db.commit()
+    
+    return {"success": True, "message": "Onboarding data saved"}
+
+@app.post("/api/user/courses/complete")
+async def mark_courses_complete(
+    data: dict,
+    db: Session = Depends(get_db)
+):
+    """Mark courses as completed for a user"""
+    email = data.get('email')
+    courses = data.get('courses', [])
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Add completed courses
+    for course_data in courses:
+        # Check if course already exists
+        existing = db.query(CompletedCourse).filter(
+            CompletedCourse.user_id == user.id,
+            CompletedCourse.course_code == course_data.get('course_code')
+        ).first()
+        
+        if not existing:
+            completed_course = CompletedCourse(
+                user_id=user.id,
+                course_code=course_data.get('course_code'),
+                course_name=course_data.get('course_name', ''),
+                credits=course_data.get('credits', 3),
+                grade=course_data.get('grade'),
+                semester_completed=course_data.get('semester')
+            )
+            db.add(completed_course)
+    
+    db.commit()
+    
+    return {"success": True, "message": f"Marked {len(courses)} courses as complete"}
+
+@app.get("/api/user/courses/completed")
+async def get_completed_courses(
+    user_email: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get completed courses for a user"""
+    if not user_email:
+        return {"completedCourses": []}
+    
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        return {"completedCourses": []}
+    
+    completed_courses = db.query(CompletedCourse).filter(
+        CompletedCourse.user_id == user.id
+    ).all()
+    
+    return {
+        "completedCourses": [
+            {
+                "course_code": course.course_code,
+                "course_name": course.course_name,
+                "credits": course.credits,
+                "grade": course.grade,
+                "semester": course.semester_completed
+            }
+            for course in completed_courses
+        ]
+    }
+
+@app.delete("/api/user/courses/complete/{course_code}")
+async def remove_completed_course(
+    course_code: str,
+    user_email: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Remove a course from completed status"""
+    if not user_email or not course_code:
+        raise HTTPException(status_code=400, detail="Email and course code are required")
+    
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Find and delete the completed course
+    completed_course = db.query(CompletedCourse).filter(
+        CompletedCourse.user_id == user.id,
+        CompletedCourse.course_code == course_code
+    ).first()
+    
+    if completed_course:
+        db.delete(completed_course)
+        db.commit()
+        return {"success": True, "message": f"Removed {course_code} from completed courses"}
+    else:
+        return {"success": False, "message": f"Course {course_code} not found in completed courses"}
 
 # User Authentication & Profile Endpoints
 class UserCreate(BaseModel):

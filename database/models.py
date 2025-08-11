@@ -56,11 +56,31 @@ class User(Base):
     name = Column(String)
     avatar_url = Column(String)
     major = Column(String)  # Selected major (e.g., "Computer Science")
+    major_id = Column(String, ForeignKey('majors.id'))  # Link to majors table
+    enrollment_year = Column(Integer)  # Year started (e.g., 2022)
+    graduation_year = Column(Integer)  # Expected graduation (e.g., 2027)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     schedules = relationship("Schedule", back_populates="user", cascade="all, delete-orphan")
+    major_info = relationship("Major", foreign_keys=[major_id])
+    completed_courses = relationship("CompletedCourse", back_populates="user", cascade="all, delete-orphan")
+
+class CompletedCourse(Base):
+    __tablename__ = 'completed_courses'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    course_code = Column(String, nullable=False)  # e.g., "ECE 2214"
+    course_name = Column(String)  # Course title
+    credits = Column(Integer, nullable=False)  # Credits earned
+    grade = Column(String)  # Letter grade (A, B+, etc.)
+    semester_completed = Column(String)  # e.g., "Fall 2023"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="completed_courses")
 
 class Schedule(Base):
     __tablename__ = 'schedules'

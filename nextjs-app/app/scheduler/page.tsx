@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { EventCalendar, type CalendarEvent } from "@/components/event-calendar/event-calendar"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -215,35 +215,49 @@ export default function SchedulerPage() {
     }
   }, [scheduledCoursesFromStore])
 
-  // Load grouped classes for section switching
+  // Memoize subjects to prevent unnecessary API calls
+  const subjects = useMemo(() => {
+    return [...new Set(scheduledClasses.map(cls => cls.subject))]
+  }, [scheduledClasses])
+
+  // Load grouped classes for section switching with caching
   useEffect(() => {
+    if (subjects.length === 0) return
+
+    let cancelled = false
+    
     const loadGroupedClasses = async () => {
       try {
-        // Get unique subject codes from scheduled classes
-        const subjects = [...new Set(scheduledClasses.map(cls => cls.subject))]
-        
         // Load classes for each subject
         const allClasses: ClassData[] = []
         for (const subject of subjects) {
+          if (cancelled) return
+          
           const response = await fetch(`/api/classes?subject=${subject}&limit=500`)
-          if (response.ok) {
+          if (response.ok && !cancelled) {
             const data = await response.json()
             allClasses.push(...(data.classes || []))
           }
         }
         
-        // Group classes
-        const grouped = groupClasses(allClasses)
-        setGroupedClasses(grouped)
+        if (!cancelled) {
+          // Group classes
+          const grouped = groupClasses(allClasses)
+          setGroupedClasses(grouped)
+        }
       } catch (error) {
-        console.error('Error loading grouped classes:', error)
+        if (!cancelled) {
+          console.error('Error loading grouped classes:', error)
+        }
       }
     }
+
+    loadGroupedClasses()
     
-    if (scheduledClasses.length > 0) {
-      loadGroupedClasses()
+    return () => {
+      cancelled = true
     }
-  }, [scheduledClasses])
+  }, [subjects]) // Only re-run when subjects actually change
 
   const parseTimeToEvents = (classData: ScheduledClass) => {
     if (!classData.time || classData.time === 'TBA') return []

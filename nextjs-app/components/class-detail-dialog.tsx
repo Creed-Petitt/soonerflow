@@ -326,11 +326,15 @@ export function ClassDetailDialog({
           <Button
             className="w-full"
             onClick={() => {
+              console.log('Add to Schedule button clicked!');
+              console.log('Current section:', currentSection);
+              
               // Add the lecture section
               onAddToSchedule(currentSection);
               
               // If lab is required and selected, add it too
               if (groupedClass.labSections && groupedClass.labSections.length > 0 && currentLabSection) {
+                console.log('Adding lab section:', currentLabSection);
                 onAddToSchedule(currentLabSection);
               }
               

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState, useMemo, useCallback, memo } from "react"
 import { useSession } from "next-auth/react"
 import useCourseStore from "@/stores/useCourseStore"
 import { useSchedule } from "@/hooks/use-schedule"
@@ -28,7 +28,6 @@ import {
   ListFilterIcon,
   PlusIcon,
   Columns3Icon,
-  CheckIcon,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -101,35 +100,12 @@ const categoryFilterFn: FilterFn<Course> = (
 
 const columns: ColumnDef<Course>[] = [
   {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    size: 28,
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
     header: "Course Code",
     accessorKey: "code",
     cell: ({ row }) => (
       <div className="font-medium text-xs">{row.getValue("code")}</div>
     ),
-    size: 100,
+    size: 120,
     filterFn: multiColumnFilterFn,
     enableHiding: false,
   },
@@ -139,7 +115,7 @@ const columns: ColumnDef<Course>[] = [
     cell: ({ row }) => (
       <div className="text-xs">{row.getValue("name")}</div>
     ),
-    size: 220,
+    size: 350,
   },
   {
     header: "Credits",
@@ -147,18 +123,7 @@ const columns: ColumnDef<Course>[] = [
     cell: ({ row }) => (
       <div className="text-center text-xs">{row.getValue("credits")}</div>
     ),
-    size: 60,
-  },
-  {
-    header: "Category",
-    accessorKey: "category",
-    cell: ({ row }) => (
-      <Badge variant="outline" className="text-xs">
-        {row.getValue("category")}
-      </Badge>
-    ),
-    size: 100,
-    filterFn: categoryFilterFn,
+    size: 80,
   },
   {
     header: "Status",
@@ -182,118 +147,40 @@ const columns: ColumnDef<Course>[] = [
       }
       
       return (
-        <div className="flex items-center gap-1">
-          <Badge
-            variant="outline"
-            className={cn("text-xs", getGlowStyle())}
-          >
-            {status}
-          </Badge>
-          {grade && status === "Completed" && (
-            <Badge variant="secondary" className="text-xs">
-              {grade}
-            </Badge>
-          )}
-        </div>
+        <Badge
+          variant="outline"
+          className={cn("text-xs", getGlowStyle())}
+        >
+          {status}
+        </Badge>
       )
     },
-    size: 140,
+    size: 100,
     filterFn: statusFilterFn,
   },
   {
     id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => {
-      const addToFlowChart = useCourseStore((state) => state.addToFlowChart);
-      const addToSchedule = useCourseStore((state) => state.addToSchedule);
-      const { addClass } = useSchedule();
-      const [showClassModal, setShowClassModal] = useState(false);
-      const [classDataForModal, setClassDataForModal] = useState<any>(null);
-      const buttonRef = useRef<HTMLButtonElement>(null);
-      
-      // Load class sections when modal is requested
-      useEffect(() => {
-        if (showClassModal && row.original) {
-          const loadClassData = async () => {
-            try {
-              const [subject, number] = row.original.code.split(' ');
-              const response = await fetch(`/api/classes?subject=${subject}&limit=500`);
-              if (response.ok) {
-                const data = await response.json();
-                const sections = (data.classes || []).filter((s: any) => 
-                  s.subject === subject && s.number === number && s.type !== 'Lab with No Credit'
-                );
-                const labSections = (data.classes || []).filter((s: any) => 
-                  s.subject === subject && s.number === number && s.type === 'Lab with No Credit'
-                );
-                
-                setClassDataForModal({
-                  groupedClass: {
-                    subject,
-                    number,
-                    title: row.original.name,
-                    credits: row.original.credits,
-                    sections: sections.length > 0 ? sections : [{
-                      id: row.original.id,
-                      subject,
-                      number: number,
-                      courseNumber: number,
-                      title: row.original.name,
-                      instructor: 'TBA',
-                      time: 'TBA',
-                      location: 'TBA',
-                      credits: row.original.credits,
-                    }],
-                    labSections
-                  },
-                  selectedSection: sections[0] || {
-                    id: row.original.id,
-                    subject,
-                    number: number,
-                    courseNumber: number,
-                    title: row.original.name,
-                    instructor: 'TBA',
-                    time: 'TBA',
-                    location: 'TBA',
-                    credits: row.original.credits,
-                  }
-                });
-              }
-            } catch (error) {
-              console.error('Error loading class data:', error);
-            }
-          };
-          loadClassData();
-        }
-      }, [showClassModal, row.original]);
+    header: "Add",
+    cell: ({ row, table }) => {
+      const { handleAddToSchedule } = (table.options.meta as any) || {};
       
       return (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 w-6 p-0"
+          onClick={() => handleAddToSchedule(row.original)}
+          title="Add to Schedule"
+        >
+          <PlusIcon className="h-4 w-4" />
+        </Button>
+      );
+      
+      /* Old dropdown code - replaced with multi-select
+      return (
         <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button ref={buttonRef} variant="ghost" size="sm" className="text-xs">
-                <PlusIcon className="h-3 w-3 mr-1" />
-                Add
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Add to...</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowClassModal(true);
-                }}
-              >
-                Current Schedule
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addToFlowChart(row.original)}>
-                Prerequisite Flowchart
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           
-          {/* Class Detail Dialog - the exact modal from calendar */}
+          Class Detail Dialog - the exact modal from calendar
           {classDataForModal && (
             <ClassDetailDialog
               isOpen={showClassModal}
@@ -354,11 +241,29 @@ const columns: ColumnDef<Course>[] = [
           )}
         </>
       );
+      */
     },
-    size: 100,
+    size: 60,
     enableHiding: false,
   },
 ]
+
+// Generate semester options from 2020 to current year + 1, including summer
+const generateSemesterOptions = () => {
+  const currentYear = new Date().getFullYear();
+  const options: string[] = [];
+  
+  // Generate from current year + 1 down to 2020
+  for (let year = currentYear + 1; year >= 2020; year--) {
+    options.push(`Fall ${year}`);
+    options.push(`Summer ${year}`);
+    options.push(`Spring ${year}`);
+  }
+  
+  return options;
+};
+
+const semesterOptions = generateSemesterOptions();
 
 // Sample data for demonstration
 const sampleData: Course[] = [
@@ -494,14 +399,18 @@ const sampleData: Course[] = [
   },
 ]
 
-export default function DegreeRequirementsTable() {
+const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
   const id = useId()
   const { data: session } = useSession()
+  
+  // Course store hooks at component level
+  const addToFlowChart = useCourseStore((state) => state.addToFlowChart);
+  
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 9,
   })
   const [sorting, setSorting] = useState<SortingState>([
     {
@@ -513,23 +422,109 @@ export default function DegreeRequirementsTable() {
   const [loading, setLoading] = useState(false)
   const [gradeInputOpen, setGradeInputOpen] = useState(false)
   const [tempGrade, setTempGrade] = useState("A")
+  const [tempSemester, setTempSemester] = useState("Fall 2024")
   const [courseGrades, setCourseGrades] = useState<{ [key: string]: { grade: string, semester: string } }>({})
   const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [classDataForModal, setClassDataForModal] = useState<any>(null)
+  const [showClassModal, setShowClassModal] = useState(false)
+  const [showMultiClassModal, setShowMultiClassModal] = useState(false)
+  const [multiSelectRows, setMultiSelectRows] = useState<any[]>([])
+  const [modalLoading, setModalLoading] = useState(false)
   
   // Get store functions
   const markMultipleComplete = useCourseStore((state) => state.markMultipleComplete)
   const completedCourses = useCourseStore((state) => state.completedCourses)
   const getCourseStatus = useCourseStore((state) => state.getCourseStatus)
   const scheduledCourses = useCourseStore((state) => state.scheduledCourses)
+  const loadCompletedCourses = useCourseStore((state) => state.loadCompletedCourses)
+  const addToSchedule = useCourseStore((state) => state.addToSchedule)
   
   // Get scheduled classes directly from the schedule hook - this is the source of truth
-  const { scheduledClasses: persistedScheduledClasses, loading: scheduleLoading } = useSchedule()
+  const { scheduledClasses: persistedScheduledClasses, loading: scheduleLoading, addClass } = useSchedule()
 
   const statusOptions = ["Completed", "In Progress", "Not Started"]
-  const categoryOptions = ["Major", "Gen Ed", "Elective", "Program Requirements", "Degree Requirements"]
 
-  // Fetch real major data when session is available
+  // Handle adding a single course to schedule
+  const handleAddToSchedule = async (course: any) => {
+    try {
+      // Validate course data
+      if (!course || !course.code) {
+        console.error('Invalid course data:', course);
+        return;
+      }
+      
+      const codeParts = course.code.split(' ');
+      if (codeParts.length < 2) {
+        console.error('Invalid course code format:', course.code);
+        return;
+      }
+      
+      // Clear any existing modal data and show loading state
+      setClassDataForModal(null);
+      setModalLoading(true);
+      setShowClassModal(true);
+      
+      console.log(`Fetching classes for ${codeParts[0]} ${codeParts[1]}`);
+      
+      // Fetch class data - using search parameter to get all classes
+      const response = await fetch(`/api/classes?subject=${codeParts[0]}&search=${codeParts[1]}&limit=50`);
+      if (response.ok) {
+        const data = await response.json();
+        const allClasses = data.classes || [];
+        
+        // IMPORTANT: Filter to only get the exact course we want
+        const classes = allClasses.filter((c: any) => 
+          c.subject === codeParts[0] && c.number === codeParts[1]
+        );
+        
+        console.log(`Found ${classes.length} sections for ${codeParts[0]} ${codeParts[1]}`);
+        
+        if (classes.length > 0) {
+          // Group sections by course
+          const groupedClass = {
+            subject: codeParts[0],
+            number: codeParts[1],
+            title: classes[0].title || course.name,
+            credits: classes[0].credits || course.credits,
+            sections: classes.filter((c: any) => c.type !== 'Lab with No Credit'),
+            labSections: classes.filter((c: any) => c.type === 'Lab with No Credit')
+          };
+          
+          setClassDataForModal({
+            groupedClass,
+            selectedSection: classes[0]
+          });
+          setModalLoading(false);
+        } else {
+          console.log('No classes found for course:', course.code);
+          setShowClassModal(false);
+          setModalLoading(false);
+        }
+      } else {
+        console.error('Failed to fetch classes:', response.status);
+        setShowClassModal(false);
+        setModalLoading(false);
+      }
+    } catch (error) {
+      console.error('Error in handleAddToSchedule:', error);
+      setShowClassModal(false);
+      setModalLoading(false);
+    }
+  }
+
+  // Fetch major data once when session is available (FIXED - proper caching)
+  const [hasLoadedData, setHasLoadedData] = useState(false)
+  
   useEffect(() => {
+    // Only load data once per session
+    if (hasLoadedData || !session?.user?.githubId) {
+      if (!hasLoadedData) {
+        setData(sampleData)
+        setLoading(false)
+      }
+      return
+    }
+    
     const fetchMajorData = async () => {
       // Only fetch if we have a session with a GitHub ID
       if (!session?.user?.githubId) {
@@ -626,36 +621,100 @@ export default function DegreeRequirementsTable() {
 
         console.log("Transformed courses:", transformedCourses.slice(0, 5))
         setData(transformedCourses)
+        setHasLoadedData(true)
         setLoading(false)
       } catch (error) {
         console.error("Error fetching major data:", error)
+        setData(sampleData)
         setLoading(false)
-        // Keep using sample data on error
       }
     }
 
     fetchMajorData()
-  }, [session]) // Only re-run when session changes
+  }, [session?.user?.githubId, hasLoadedData]) // Only run when needed
 
-  // Update ONLY the status when scheduled classes change
+  // Load completed courses once when session is available (FIXED - no loops)
+  const [hasLoadedCompletedCourses, setHasLoadedCompletedCourses] = useState(false)
+  
   useEffect(() => {
-    if (data.length === 0) return // Don't update if no data yet
+    if (!session?.user?.email || hasLoadedCompletedCourses) return;
     
-    setData(prevData => prevData.map(course => {
-      // Check if scheduled
-      const isScheduled = persistedScheduledClasses && persistedScheduledClasses.some((cls: any) => {
-        const classCode = `${cls.subject} ${cls.number || cls.courseNumber || ''}`
-        return classCode.trim() === course.code
+    // Load completed courses immediately (no delay)
+    setHasLoadedCompletedCourses(true)
+    loadCompletedCourses(session.user.email)
+  }, [session?.user?.email, hasLoadedCompletedCourses, loadCompletedCourses])
+
+  // Memoize scheduled class codes to prevent unnecessary re-renders
+  const scheduledClassCodes = useMemo(() => {
+    if (!persistedScheduledClasses) return new Set<string>()
+    return new Set(persistedScheduledClasses.map((cls: any) => {
+      const classCode = `${cls.subject} ${cls.number || cls.courseNumber || ''}`
+      return classCode.trim()
+    }))
+  }, [persistedScheduledClasses])
+
+  // Update course statuses when scheduled/completed courses change (FIXED - no more loops)
+  const updateCourseStatuses = useCallback(() => {
+    if (data.length === 0) return
+
+    setData(prevData => {
+      let hasChanges = false
+      const updatedData = prevData.map(course => {
+        const isScheduled = scheduledClassCodes.has(course.code)
+        
+        // Check if course is completed - handle different formats
+        const isCompleted = completedCourses.has(course.code) || 
+                           completedCourses.has(course.code.replace(' ', '')) || 
+                           completedCourses.has(course.code.replace(' ', ' ')) // Handle multiple spaces
+        
+        const newStatus = isCompleted ? "Completed" : 
+                         isScheduled ? "In Progress" : 
+                         "Not Started"
+        
+        if (course.status !== newStatus) {
+          hasChanges = true
+          // If marking as completed, check if we have grade info
+          const completedCourse = Array.from(completedCourses.values()).find(
+            c => c.code === course.code || c.code === course.code.replace(' ', '')
+          )
+          return { 
+            ...course, 
+            status: newStatus,
+            grade: completedCourse?.grade || course.grade,
+            semester: completedCourse?.semester || course.semester
+          }
+        }
+        return course
       })
       
-      // Determine status
-      const newStatus = completedCourses.has(course.code) ? "Completed" : 
-                       isScheduled ? "In Progress" : 
-                       "Not Started"
-      
-      return { ...course, status: newStatus }
-    }))
-  }, [persistedScheduledClasses, completedCourses, data.length]) // Trigger when data loads or scheduled classes change
+      // Only return new array if there were actual changes
+      return hasChanges ? updatedData : prevData
+    })
+  }, [data.length, scheduledClassCodes, completedCourses])
+
+  // Trigger status update when dependencies change
+  useEffect(() => {
+    // Only update statuses after we have data
+    if (data.length > 0) {
+      updateCourseStatuses()
+    }
+  }, [data.length, scheduledClassCodes, completedCourses, updateCourseStatuses])
+  
+  // Listen for course removal events
+  useEffect(() => {
+    const handleCourseRemoved = () => {
+      console.log('Course removed, reloading completed courses...')
+      if (session?.user?.email) {
+        loadCompletedCourses(session.user.email)
+      }
+    }
+    
+    window.addEventListener('courseRemoved', handleCourseRemoved)
+    
+    return () => {
+      window.removeEventListener('courseRemoved', handleCourseRemoved)
+    }
+  }, [session?.user?.email, loadCompletedCourses])
 
   const table = useReactTable({
     data,
@@ -675,14 +734,27 @@ export default function DegreeRequirementsTable() {
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    meta: {
+      addClass, // Pass addClass function through table meta
+      addToFlowChart, // Pass addToFlowChart function through table meta
+      handleAddToSchedule,
+      showClassModal,
+      setShowClassModal,
+      classDataForModal,
+      setClassDataForModal,
+      showMultiClassModal,
+      setShowMultiClassModal,
+      multiSelectRows,
+      setMultiSelectRows,
+      modalLoading,
+    },
   })
 
   const statusFilter = table.getColumn("status")?.getFilterValue() as string[] | undefined
-  const categoryFilter = table.getColumn("category")?.getFilterValue() as string[] | undefined
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between gap-2 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2" style={{ width: '750px' }}>
         <div className="flex items-center gap-2">
           <Input
             placeholder="Search courses..."
@@ -692,7 +764,9 @@ export default function DegreeRequirementsTable() {
             }
             className="w-[180px] h-8"
           />
-          
+        </div>
+
+        <div className="flex items-center gap-2">
           {/* Pagination controls moved here */}
           <div className="flex items-center gap-1">
             <Button
@@ -717,9 +791,7 @@ export default function DegreeRequirementsTable() {
               Next
             </Button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+          
           {/* Status Filter moved to right */}
           <Popover>
             <PopoverTrigger asChild>
@@ -758,275 +830,11 @@ export default function DegreeRequirementsTable() {
             </PopoverContent>
           </Popover>
 
-          {/* Category Filter moved to right */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
-                <FilterIcon className="h-3 w-3" />
-                Category
-                {categoryFilter?.length ? (
-                  <Badge variant="secondary" className="ml-1 px-1 text-xs">
-                    {categoryFilter.length}
-                  </Badge>
-                ) : null}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-0" align="start">
-              <div className="p-1">
-                {categoryOptions.map((category) => (
-                  <div key={category} className="flex items-center space-x-2 p-2">
-                    <Checkbox
-                      checked={categoryFilter?.includes(category) ?? false}
-                      onCheckedChange={(checked) => {
-                        const currentFilter = categoryFilter || []
-                        const newFilter = checked
-                          ? [...currentFilter, category]
-                          : currentFilter.filter((c) => c !== category)
-                        table.getColumn("category")?.setFilterValue(
-                          newFilter.length ? newFilter : undefined
-                        )
-                      }}
-                    />
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      {category}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Mark as Complete button - only shows when rows are selected */}
-          {table.getFilteredSelectedRowModel().rows.length > 0 && (
-            <Popover open={gradeInputOpen} onOpenChange={setGradeInputOpen}>
-              <PopoverTrigger asChild>
-                <Button 
-                  size="sm" 
-                  className="gap-1 h-7 text-xs"
-                >
-                  <CheckIcon className="h-3 w-3" />
-                  Mark as Complete ({table.getFilteredSelectedRowModel().rows.length})
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[480px] p-4" align="end">
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium text-sm">Mark courses as completed</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {table.getFilteredSelectedRowModel().rows.length > 1 
-                        ? "Set individual grades for each course or apply the same grade to all"
-                        : "Select the grade received for this course"}
-                    </p>
-                  </div>
-                  
-                  {/* Show individual course grade inputs if multiple courses selected */}
-                  {table.getFilteredSelectedRowModel().rows.length > 1 && (
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto border rounded p-2">
-                      {table.getFilteredSelectedRowModel().rows.map((row) => {
-                        const courseId = row.original.id
-                        const courseGrade = courseGrades[courseId]?.grade || "A"
-                        const courseSemester = courseGrades[courseId]?.semester || "Fall 2024"
-                        
-                        return (
-                          <div key={courseId} className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">
-                                {row.original.code} - {row.original.name}
-                              </p>
-                            </div>
-                            <select 
-                              value={courseGrade}
-                              onChange={(e) => setCourseGrades(prev => ({
-                                ...prev,
-                                [courseId]: { ...prev[courseId], grade: e.target.value, semester: courseSemester }
-                              }))}
-                              className="w-[100px] h-7 px-1 border rounded text-xs bg-background text-foreground border-input"
-                            >
-                              <option value="A">A (4.0)</option>
-                              <option value="A-">A- (3.7)</option>
-                              <option value="B+">B+ (3.3)</option>
-                              <option value="B">B (3.0)</option>
-                              <option value="B-">B- (2.7)</option>
-                              <option value="C+">C+ (2.3)</option>
-                              <option value="C">C (2.0)</option>
-                              <option value="C-">C- (1.7)</option>
-                              <option value="D+">D+ (1.3)</option>
-                              <option value="D">D (1.0)</option>
-                              <option value="F">F (0.0)</option>
-                            </select>
-                            <select 
-                              value={courseSemester}
-                              onChange={(e) => setCourseGrades(prev => ({
-                                ...prev,
-                                [courseId]: { ...prev[courseId], grade: courseGrade, semester: e.target.value }
-                              }))}
-                              className="w-[110px] h-7 px-1 border rounded text-xs bg-background text-foreground border-input"
-                            >
-                              <option value="Spring 2019">Spring 2019</option>
-                              <option value="Fall 2019">Fall 2019</option>
-                              <option value="Spring 2020">Spring 2020</option>
-                              <option value="Fall 2020">Fall 2020</option>
-                              <option value="Spring 2021">Spring 2021</option>
-                              <option value="Fall 2021">Fall 2021</option>
-                              <option value="Spring 2022">Spring 2022</option>
-                              <option value="Fall 2022">Fall 2022</option>
-                              <option value="Spring 2023">Spring 2023</option>
-                              <option value="Fall 2023">Fall 2023</option>
-                              <option value="Spring 2024">Spring 2024</option>
-                              <option value="Fall 2024">Fall 2024</option>
-                              <option value="Spring 2025">Spring 2025</option>
-                              <option value="Fall 2025">Fall 2025</option>
-                              <option value="Spring 2026">Spring 2026</option>
-                              <option value="Fall 2026">Fall 2026</option>
-                              <option value="Spring 2027">Spring 2027</option>
-                            </select>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                  
-                  {/* Apply same grade to all option */}
-                  {table.getFilteredSelectedRowModel().rows.length > 1 && (
-                    <div className="border-t pt-3">
-                      <label className="text-xs font-medium">Or apply same grade to all:</label>
-                      <div className="flex gap-2 mt-2">
-                        <select 
-                          value={tempGrade} 
-                          onChange={(e) => setTempGrade(e.target.value)}
-                          className="flex-1 h-8 px-2 border rounded text-xs bg-background text-foreground border-input"
-                        >
-                          <option value="A">A (4.0)</option>
-                          <option value="A-">A- (3.7)</option>
-                          <option value="B+">B+ (3.3)</option>
-                          <option value="B">B (3.0)</option>
-                          <option value="B-">B- (2.7)</option>
-                          <option value="C+">C+ (2.3)</option>
-                          <option value="C">C (2.0)</option>
-                        </select>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const selectedRows = table.getFilteredSelectedRowModel().rows
-                            const newGrades: typeof courseGrades = {}
-                            selectedRows.forEach(row => {
-                              newGrades[row.original.id] = { grade: tempGrade, semester: "Fall 2024" }
-                            })
-                            setCourseGrades(newGrades)
-                          }}
-                        >
-                          Apply to All
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Single course grade input */}
-                  {table.getFilteredSelectedRowModel().rows.length === 1 && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs font-medium">Grade</label>
-                        <select 
-                          value={tempGrade} 
-                          onChange={(e) => setTempGrade(e.target.value)}
-                          className="w-full mt-1 h-8 px-2 border rounded text-xs bg-background text-foreground border-input"
-                        >
-                          <option value="A">A (4.0)</option>
-                          <option value="A-">A- (3.7)</option>
-                          <option value="B+">B+ (3.3)</option>
-                          <option value="B">B (3.0)</option>
-                          <option value="B-">B- (2.7)</option>
-                          <option value="C+">C+ (2.3)</option>
-                          <option value="C">C (2.0)</option>
-                          <option value="C-">C- (1.7)</option>
-                          <option value="D+">D+ (1.3)</option>
-                          <option value="D">D (1.0)</option>
-                          <option value="F">F (0.0)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium">Semester</label>
-                        <select 
-                          className="w-full mt-1 h-8 px-2 border rounded text-xs bg-background text-foreground border-input"
-                        >
-                          <option value="Fall 2024">Fall 2024</option>
-                          <option value="Spring 2024">Spring 2024</option>
-                          <option value="Fall 2023">Fall 2023</option>
-                          <option value="Spring 2023">Spring 2023</option>
-                          <option value="Fall 2022">Fall 2022</option>
-                          <option value="Spring 2022">Spring 2022</option>
-                          <option value="Fall 2021">Fall 2021</option>
-                          <option value="Spring 2021">Spring 2021</option>
-                          <option value="Fall 2020">Fall 2020</option>
-                          <option value="Spring 2020">Spring 2020</option>
-                          <option value="Fall 2019">Fall 2019</option>
-                          <option value="Spring 2019">Spring 2019</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => {
-                        const selectedRows = table.getFilteredSelectedRowModel().rows
-                        
-                        // Update the data to mark selected courses as completed with grades
-                        setData(prevData => 
-                          prevData.map(course => {
-                            const isSelected = selectedRows.some(row => row.original.id === course.id)
-                            if (isSelected) {
-                              const gradeInfo = courseGrades[course.id]
-                              return { 
-                                ...course, 
-                                status: "Completed" as const, 
-                                grade: gradeInfo?.grade || tempGrade,
-                                semester: gradeInfo?.semester || "Fall 2024"
-                              }
-                            }
-                            return course
-                          })
-                        )
-                        
-                        // Also update the global store
-                        const coursesToComplete = selectedRows.map(row => ({
-                          id: row.original.id,
-                          grade: courseGrades[row.original.id]?.grade || tempGrade,
-                          semester: courseGrades[row.original.id]?.semester || "Fall 2024"
-                        }))
-                        markMultipleComplete(coursesToComplete)
-                        
-                        // Clear selection and close popover
-                        table.resetRowSelection()
-                        setGradeInputOpen(false)
-                        setCourseGrades({})
-                        setTempGrade("A")
-                      }}
-                    >
-                      Complete Courses
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => {
-                        setGradeInputOpen(false)
-                        setCourseGrades({})
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+          {/* Removed Category Filter since we removed the category column */}
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto rounded-md border relative">
+      <div className="overflow-auto rounded-md border relative" style={{ width: '750px', height: '340px' }}>
         {loading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
             <div className="flex items-center gap-2">
@@ -1035,7 +843,7 @@ export default function DegreeRequirementsTable() {
             </div>
           </div>
         )}
-        <Table className="text-xs">
+        <Table className="text-xs table-fixed" style={{ width: '100%' }}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -1043,14 +851,27 @@ export default function DegreeRequirementsTable() {
                   <TableHead
                     key={header.id}
                     style={{ width: header.getSize() }}
-                    className="text-xs h-8"
+                    className="text-xs h-7"
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
+                    {header.isPlaceholder ? null : (
+                      <div
+                        {...{
+                          className: header.column.getCanSort()
+                            ? "cursor-pointer select-none flex items-center gap-1"
+                            : "",
+                          onClick: header.column.getToggleSortingHandler(),
+                        }}
+                      >
+                        {flexRender(
                           header.column.columnDef.header,
                           header.getContext()
                         )}
+                        {{
+                          asc: <ChevronUpIcon className="h-3 w-3" />,
+                          desc: <ChevronDownIcon className="h-3 w-3" />,
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </div>
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -1062,10 +883,10 @@ export default function DegreeRequirementsTable() {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="h-[35px]"
+                  className="h-[31px] hover:bg-muted/50"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-0">
+                    <TableCell key={cell.id} className="py-1 px-2 text-xs">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -1087,6 +908,141 @@ export default function DegreeRequirementsTable() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Class Detail Modal */}
+      {showClassModal && (
+        <>
+          {modalLoading ? (
+            // Show loading spinner while fetching
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+              <div className="bg-background p-8 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+                  <span>Loading class information...</span>
+                </div>
+              </div>
+            </div>
+          ) : classDataForModal ? (
+            <ClassDetailDialog
+              isOpen={showClassModal}
+              onClose={() => {
+                setShowClassModal(false);
+                setClassDataForModal(null);
+              }}
+              groupedClass={classDataForModal.groupedClass}
+              selectedSection={classDataForModal.selectedSection}
+              onAddToSchedule={(section) => {
+                const selectedSection = section || classDataForModal.selectedSection;
+                // Format the data properly for the store
+                // Prepare course data for both systems
+                const courseData = {
+                  id: selectedSection.id || `${selectedSection.subject}-${selectedSection.number}`,
+                  code: `${selectedSection.subject} ${selectedSection.number || selectedSection.courseNumber}`,
+                  name: selectedSection.title,
+                  credits: selectedSection.credits || 3,
+                  section: selectedSection.id,
+                  time: selectedSection.time || 'TBA',
+                  location: selectedSection.location || 'TBA',
+                  instructor: selectedSection.instructor || 'TBA'
+                };
+                
+                // Prepare data for backend persistence
+                const backendCourseData = {
+                  id: selectedSection.id,
+                  subject: selectedSection.subject,
+                  number: selectedSection.number || selectedSection.courseNumber,
+                  title: selectedSection.title,
+                  instructor: selectedSection.instructor || 'TBA',
+                  time: selectedSection.time || 'TBA',
+                  location: selectedSection.location || 'TBA',
+                  credits: selectedSection.credits || 3,
+                  type: selectedSection.type,
+                  color: 'bg-blue-500', // Default color
+                  available_seats: selectedSection.availableSeats,
+                  total_seats: selectedSection.totalSeats,
+                };
+                
+                console.log('Adding to schedule:', courseData, 'for semester: Spring 2025');
+                console.log('Adding to backend:', backendCourseData);
+                
+                // Add to BOTH backend (via useSchedule) and Zustand store
+                // This ensures the course appears on the scheduler page immediately
+                addClass(backendCourseData); // Persist to backend
+                addToSchedule(courseData, 'Spring 2025'); // Update Zustand store
+                
+                // Force a re-render by triggering a state update
+                setShowClassModal(false);
+                setClassDataForModal(null);
+                
+                // Dispatch custom event to notify dashboard
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('courseAddedToSchedule'));
+                }
+              }}
+            />
+          ) : null}
+        </>
+      )}
+
+      {/* Multi-Class Selection Modal */}
+      {showMultiClassModal && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+            onClick={() => setShowMultiClassModal(false)}
+          />
+          
+          {/* Modal */}
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[500px] bg-background border rounded-lg shadow-xl z-50">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">Add Multiple Courses to Schedule</h3>
+                <button
+                  onClick={() => setShowMultiClassModal(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 p-4 overflow-y-auto">
+                <p className="text-sm text-muted-foreground mb-4">
+                  You've selected {multiSelectRows.length} courses. This feature will be available soon - 
+                  for now, please add courses to your schedule one at a time.
+                </p>
+                
+                <div className="space-y-2">
+                  {multiSelectRows.map((course, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 border rounded">
+                      <div>
+                        <span className="font-mono text-sm font-medium">{course.code}</span>
+                        <span className="text-sm text-muted-foreground ml-2">{course.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{course.credits} credits</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Footer */}
+              <div className="p-4 border-t">
+                <button
+                  onClick={() => setShowMultiClassModal(false)}
+                  className="w-full bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
-}
+})
+
+export default DegreeRequirementsTable
+

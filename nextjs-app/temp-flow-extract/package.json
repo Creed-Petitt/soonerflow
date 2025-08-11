@@ -1,0 +1,17 @@
+{
+  "name": "temp-flow-extract",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "2": "^3.0.0",
+    "@remixicon/react": "^4.6.0",
+    "@xyflow/react": "^12.8.2"
+  }
+}

@@ -142,6 +142,7 @@ export default function HybridOnboarding({
 
   const handleComplete = () => {
     if (canComplete()) {
+      // Parent component handles the API call with proper session
       onComplete()
     }
   }

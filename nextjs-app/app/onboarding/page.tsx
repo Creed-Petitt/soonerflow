@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import HybridOnboarding from "@/components/hybrid-onboarding"
+import LoadingScreen from "@/components/loading-screen"
 
 interface Major {
   id: string
@@ -21,6 +22,7 @@ export default function OnboardingPage() {
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null)
   const [graduationYear, setGraduationYear] = useState<string>("")
   const [enrollmentYear, setEnrollmentYear] = useState<string>("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Fetch majors on component mount
   useEffect(() => {
@@ -39,29 +41,40 @@ export default function OnboardingPage() {
   }, [])
 
   const handleComplete = async () => {
-    if (!session?.user?.githubId || !selectedMajor) {
-      toast.error("Please complete all required steps")
+    if (!session?.user?.githubId || !selectedMajor || !enrollmentYear || !graduationYear) {
+      toast.error("Please complete all required fields")
       return
     }
 
     try {
-      // Update user's major
-      const majorResponse = await fetch(`/api/users/${session.user.githubId}/major`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ major: selectedMajor.name }),
-      })
+      console.log('Attempting to save onboarding data:', {
+        email: session.user.email,
+        major: selectedMajor.name,
+        enrollmentYear: parseInt(enrollmentYear),
+        graduationYear: parseInt(graduationYear),
+      });
+      
+      // Save all onboarding data including enrollment and graduation years
+      const onboardingResponse = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: session.user.email, // Use actual session email
+          major: selectedMajor.name,
+          enrollmentYear: parseInt(enrollmentYear),
+          graduationYear: parseInt(graduationYear),
+        }),
+      });
 
-      if (!majorResponse.ok) {
-        throw new Error("Failed to update major")
+      if (!onboardingResponse.ok) {
+        const errorText = await onboardingResponse.text();
+        console.error('Onboarding response error:', errorText);
+        throw new Error("Failed to save onboarding data")
       }
 
-      // Verify the update was successful by fetching user data
-      const verifyResponse = await fetch(`/api/users/${session.user.githubId}`)
-      if (verifyResponse.ok) {
-        const userData = await verifyResponse.json()
-        console.log("Verified user data after update:", userData)
-      }
+      console.log('Onboarding data saved successfully');
 
       // Force session update to clear needsOnboarding flag
       await update()
@@ -73,6 +86,7 @@ export default function OnboardingPage() {
       
     } catch (error) {
       console.error("Error completing onboarding:", error)
+      console.error("Error details:", error instanceof Error ? error.message : error)
       toast.error("Failed to complete setup. Please try again.")
     }
   }
