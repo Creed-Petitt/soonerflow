@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import PrerequisiteVisualizer from "@/components/prerequisite-flow/prerequisite-visualizer";
-import useCourseStore from "@/stores/useCourseStore";
+import useFlowchartStore from "@/stores/useFlowchartStore";
+import { Node } from '@xyflow/react';
+import { CourseNodeData } from '@/components/prerequisite-flow/course-node';
 import {
   Search,
   Plus,
@@ -35,17 +37,16 @@ export default function FlowchartPage() {
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Course store methods
-  const flowChartNodes = useCourseStore((state) => state.flowChartNodes);
-  const addToFlowChart = useCourseStore((state) => state.addToFlowChart);
-  const removeFromFlowChart = useCourseStore((state) => state.removeFromFlowChart);
-  const clearFlowChart = useCourseStore((state) => state.clearFlowChart);
-  const exportFlowchartToScheduler = useCourseStore((state) => state.exportFlowchartToScheduler);
-  const scheduledCourses = useCourseStore((state) => state.scheduledCourses);
+  // Flowchart store methods
+  const nodes = useFlowchartStore((state) => state.nodes);
+  const addNode = useFlowchartStore((state) => state.addNode);
+  const removeNode = useFlowchartStore((state) => state.removeNode);
+  const clearFlowchart = useFlowchartStore((state) => state.clearFlowchart);
+  const exportNodes = useFlowchartStore((state) => state.exportNodes);
 
   // Get courses currently in flowchart
   const flowchartCourses = useMemo(() => {
-    return flowChartNodes.map(node => ({
+    return nodes.map(node => ({
       code: node.data.code,
       title: node.data.title,
       credits: node.data.credits || 3
@@ -88,25 +89,32 @@ export default function FlowchartPage() {
   }, [availableCourses, flowchartCourses]);
 
   const handleAddCourse = (course: Course) => {
-    addToFlowChart({
-      code: course.code,
-      title: course.title,
-      credits: course.credits,
-      category: course.category,
-      status: course.status
-    });
+    const newNode: Node<CourseNodeData> = {
+      id: course.code,
+      type: 'courseNode',
+      position: { x: Math.random() * 600 + 100, y: Math.random() * 400 + 100 },
+      data: {
+        code: course.code,
+        name: course.title,
+        credits: course.credits || 3,
+        status: 'not-started' as const,
+      },
+    };
+    addNode(newNode);
     setShowCourseSearch(false);
     setSearchTerm("");
   };
 
   const handleRemoveCourse = (courseCode: string) => {
-    removeFromFlowChart(courseCode);
+    removeNode(courseCode);
   };
 
   const handleExportToScheduler = () => {
-    exportFlowchartToScheduler();
-    // Show success feedback
-    alert(`Exported ${flowchartCourses.length} courses to semester planner!`);
+    const exportedCourses = exportNodes();
+    // For now, just show what would be exported
+    // TODO: Implement actual export to scheduler page via localStorage or URL params
+    console.log('Courses to export:', exportedCourses);
+    alert(`Ready to export ${exportedCourses.length} courses to semester planner!`);
   };
 
   const totalCredits = flowchartCourses.reduce((sum, course) => sum + course.credits, 0);
@@ -160,7 +168,7 @@ export default function FlowchartPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={clearFlowChart}
+              onClick={clearFlowchart}
               disabled={flowchartCourses.length === 0}
             >
               <Trash2 className="h-4 w-4 mr-2" />

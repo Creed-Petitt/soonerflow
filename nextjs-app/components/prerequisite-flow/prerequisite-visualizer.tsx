@@ -13,7 +13,7 @@ import {
 import "@xyflow/react/dist/base.css";
 import CourseNode from "./course-node";
 import PrerequisiteEdge from "./prerequisite-edge";
-import useCourseStore from "@/stores/useCourseStore";
+import useFlowchartStore from "@/stores/useFlowchartStore";
 import { generatePrerequisiteEdges, commonPrerequisites } from "@/lib/prerequisite-parser";
 
 // Register custom node types and edge types
@@ -27,18 +27,19 @@ const edgeTypes = {
 
 function PrerequisiteVisualizerInner() {
   // Get nodes and edges from store
-  const flowChartNodes = useCourseStore((state) => state.flowChartNodes);
-  const flowChartEdges = useCourseStore((state) => state.flowChartEdges);
-  const updateFlowChartNodes = useCourseStore((state) => state.updateFlowChartNodes);
-  const updateFlowChartEdges = useCourseStore((state) => state.updateFlowChartEdges);
-  const completedCourses = useCourseStore((state) => state.completedCourses);
+  const storeNodes = useFlowchartStore((state) => state.nodes);
+  const storeEdges = useFlowchartStore((state) => state.edges);
+  const updateNodes = useFlowchartStore((state) => state.updateNodes);
+  const updateEdges = useFlowchartStore((state) => state.updateEdges);
+  // TODO: Get completed courses from API or props
+  const completedCourses = new Map();
   
   // Generate edges based on prerequisites
   const generatedEdges = useMemo(() => {
     const edges: any[] = [];
     
     // For each node, check if any other nodes are prerequisites
-    flowChartNodes.forEach(node => {
+    storeNodes.forEach(node => {
       const courseCode = node.data.code;
       const courseKey = courseCode.replace(' ', '');
       
@@ -47,7 +48,7 @@ function PrerequisiteVisualizerInner() {
       
       prereqs.forEach(prereqCode => {
         const prereqKey = prereqCode.replace(' ', '').toLowerCase();
-        const sourceNode = flowChartNodes.find(n => 
+        const sourceNode = storeNodes.find(n => 
           n.data.code === prereqCode || n.id === prereqKey
         );
         
@@ -71,7 +72,7 @@ function PrerequisiteVisualizerInner() {
     });
     
     return edges;
-  }, [flowChartNodes, completedCourses]);
+  }, [storeNodes, completedCourses]);
   
   // Combine store edges with generated edges (prefer store edges)
   const combinedEdges = useMemo(() => {
@@ -83,23 +84,23 @@ function PrerequisiteVisualizerInner() {
     });
     
     // Override with store edges (user customizations)
-    flowChartEdges.forEach(edge => {
+    storeEdges.forEach(edge => {
       edgeMap.set(edge.id, edge);
     });
     
     return Array.from(edgeMap.values());
-  }, [flowChartEdges, generatedEdges]);
+  }, [storeEdges, generatedEdges]);
   
   // Use store data as initial state
-  const [nodes, setNodes, onNodesChange] = useNodesState(flowChartNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(combinedEdges);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
   
   // Sync with store when nodes/edges change in store
   useEffect(() => {
-    setNodes(flowChartNodes);
-  }, [flowChartNodes, setNodes]);
+    setNodes(storeNodes);
+  }, [storeNodes, setNodes]);
   
   useEffect(() => {
     setEdges(combinedEdges);
@@ -111,9 +112,9 @@ function PrerequisiteVisualizerInner() {
     // Get the updated nodes after change
     setTimeout(() => {
       const currentNodes = nodes;
-      updateFlowChartNodes(currentNodes);
+      updateNodes(currentNodes);
     }, 0);
-  }, [nodes, onNodesChange, updateFlowChartNodes]);
+  }, [nodes, onNodesChange, updateNodes]);
 
   return (
     <div className="w-full h-full relative" ref={reactFlowWrapper}>
