@@ -55,7 +55,7 @@ export default function OnboardingPage() {
       });
       
       // Save all onboarding data including enrollment and graduation years
-      const onboardingResponse = await fetch('/api/onboarding', {
+      const onboardingResponse = await fetch('/api/user/onboarding', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
