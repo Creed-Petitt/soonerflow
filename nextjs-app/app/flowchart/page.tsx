@@ -51,7 +51,7 @@ export default function FlowchartPage() {
       title: node.data.title,
       credits: node.data.credits || 3
     }));
-  }, [flowChartNodes]);
+  }, [nodes]);
 
   // Fetch available courses for search
   const fetchCourses = async (searchTerm: string = "") => {

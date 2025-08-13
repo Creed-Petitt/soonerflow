@@ -97,24 +97,31 @@ function PrerequisiteVisualizerInner() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
   
-  // Sync with store when nodes/edges change in store
+  // Only sync with store on initial mount or when store nodes actually change
   useEffect(() => {
-    setNodes(storeNodes);
-  }, [storeNodes, setNodes]);
+    if (storeNodes.length !== nodes.length || 
+        storeNodes.some((sn, i) => sn.id !== nodes[i]?.id)) {
+      setNodes(storeNodes);
+    }
+  }, [storeNodes.length]); // Only depend on length to avoid infinite loops
   
   useEffect(() => {
     setEdges(combinedEdges);
-  }, [combinedEdges, setEdges]);
+  }, [combinedEdges.length]); // Only depend on length
   
   // Update store when nodes change (from dragging)
   const handleNodesChange = useCallback((changes: any) => {
     onNodesChange(changes);
-    // Get the updated nodes after change
-    setTimeout(() => {
-      const currentNodes = nodes;
-      updateNodes(currentNodes);
-    }, 0);
-  }, [nodes, onNodesChange, updateNodes]);
+  }, [onNodesChange]);
+  
+  // Only update store on drag end, not during drag
+  const handleNodeDragStop = useCallback((event: any, node: any) => {
+    // Update the store with the new position
+    const updatedNodes = nodes.map((n) => 
+      n.id === node.id ? { ...n, position: node.position } : n
+    );
+    updateNodes(updatedNodes);
+  }, [nodes, updateNodes]);
 
   return (
     <div className="w-full h-full relative" ref={reactFlowWrapper}>
@@ -133,6 +140,7 @@ function PrerequisiteVisualizerInner() {
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView

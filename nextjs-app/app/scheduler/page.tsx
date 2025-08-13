@@ -23,7 +23,7 @@ import {
 } from "lucide-react"
 import { LabSwitchingDropdown } from "@/components/lab-switching-dropdown"
 import { useSchedule } from "@/hooks/use-schedule"
-import useCourseStore from "@/stores/useCourseStore"
+// Removed useCourseStore - using local state instead
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -145,10 +145,8 @@ export default function SchedulerPage() {
     loading: scheduleLoading,
   } = useSchedule()
   
-  // Get scheduled courses from Zustand store
-  const scheduledCoursesFromStore = useCourseStore((state) => state.scheduledCourses)
-  const removeFromSchedule = useCourseStore((state) => state.removeFromSchedule)
-  const addToScheduleStore = useCourseStore((state) => state.addToSchedule)
+  // Local state for scheduled courses (replacing Zustand store)
+  const [scheduledCoursesFromStore, setScheduledCoursesFromStore] = useState<Map<string, any>>(new Map())
   
   // Local scheduled classes state (includes color info)
   const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([])
@@ -168,9 +166,10 @@ export default function SchedulerPage() {
       }))
       setScheduledClasses(mappedClasses)
       
-      // Also sync with Zustand store for status tracking
+      // Also sync with local store for status tracking
+      const newStore = new Map()
       mappedClasses.forEach(cls => {
-        addToScheduleStore({
+        newStore.set(cls.id, {
           id: cls.id,
           code: `${cls.subject} ${cls.number}`,
           name: cls.title,
@@ -178,9 +177,11 @@ export default function SchedulerPage() {
           section: cls.id,
           time: cls.time || 'TBA',
           location: cls.location || 'TBA',
-          instructor: cls.instructor || 'TBA'
-        }, 'Spring 2025')
+          instructor: cls.instructor || 'TBA',
+          semester: 'Spring 2025'
+        })
       })
+      setScheduledCoursesFromStore(newStore)
       
       // Generate calendar events
       const allEvents: CalendarEvent[] = []
@@ -190,7 +191,7 @@ export default function SchedulerPage() {
       })
       setCalendarEvents(allEvents)
     }
-  }, [persistedClasses, scheduleLoading, addToScheduleStore])
+  }, [persistedClasses, scheduleLoading])
   
   // Also sync with Zustand store
   useEffect(() => {
@@ -408,8 +409,12 @@ export default function SchedulerPage() {
       classesToRemove.forEach(id => removeFromPersistedSchedule(id))
     }
     
-    // Remove from Zustand store
-    classesToRemove.forEach(id => removeFromSchedule(id))
+    // Remove from local store
+    setScheduledCoursesFromStore(prev => {
+      const newStore = new Map(prev)
+      classesToRemove.forEach(id => newStore.delete(id))
+      return newStore
+    })
     
     // Remove calendar events
     setCalendarEvents(prev => prev.filter(event => !classesToRemove.some(id => event.id.startsWith(id))))

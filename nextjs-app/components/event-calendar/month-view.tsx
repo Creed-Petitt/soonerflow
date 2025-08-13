@@ -14,8 +14,6 @@ import {
   startOfWeek,
 } from "date-fns"
 
-import { DraggableEvent } from "@/components/event-calendar/draggable-event"
-import { DroppableCell } from "@/components/event-calendar/droppable-cell"
 import { EventGap, EventHeight } from "@/components/event-calendar/constants"
 import { EventItem } from "@/components/event-calendar/event-item"
 import { getAllEventsForDay, getEventsForDay, getSpanningEventsForDay, sortEvents } from "@/components/event-calendar/utils"
@@ -132,9 +130,8 @@ export function MonthView({
                   data-today={isToday(day) || undefined}
                   data-outside-cell={!isCurrentMonth || undefined}
                 >
-                  <DroppableCell
-                    id={cellId}
-                    date={day}
+                  <div
+                    className="cursor-pointer hover:bg-muted/50"
                     onClick={() => {
                       const startTime = new Date(day)
                       startTime.setHours(DefaultStartHour, 0, 0)
@@ -195,7 +192,7 @@ export function MonthView({
                             className="aria-hidden:hidden"
                             aria-hidden={isHidden ? "true" : undefined}
                           >
-                            <DraggableEvent
+                            <EventItem
                               event={event}
                               view="month"
                               onClick={(e) => handleEventClick(event, e)}
@@ -258,7 +255,7 @@ export function MonthView({
                         </Popover>
                       )}
                     </div>
-                  </DroppableCell>
+                  </div>
                 </div>
               )
             })}

@@ -18,8 +18,6 @@ import {
   startOfWeek,
 } from "date-fns"
 
-import { DraggableEvent } from "@/components/event-calendar/draggable-event"
-import { DroppableCell } from "@/components/event-calendar/droppable-cell"
 import { EventItem } from "@/components/event-calendar/event-item"
 import { isMultiDayEvent } from "@/components/event-calendar/utils"
 import { useCurrentTimeIndicator } from "@/components/event-calendar/hooks/use-current-time-indicator"
@@ -31,11 +29,12 @@ import {
 } from "@/components/event-calendar/constants"
 import { cn } from "@/lib/utils"
 
-interface WeekViewProps {
+interface TimeGridViewProps {
   currentDate: Date
   events: CalendarEvent[]
   onEventSelect: (event: CalendarEvent) => void
   onEventCreate: (startTime: Date) => void
+  days?: number // Number of days to display (1 for day view, 7 for week view)
 }
 
 interface PositionedEvent {
@@ -47,21 +46,28 @@ interface PositionedEvent {
   zIndex: number
 }
 
-export function WeekView({
+export function TimeGridView({
   currentDate,
   events,
   onEventSelect,
   onEventCreate,
-}: WeekViewProps) {
-  const days = useMemo(() => {
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
-    const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 })
-    return eachDayOfInterval({ start: weekStart, end: weekEnd })
-  }, [currentDate])
+  days = 7, // Default to week view
+}: TimeGridViewProps) {
+  const daysToDisplay = useMemo(() => {
+    if (days === 1) {
+      // Day view - just show the current date
+      return [currentDate]
+    } else {
+      // Week view - show the full week
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
+      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 })
+      return eachDayOfInterval({ start: weekStart, end: weekEnd })
+    }
+  }, [currentDate, days])
 
-  const weekStart = useMemo(
-    () => startOfWeek(currentDate, { weekStartsOn: 0 }),
-    [currentDate]
+  const rangeStart = useMemo(
+    () => daysToDisplay[0],
+    [daysToDisplay]
   )
 
   const hours = useMemo(() => {
@@ -82,18 +88,18 @@ export function WeekView({
       .filter((event) => {
         const eventStart = new Date(event.start)
         const eventEnd = new Date(event.end)
-        return days.some(
+        return daysToDisplay.some(
           (day) =>
             isSameDay(day, eventStart) ||
             isSameDay(day, eventEnd) ||
             (day > eventStart && day < eventEnd)
         )
       })
-  }, [events, days])
+  }, [events, daysToDisplay])
 
   // Process events for each day to calculate positions
   const processedDayEvents = useMemo(() => {
-    const result = days.map((day) => {
+    const result = daysToDisplay.map((day) => {
       // Get events for this day that are not all-day events or multi-day events
       const dayEvents = events.filter((event) => {
         // Skip all-day events and multi-day events
@@ -203,7 +209,7 @@ export function WeekView({
     })
 
     return result
-  }, [days, events])
+  }, [daysToDisplay, events])
 
   const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -222,7 +228,7 @@ export function WeekView({
         <div className="text-muted-foreground/70 py-2 text-center text-sm">
           <span className="max-[479px]:sr-only">{format(new Date(), "O")}</span>
         </div>
-        {days.map((day) => (
+        {daysToDisplay.map((day) => (
           <div
             key={day.toString()}
             className="data-today:text-foreground text-muted-foreground/70 py-2 text-center text-sm data-today:font-medium"
@@ -244,7 +250,7 @@ export function WeekView({
                 All day
               </span>
             </div>
-            {days.map((day, dayIndex) => {
+            {daysToDisplay.map((day, dayIndex) => {
               const dayAllDayEvents = allDayEvents.filter((event) => {
                 const eventStart = new Date(event.start)
                 const eventEnd = new Date(event.end)
@@ -269,7 +275,7 @@ export function WeekView({
 
                     // Check if this is the first day in the current week view
                     const isFirstVisibleDay =
-                      dayIndex === 0 && isBefore(eventStart, weekStart)
+                      dayIndex === 0 && isBefore(eventStart, rangeStart)
                     const shouldShowTitle = isFirstDay || isFirstVisibleDay
 
                     return (
@@ -317,7 +323,7 @@ export function WeekView({
           ))}
         </div>
 
-        {days.map((day, dayIndex) => (
+        {daysToDisplay.map((day, dayIndex) => (
           <div
             key={day.toString()}
             className="border-border/70 relative grid auto-cols-fr border-r last:border-r-0"
@@ -338,7 +344,7 @@ export function WeekView({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="size-full">
-                  <DraggableEvent
+                  <EventItem
                     event={positionedEvent.event}
                     view="week"
                     onClick={(e) => handleEventClick(positionedEvent.event, e)}
@@ -372,13 +378,10 @@ export function WeekView({
                   {[0, 1, 2, 3].map((quarter) => {
                     const quarterHourTime = hourValue + quarter * 0.25
                     return (
-                      <DroppableCell
+                      <div
                         key={`${hour.toString()}-${quarter}`}
-                        id={`week-cell-${day.toISOString()}-${quarterHourTime}`}
-                        date={day}
-                        time={quarterHourTime}
                         className={cn(
-                          "absolute h-[calc(var(--week-cells-height)/4)] w-full",
+                          "absolute h-[calc(var(--week-cells-height)/4)] w-full cursor-pointer hover:bg-muted/50",
                           quarter === 0 && "top-0",
                           quarter === 1 &&
                             "top-[calc(var(--week-cells-height)/4)]",

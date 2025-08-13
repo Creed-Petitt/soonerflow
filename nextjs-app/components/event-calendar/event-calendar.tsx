@@ -26,11 +26,9 @@ import { toast } from "sonner"
 
 import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "@/components/event-calendar/constants"
 import { addHoursToDate } from "@/components/event-calendar/utils"
-import { CalendarDndProvider } from "@/components/event-calendar/calendar-dnd-context"
 import { AgendaView } from "@/components/event-calendar/agenda-view"
-import { DayView } from "@/components/event-calendar/day-view"
 import { MonthView } from "@/components/event-calendar/month-view"
-import { WeekView } from "@/components/event-calendar/week-view"
+import { TimeGridView } from "@/components/event-calendar/time-grid-view"
 import { EventDialog } from "@/components/event-calendar/event-dialog"
 import type { CalendarEvent, CalendarView } from "@/components/event-calendar/types"
 import { cn } from "@/lib/utils"
@@ -279,7 +277,7 @@ export function EventCalendar({
         } as React.CSSProperties
       }
     >
-      <CalendarDndProvider onEventUpdate={handleEventUpdate}>
+      <>
         <div
           className={cn(
             "flex items-center justify-between p-2",
@@ -390,19 +388,21 @@ export function EventCalendar({
             />
           )}
           {view === "week" && (
-            <WeekView
+            <TimeGridView
               currentDate={currentDate}
               events={events}
               onEventSelect={handleEventSelect}
               onEventCreate={handleEventCreate}
+              days={7}
             />
           )}
           {view === "day" && (
-            <DayView
+            <TimeGridView
               currentDate={currentDate}
               events={events}
               onEventSelect={handleEventSelect}
               onEventCreate={handleEventCreate}
+              days={1}
             />
           )}
           {view === "agenda" && (
@@ -424,7 +424,7 @@ export function EventCalendar({
           onSave={handleEventSave}
           onDelete={handleEventDelete}
         />
-      </CalendarDndProvider>
+      </>
     </div>
   )
 }

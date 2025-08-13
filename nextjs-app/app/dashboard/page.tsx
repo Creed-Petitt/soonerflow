@@ -15,22 +15,7 @@ import {
 } from "@/components/ui/text-reveal-card";
 import PrerequisiteVisualizer from "@/components/prerequisite-flow/prerequisite-visualizer";
 import { generateStudentSemesters, type Semester } from "@/lib/semester-utils";
-import useCourseStore from "@/stores/useCourseStore";
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+// Removed useCourseStore - fetching data directly now
 import { 
   Sparkles, 
   X,
@@ -51,7 +36,6 @@ export default function DashboardPage() {
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [flowFullscreen, setFlowFullscreen] = useState(false);
   const [viewState, setViewState] = useState<'both' | 'semester' | 'flow'>('semester');
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [showCourseSelector, setShowCourseSelector] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
   const [selectedCourses, setSelectedCourses] = useState<Map<string, Set<string>>>(new Map());
@@ -60,13 +44,6 @@ export default function DashboardPage() {
   const [availableCourses, setAvailableCourses] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
   
   // Dynamic data from backend
   const [creditsCompleted, setCreditsCompleted] = useState(0);
@@ -84,24 +61,40 @@ export default function DashboardPage() {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [additionalSemesters, setAdditionalSemesters] = useState(0); // For adding extra semesters if needed
   
-  // Get courses from store - use shallow comparison to trigger re-renders
-  const completedCourses = useCourseStore((state) => state.completedCourses);
-  const scheduledCourses = useCourseStore((state) => state.scheduledCourses);
-  const loadCompletedCourses = useCourseStore((state) => state.loadCompletedCourses);
+  // State for completed and scheduled courses
+  const [completedCourses, setCompletedCourses] = useState<Map<string, any>>(new Map());
+  const [scheduledCourses, setScheduledCourses] = useState<Map<string, any>>(new Map());
+  const [loadingCourses, setLoadingCourses] = useState(true);
   
   // Load completed courses from backend when session is available
   useEffect(() => {
-    if (session?.user?.email) {
-      loadCompletedCourses(session.user.email);
-    }
-  }, [session?.user?.email, loadCompletedCourses]);
-  
-  // Force re-render when scheduledCourses changes
-  const [, forceUpdate] = useState(0);
-  useEffect(() => {
-    console.log('scheduledCourses changed, forcing update');
-    forceUpdate(prev => prev + 1);
-  }, [scheduledCourses.size]);
+    const loadCompletedCourses = async () => {
+      if (session?.user?.email) {
+        try {
+          const response = await fetch(`/api/user/courses/completed?user_email=${encodeURIComponent(session.user.email)}`);
+          if (response.ok) {
+            const data = await response.json();
+            const coursesMap = new Map();
+            data.completedCourses.forEach((course: any) => {
+              coursesMap.set(course.course_code, {
+                id: course.course_code,
+                code: course.course_code,
+                grade: course.grade,
+                semester: course.semester
+              });
+            });
+            setCompletedCourses(coursesMap);
+          }
+        } catch (error) {
+          console.error('Error loading completed courses:', error);
+        } finally {
+          setLoadingCourses(false);
+        }
+      }
+    };
+    
+    loadCompletedCourses();
+  }, [session?.user?.email]);
   
   // Determine current semester based on today's date
   const getCurrentSemester = () => {
@@ -351,38 +344,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Drag and drop handlers
-  const handleDragStart = (event: any) => {
-    setActiveDragId(event.active.id);
-  };
-
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-    
-    if (!over) {
-      setActiveDragId(null);
-      return;
-    }
-    
-    // Handle dropping on semester columns
-    if (over.id && typeof over.id === 'string' && over.id.startsWith('semester-')) {
-      const targetSemester = over.id.replace('semester-', '');
-      const courseId = active.id;
-      
-      // Add course to the target semester
-      // This would need to be implemented based on your course management logic
-      console.log(`Dropping course ${courseId} to semester ${targetSemester}`);
-    }
-    
-    // Handle dropping on prerequisite flow
-    if (over.id === 'prerequisite-flow') {
-      const courseId = active.id;
-      console.log(`Adding course ${courseId} to prerequisite flow`);
-      // Add to flow chart using the store
-    }
-    
-    setActiveDragId(null);
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -584,8 +545,17 @@ export default function DashboardPage() {
                                   onClick={async () => {
                                     if (isCompleted) {
                                       // Remove from completed courses
-                                      const markIncomplete = useCourseStore.getState().markIncomplete;
-                                      markIncomplete(course.id || course.code);
+                                      // Remove from completed courses
+                                      const newCompleted = new Map(completedCourses);
+                                      newCompleted.delete(course.id || course.code);
+                                      setCompletedCourses(newCompleted);
+                                      
+                                      // TODO: API call to remove from backend
+                                      if (session?.user?.email) {
+                                        fetch(`/api/user/courses/complete/${course.id || course.code}?user_email=${encodeURIComponent(session.user.email)}`, {
+                                          method: 'DELETE'
+                                        });
+                                      }
                                       
                                       // Update backend to remove completed status
                                       if (session?.user?.email) {
@@ -606,8 +576,10 @@ export default function DashboardPage() {
                                       window.dispatchEvent(new CustomEvent('courseRemoved'));
                                     } else {
                                       // Remove from scheduled courses
-                                      const removeFromSchedule = useCourseStore.getState().removeFromSchedule;
-                                      removeFromSchedule(course.id || course.code);
+                                      // Remove from scheduled courses
+                                      const newScheduled = new Map(scheduledCourses);
+                                      newScheduled.delete(course.id || course.code);
+                                      setScheduledCourses(newScheduled);
                                     }
                                     
                                     // Trigger re-render
@@ -800,14 +772,16 @@ export default function DashboardPage() {
                             }`}
                             onClick={() => {
                               if (!isAlreadyScheduled && !isCompleted) {
-                                // Add to schedule using the store
-                                const addToSchedule = useCourseStore.getState().addToSchedule;
-                                addToSchedule({
+                                // Add to scheduled courses
+                                const newScheduled = new Map(scheduledCourses);
+                                newScheduled.set(course.code, {
                                   id: course.code,
                                   code: course.code,
                                   name: course.name,
-                                  credits: course.credits || 3
-                                }, selectedSemester);
+                                  credits: course.credits || 3,
+                                  semester: selectedSemester
+                                });
+                                setScheduledCourses(newScheduled);
                                 
                                 // Trigger re-render
                                 window.dispatchEvent(new CustomEvent('courseAddedToSchedule'));

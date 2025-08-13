@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useRef, useState, useMemo, useCallback, memo } from "react"
 import { useSession } from "next-auth/react"
-import useCourseStore from "@/stores/useCourseStore"
+import useFlowchartStore from "@/stores/useFlowchartStore"
+import { Node } from '@xyflow/react'
+import { CourseNodeData } from '@/components/prerequisite-flow/course-node'
 import { useSchedule } from "@/hooks/use-schedule"
 import { ClassDetailDialog } from "@/components/class-detail-dialog"
 import {
@@ -218,18 +220,6 @@ const columns: ColumnDef<Course>[] = [
                   wouldTakeAgain: section.wouldTakeAgain
                 });
                 
-                // Also add to Zustand store for status tracking
-                addToSchedule({
-                  id: section.id,
-                  code: `${section.subject} ${section.number || section.courseNumber || ''}`,
-                  name: section.title,
-                  credits: section.credits || 3,
-                  section: section.id,
-                  time: section.time || 'TBA',
-                  location: section.location || 'TBA',
-                  instructor: section.instructor || 'TBA'
-                }, 'Spring 2025');
-                
                 setShowClassModal(false);
                 setClassDataForModal(null);
                 // Restore focus after successfully adding
@@ -403,8 +393,8 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
   const id = useId()
   const { data: session } = useSession()
   
-  // Course store hooks at component level
-  const addToFlowChart = useCourseStore((state) => state.addToFlowChart);
+  // Flowchart store hooks
+  const addNode = useFlowchartStore((state) => state.addNode);
   
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -431,16 +421,37 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
   const [multiSelectRows, setMultiSelectRows] = useState<any[]>([])
   const [modalLoading, setModalLoading] = useState(false)
   
-  // Get store functions
-  const markMultipleComplete = useCourseStore((state) => state.markMultipleComplete)
-  const completedCourses = useCourseStore((state) => state.completedCourses)
-  const getCourseStatus = useCourseStore((state) => state.getCourseStatus)
-  const scheduledCourses = useCourseStore((state) => state.scheduledCourses)
-  const loadCompletedCourses = useCourseStore((state) => state.loadCompletedCourses)
-  const addToSchedule = useCourseStore((state) => state.addToSchedule)
+  // State for completed and scheduled courses (replacing store)
+  const [completedCourses, setCompletedCourses] = useState<Map<string, any>>(new Map())
+  const [scheduledCourses, setScheduledCourses] = useState<Map<string, any>>(new Map())
+  const [loadingCourses, setLoadingCourses] = useState(true)
   
   // Get scheduled classes directly from the schedule hook - this is the source of truth
   const { scheduledClasses: persistedScheduledClasses, loading: scheduleLoading, addClass } = useSchedule()
+  
+  // Load completed courses function
+  const loadCompletedCourses = useCallback(async (email: string) => {
+    try {
+      const response = await fetch(`/api/user/courses/completed?user_email=${encodeURIComponent(email)}`)
+      if (response.ok) {
+        const data = await response.json()
+        const coursesMap = new Map()
+        data.completedCourses.forEach((course: any) => {
+          coursesMap.set(course.course_code, {
+            id: course.course_code,
+            code: course.course_code,
+            grade: course.grade,
+            semester: course.semester
+          })
+        })
+        setCompletedCourses(coursesMap)
+      }
+    } catch (error) {
+      console.error('Error loading completed courses:', error)
+    } finally {
+      setLoadingCourses(false)
+    }
+  }, [])
 
   const statusOptions = ["Completed", "In Progress", "Not Started"]
 
@@ -736,7 +747,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
     getFacetedUniqueValues: getFacetedUniqueValues(),
     meta: {
       addClass, // Pass addClass function through table meta
-      addToFlowChart, // Pass addToFlowChart function through table meta
       handleAddToSchedule,
       showClassModal,
       setShowClassModal,
@@ -965,10 +975,9 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
                 console.log('Adding to schedule:', courseData, 'for semester: Spring 2025');
                 console.log('Adding to backend:', backendCourseData);
                 
-                // Add to BOTH backend (via useSchedule) and Zustand store
+                // Add to backend (via useSchedule)
                 // This ensures the course appears on the scheduler page immediately
                 addClass(backendCourseData); // Persist to backend
-                addToSchedule(courseData, 'Spring 2025'); // Update Zustand store
                 
                 // Force a re-render by triggering a state update
                 setShowClassModal(false);
