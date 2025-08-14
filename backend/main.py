@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import sys
-import os
 
 # Add the parent directory to the path to import database models
 sys.path.append('/home/highs/ou-class-manager')
@@ -54,13 +53,6 @@ class ClassResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class Assignment(BaseModel):
-    id: str
-    title: str
-    course: str
-    due_date: str
-    description: Optional[str] = None
-
 class ProfessorResponse(BaseModel):
     id: str
     firstName: str
@@ -77,15 +69,6 @@ class ProfessorResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
-class DashboardData(BaseModel):
-    creditsCompleted: int
-    totalCredits: int
-    gpa: Optional[float]
-    enrollmentYear: Optional[int]
-    graduationYear: Optional[int]
-    majorName: Optional[str]
-    completedCourses: List[dict]
 
 # Database setup
 engine, SessionLocal = create_engine_and_session()
@@ -221,29 +204,6 @@ def get_professor_rating(class_id: str, instructor_name: str, db: Session) -> di
     
     return {"rating": 0.0, "difficulty": 0.0, "wouldTakeAgain": 0.0, "ratingDistribution": [0, 0, 0, 0, 0], "tags": []}
 
-mock_assignments = [
-    Assignment(
-        id="1",
-        title="Lab 3 - Logic Gates",
-        course="ECE 2214",
-        due_date="2025-08-08",
-        description="Design and implement basic logic gates"
-    ),
-    Assignment(
-        id="2", 
-        title="Project 2 - Data Structures",
-        course="CS 2334",
-        due_date="2025-08-05",
-        description="Implement linked list and binary tree"
-    ),
-    Assignment(
-        id="3",
-        title="Problem Set 8",
-        course="MATH 2443", 
-        due_date="2025-08-07",
-        description="Vector calculus problems"
-    )
-]
 
 # API Routes
 @app.get("/")
@@ -372,100 +332,6 @@ async def get_classes(
         }
     }
 
-@app.get("/api/classes/{class_id}", response_model=ClassResponse)
-async def get_class(class_id: str, db: Session = Depends(get_db)):
-    """Get specific class details"""
-    cls = db.query(ClassModel).filter(ClassModel.id == class_id).first()
-    
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
-    
-    # Get professor ratings
-    ratings = get_professor_rating(cls.id, cls.instructor, db)
-    
-    # Format meeting times
-    time_str = format_meeting_times(cls.meetingTimes)
-    
-    # Extract days from meeting times
-    days = []
-    for mt in cls.meetingTimes:
-        if mt.days:
-            days.append(mt.days)
-    
-    # Get location from first meeting time
-    location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
-    
-    # Clean up title by removing location info in parentheses
-    clean_title = cls.title
-    if " (" in clean_title and "@" in clean_title:
-        clean_title = clean_title.split(" (")[0]
-    
-    return ClassResponse(
-        id=cls.id,
-        subject=cls.subject,
-        number=cls.courseNumber,
-        title=clean_title,
-        instructor=cls.instructor or "TBA",
-        time=time_str,
-        location=location,
-        days=days,
-        rating=ratings["rating"],
-        difficulty=ratings["difficulty"],
-        wouldTakeAgain=ratings["wouldTakeAgain"],
-        ratingDistribution=ratings["ratingDistribution"],  # ADDED: Include rating distribution
-        tags=ratings["tags"],  # ADDED: Include professor tags
-        description=cls.description or "",
-        prerequisites=cls.description or "",
-        genEd=cls.genEd or "",
-        type=cls.type or "",  # ADDED: Include class type
-        sections=[
-            {
-                "id": cls.section,
-                "time": time_str,
-                "instructor": cls.instructor or "TBA",
-                "seats": "TBA"
-            }
-        ]
-    )
-
-@app.get("/api/assignments", response_model=List[Assignment])
-async def get_assignments():
-    """Get upcoming assignments"""
-    return mock_assignments
-
-@app.get("/api/user/schedule", response_model=List[ClassResponse])
-async def get_user_schedule(db: Session = Depends(get_db)):
-    """Get user's current schedule"""
-    # For now, return a limited set of classes as enrolled
-    classes = db.query(ClassModel).limit(3).all()
-    
-    response_classes = []
-    for cls in classes:
-        ratings = get_professor_rating(cls.id, cls.instructor, db)
-        time_str = format_meeting_times(cls.meetingTimes)
-        days = [mt.days for mt in cls.meetingTimes if mt.days]
-        location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
-        
-        response_classes.append(ClassResponse(
-            id=cls.id,
-            subject=cls.subject,
-            number=cls.courseNumber,
-            title=cls.title,
-            instructor=cls.instructor or "TBA",
-            time=time_str,
-            location=location,
-            days=days,
-            rating=ratings["rating"],
-            difficulty=ratings["difficulty"],
-            wouldTakeAgain=ratings["wouldTakeAgain"],
-            ratingDistribution=ratings["ratingDistribution"],  # ADDED: Include rating distribution
-            tags=ratings["tags"],  # ADDED: Include professor tags
-            description=cls.description or "",
-            prerequisites="",
-            genEd=cls.genEd or ""
-        ))
-    
-    return response_classes
 
 @app.get("/api/professors/search")
 async def search_professor(name: str, db: Session = Depends(get_db)):
@@ -618,104 +484,6 @@ async def search_professor(name: str, db: Session = Depends(get_db)):
         comments=comments
     )
 
-@app.get("/api/user/dashboard", response_model=DashboardData)
-async def get_user_dashboard(
-    user_email: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """Get user dashboard data including credits, GPA, and progress"""
-    
-    if not user_email:
-        # Return default data if no email provided
-        return DashboardData(
-            creditsCompleted=0,
-            totalCredits=120,
-            gpa=None,
-            enrollmentYear=None,
-            graduationYear=None,
-            majorName=None,
-            completedCourses=[]
-        )
-    
-    user = db.query(User).filter(User.email == user_email).first()
-    if not user:
-        return DashboardData(
-            creditsCompleted=0,
-            totalCredits=120,
-            gpa=None,
-            enrollmentYear=None,
-            graduationYear=None,
-            majorName=None,
-            completedCourses=[]
-        )
-    
-    # Get major information if user has selected one
-    total_credits = 120  # Default
-    major_name = None
-    if user.major_id:
-        major = db.query(Major).filter(Major.id == user.major_id).first()
-        if major:
-            total_credits = major.totalCredits or 120
-            major_name = major.name
-    elif user.major:
-        # Fallback to major name if ID not set
-        major_name = user.major
-    
-    # Get completed courses
-    completed_courses = db.query(CompletedCourse).filter(
-        CompletedCourse.user_id == user.id
-    ).all()
-    
-    # Calculate total credits completed (ONLY from completed courses)
-    credits_completed = sum(course.credits for course in completed_courses)
-    
-    # Note: We NO LONGER add scheduled credits to completed credits
-    # Scheduled classes are "In Progress", not "Completed"
-    # Only completed courses count towards creditsCompleted
-    
-    # Calculate GPA if there are completed courses with grades
-    gpa = None
-    if completed_courses:
-        grade_points = {
-            'A': 4.0, 'A-': 3.7,
-            'B+': 3.3, 'B': 3.0, 'B-': 2.7,
-            'C+': 2.3, 'C': 2.0, 'C-': 1.7,
-            'D+': 1.3, 'D': 1.0, 'D-': 0.7,
-            'F': 0.0
-        }
-        
-        total_grade_points = 0
-        total_graded_credits = 0
-        
-        for course in completed_courses:
-            if course.grade and course.grade in grade_points:
-                total_grade_points += grade_points[course.grade] * course.credits
-                total_graded_credits += course.credits
-        
-        if total_graded_credits > 0:
-            gpa = round(total_grade_points / total_graded_credits, 2)
-    
-    # Format completed courses for response
-    completed_courses_data = [
-        {
-            "course_code": course.course_code,
-            "course_name": course.course_name,
-            "credits": course.credits,
-            "grade": course.grade,
-            "semester": course.semester_completed
-        }
-        for course in completed_courses
-    ]
-    
-    return DashboardData(
-        creditsCompleted=credits_completed,  # Only completed credits, not scheduled
-        totalCredits=total_credits,
-        gpa=gpa,
-        enrollmentYear=user.enrollment_year,
-        graduationYear=user.graduation_year,
-        majorName=major_name,
-        completedCourses=completed_courses_data
-    )
 
 @app.post("/api/user/onboarding")
 async def save_onboarding_data(
@@ -749,44 +517,6 @@ async def save_onboarding_data(
     
     return {"success": True, "message": "Onboarding data saved"}
 
-@app.post("/api/user/courses/complete")
-async def mark_courses_complete(
-    data: dict,
-    db: Session = Depends(get_db)
-):
-    """Mark courses as completed for a user"""
-    email = data.get('email')
-    courses = data.get('courses', [])
-    
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-    
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Add completed courses
-    for course_data in courses:
-        # Check if course already exists
-        existing = db.query(CompletedCourse).filter(
-            CompletedCourse.user_id == user.id,
-            CompletedCourse.course_code == course_data.get('course_code')
-        ).first()
-        
-        if not existing:
-            completed_course = CompletedCourse(
-                user_id=user.id,
-                course_code=course_data.get('course_code'),
-                course_name=course_data.get('course_name', ''),
-                credits=course_data.get('credits', 3),
-                grade=course_data.get('grade'),
-                semester_completed=course_data.get('semester')
-            )
-            db.add(completed_course)
-    
-    db.commit()
-    
-    return {"success": True, "message": f"Marked {len(courses)} courses as complete"}
 
 @app.get("/api/user/courses/completed")
 async def get_completed_courses(
@@ -930,28 +660,6 @@ async def get_user(github_id: str, db: Session = Depends(get_db)):
         created_at=user.created_at
     )
 
-@app.get("/api/users/{github_id}/schedules", response_model=List[ScheduleResponse])
-async def get_user_schedules(github_id: str, db: Session = Depends(get_db)):
-    """Get all schedules for a user"""
-    user = db.query(User).filter(User.github_id == github_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    schedules = db.query(Schedule).filter(Schedule.user_id == user.id).all()
-    
-    response = []
-    for schedule in schedules:
-        class_ids = [sc.class_id for sc in schedule.scheduled_classes]
-        response.append(ScheduleResponse(
-            id=schedule.id,
-            name=schedule.name,
-            is_active=schedule.is_active,
-            semester=schedule.semester,
-            created_at=schedule.created_at,
-            class_ids=class_ids
-        ))
-    
-    return response
 
 @app.get("/api/users/{github_id}/active-schedule")
 async def get_active_schedule(github_id: str, db: Session = Depends(get_db)):
@@ -1071,40 +779,6 @@ async def update_user_major(github_id: str, major_data: MajorUpdate, db: Session
     
     return {"message": "Major updated successfully", "major": major_data.major}
 
-@app.post("/api/schedules")
-async def create_schedule(
-    github_id: str,
-    name: str,
-    semester: str = "202510",
-    db: Session = Depends(get_db)
-):
-    """Create a new schedule for a user"""
-    user = db.query(User).filter(User.github_id == github_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Set all other schedules as inactive
-    db.query(Schedule).filter(Schedule.user_id == user.id).update({"is_active": False})
-    
-    # Create new schedule
-    schedule = Schedule(
-        user_id=user.id,
-        name=name,
-        is_active=True,
-        semester=semester
-    )
-    db.add(schedule)
-    db.commit()
-    db.refresh(schedule)
-    
-    return ScheduleResponse(
-        id=schedule.id,
-        name=schedule.name,
-        is_active=schedule.is_active,
-        semester=schedule.semester,
-        created_at=schedule.created_at,
-        class_ids=[]
-    )
 
 @app.get("/api/majors")
 async def get_majors(db: Session = Depends(get_db)):
