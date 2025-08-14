@@ -18,7 +18,6 @@ import {
   Award,
   Users,
 } from "lucide-react";
-import { ProfessorRatingBarChart } from "@/components/professor-rating-bar-chart";
 import { useSchedule } from "@/hooks/use-schedule";
 
 interface ClassDetailDialogProps {
@@ -300,13 +299,7 @@ export function ClassDetailDialog({
                     </div>
                   )}
 
-                  {/* Rating Distribution */}
-                  {professorData.ratingDistribution && (
-                    <div className="pt-2">
-                      <h4 className="text-sm font-medium mb-2">Rating Distribution</h4>
-                      <ProfessorRatingBarChart ratingDistribution={professorData.ratingDistribution} />
-                    </div>
-                  )}
+                  {/* Rating Distribution - Chart removed for cleanup */}
 
                   <p className="text-xs text-muted-foreground pt-2">
                     Based on {professorData.totalRatings} ratings from RateMyProfessor
