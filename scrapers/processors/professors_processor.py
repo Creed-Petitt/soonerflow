@@ -1,24 +1,13 @@
 import json
-import os
-import sys
+import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-# Import universal config
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', '..', '..'))
-from config import Config, setup_environment
-
-# Setup environment
-setup_environment()
-
-from database_client import DatabaseClient
-
 class ProfessorDataProcessor:
-    """Processes scraped data and prepares it for database storage"""
+    """Process raw professor data into database-ready format"""
     
     def __init__(self):
-        # Initialize SQLAlchemy database client
-        self.db_client = DatabaseClient()
+        self.logger = logging.getLogger(__name__)
         
     def process_professor_data(self, raw_professor_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process raw professor data from scraping into database format"""
@@ -53,11 +42,13 @@ class ProfessorDataProcessor:
             tag_names = [tag.get('tagName', '') for tag in teacher_tags_raw if tag.get('tagName')]
             teacher_tags_string = ','.join(tag_names)
         
-        # Process course codes
-        course_codes = raw_professor_data.get('courseCodes', [])
+        # Process course codes - convert to JSON string for storage
+        course_codes_raw = raw_professor_data.get('courseCodes', [])
+        course_codes = json.dumps(course_codes_raw) if course_codes_raw else ''
         
-        # Process related teachers
-        related_teachers = raw_professor_data.get('relatedTeachers', [])
+        # Process related teachers - convert to JSON string for storage
+        related_teachers_raw = raw_professor_data.get('relatedTeachers', [])
+        related_teachers = json.dumps(related_teachers_raw) if related_teachers_raw else ''
         
         # Prepare processed data
         processed_data = {
@@ -194,18 +185,47 @@ class ProfessorDataProcessor:
         else:
             return 5
     
-    def save_to_database(self, data: Dict[str, Any], data_type: str = 'professor') -> bool:
-        """Save processed data to database using SQLAlchemy"""
+    def validate_professor_data(self, professor_data: Dict[str, Any]) -> bool:
+        """Validate that professor data has required fields"""
+        required_fields = ['id', 'firstName', 'lastName']
         
-        try:
-            if data_type == 'professor':
-                return self.db_client.save_professor(data)
-            elif data_type == 'rating':
-                return self.db_client.save_rating(data)
-            else:
-                print(f"Unknown data type: {data_type}")
+        for field in required_fields:
+            if not professor_data.get(field):
+                self.logger.warning(f"Missing required field '{field}' in professor data")
                 return False
+        
+        return True
+    
+    def validate_rating_data(self, rating_data: Dict[str, Any]) -> bool:
+        """Validate that rating data has required fields"""
+        required_fields = ['id', 'professorId']
+        
+        for field in required_fields:
+            if not rating_data.get(field):
+                self.logger.warning(f"Missing required field '{field}' in rating data")
+                return False
+        
+        return True
+    
+    def process_professors_batch(self, professors_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Process a batch of raw professor data"""
+        processed_professors = []
+        
+        for professor_edge in professors_data:
+            try:
+                # Extract the professor node from the edge structure
+                professor = professor_edge.get('node', professor_edge)  # Handle both edge and direct formats
                 
-        except Exception as e:
-            print(f"Error in save_to_database: {e}")
-            return False 
+                # Process the professor data
+                processed_prof = self.process_professor_data(professor)
+                
+                if processed_prof and self.validate_professor_data(processed_prof):
+                    processed_professors.append(processed_prof)
+                else:
+                    self.logger.warning(f"Skipping invalid professor: {professor.get('id', 'Unknown')}")
+                    
+            except Exception as e:
+                self.logger.error(f"Error processing professor: {e}")
+                continue
+        
+        return processed_professors 

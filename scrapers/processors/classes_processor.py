@@ -121,38 +121,6 @@ class ClassDataProcessor:
             'totalSeats': class_data.get('total_seats', 0)
         }
     
-    def process_class_data(self, raw_class_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process raw class data for database storage"""
-        try:
-            # Extract meeting times
-            meeting_times = raw_class_data.get('meetingTimes', [])
-            
-            # Process class data
-            processed_data = {
-                'id': raw_class_data.get('id'),
-                'subject': raw_class_data.get('subject'),
-                'courseNumber': raw_class_data.get('courseNumber'),
-                'section': raw_class_data.get('section'),
-                'title': raw_class_data.get('title'),
-                'description': raw_class_data.get('description'),
-                'instructor': raw_class_data.get('instructor'),
-                'allInstructors': raw_class_data.get('allInstructors'),
-                'type': raw_class_data.get('type'),
-                'delivery': raw_class_data.get('delivery'),
-                'genEd': raw_class_data.get('genEd'),
-                'term': raw_class_data.get('term'),
-                'semesterDates': raw_class_data.get('semesterDates'),
-                'examInfo': raw_class_data.get('examInfo'),
-                'repeatability': raw_class_data.get('repeatability'),
-                'credits': raw_class_data.get('credits', 3)
-            }
-            
-            return processed_data
-            
-        except Exception as e:
-            self.logger.error(f"Error processing class data: {e}")
-            return {}
-    
     def process_meeting_time_data(self, raw_meeting_time_data: Dict[str, Any], class_id: str) -> Dict[str, Any]:
         """Process raw meeting time data for database storage"""
         try:

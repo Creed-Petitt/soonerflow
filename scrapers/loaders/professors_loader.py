@@ -13,8 +13,8 @@ from typing import List, Dict, Any, Optional
 # Import our modules
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api_clients.professors import RateMyProfessorsAPIClient
-from processors.professors import ProfessorDataProcessor
+from scrapers.api_clients.professors_client import RateMyProfessorsAPIClient
+from scrapers.processors.professors_processor import ProfessorDataProcessor
 from database_client import SQLAlchemyDatabaseClient
 
 # Constants
