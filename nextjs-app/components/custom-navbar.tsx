@@ -8,6 +8,7 @@ import {
   CalendarDaysIcon,
   TrendingUpIcon,
   GitBranch,
+  BookOpen,
 } from "lucide-react"
 
 import ThemeToggle from "@/components/navbar-components/theme-toggle"
@@ -35,8 +36,7 @@ import {
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/scheduler", label: "Scheduler", icon: CalendarDaysIcon },
-  { href: "/flowchart", label: "Flowchart", icon: GitBranch },
-  { href: "/progress", label: "Weekly View", icon: TrendingUpIcon },
+  { href: "/flowchart", label: "Flow", icon: GitBranch },
 ]
 
 export default function CustomNavbar() {

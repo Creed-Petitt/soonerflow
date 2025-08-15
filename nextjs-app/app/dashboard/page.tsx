@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import CustomNavbar from "@/components/custom-navbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import DegreeRequirementsTable from "@/components/degree-requirements-table";
 import { ProgressRadialChart } from "@/components/progress-radial-chart";
 import { AcademicProgressChart } from "@/components/academic-progress-chart";
 import { 
@@ -21,6 +20,9 @@ import {
   X,
   Expand,
   Plus,
+  BookOpen,
+  CalendarDays,
+  GitBranch,
 } from "lucide-react";
 import {
   Carousel,
@@ -32,7 +34,6 @@ import {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [flowFullscreen, setFlowFullscreen] = useState(false);
   const [viewState, setViewState] = useState<'both' | 'semester' | 'flow'>('semester');
@@ -351,21 +352,13 @@ export default function DashboardPage() {
       
       <main className="px-6 py-4">
         {/* Main Layout - Now 3-9 split */}
-        {loading ? (
-          // Show nothing while loading - completely empty
-          <div className="grid grid-cols-12 gap-x-4 items-start">
-            <div className="col-span-3" />
-            <div className="col-span-9 h-[455px]">
-              <DegreeRequirementsTable />
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-12 gap-x-4 items-start">
+        {!loading && (
+          <div className="flex justify-center gap-8 items-start max-w-6xl mx-auto">
             
-            {/* Left Column - Progress Overview (wider) */}
-            <div className="col-span-3 flex flex-col gap-3">
+            {/* Left Column - Progress Overview */}
+            <div className="flex flex-col gap-4">
               {/* Progress Chart Card */}
-              <div className="h-[200px]">
+              <div className="h-[220px]">
                 <ProgressRadialChart 
                   creditsCompleted={creditsCompleted}
                   totalCredits={totalCredits}
@@ -373,7 +366,7 @@ export default function DashboardPage() {
               </div>
 
               {/* GPA Display with Text Reveal Effect */}
-              <div className="flex justify-center -mt-[55px] -ml-[3px]">
+              <div className="flex justify-center -mt-[40px]">
                 <TextRevealCard
                   text="GPA"
                   revealText={gpa ? gpa.toFixed(2) : "N/A"}
@@ -382,7 +375,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Graduation Status */}
-              <div className="min-h-[160px]">
+              <div className="min-h-[180px] mt-2">
                 <AcademicProgressChart 
                   currentYear={currentYear}
                   graduationDate={graduationYear ? `May ${graduationYear}` : "TBD"}
@@ -390,90 +383,66 @@ export default function DashboardPage() {
                   graduationYear={graduationYear}
                 />
               </div>
-
             </div>
 
-            {/* Center Column - Requirements Table (truncated to align with Fall 2026 card) */}
-            <div className="col-span-8 h-[380px] pr-4">
-              <DegreeRequirementsTable />
-            </div>
-            
-            {/* Right Column - Empty space to maintain alignment */}
-            <div className="col-span-1"></div>
-          </div>
-        )}
+            {/* Center Spacer */}
+            <div className="w-16" />
 
-        {/* Floating Action Button for AI Advisor */}
-        <Button
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-          size="icon"
-          onClick={() => setAiDrawerOpen(true)}
-        >
-          <Sparkles className="h-6 w-6" />
-        </Button>
-
-        {/* AI Advisor Slide-out Drawer */}
-        {aiDrawerOpen && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-              onClick={() => setAiDrawerOpen(false)}
-            />
-            
-            {/* Drawer */}
-            <div className="fixed right-0 top-0 h-full w-[450px] bg-background border-l shadow-xl z-50 transform transition-transform">
-              <div className="flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Sparkles className="h-5 w-5" />
-                    AI Advisor
-                  </h2>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setAiDrawerOpen(false)}
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 p-6 overflow-y-auto">
-                  <div className="space-y-4">
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                    >
-                      Get Next Semester Plan
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                    >
-                      Analyze Graduation Progress
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                    >
-                      Suggest Electives
-                    </Button>
-                    
-                    <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                      <h3 className="font-medium mb-2">AI Recommendations</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Click any of the buttons above to get personalized recommendations based on your degree progress and course history.
-                      </p>
-                    </div>
+            {/* Right Column - Quick Stats */}
+            <div className="flex flex-col gap-4 pt-8">
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Academic Overview</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Major</span>
+                    <span className="font-medium">{majorName || "Not Selected"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Credits Completed</span>
+                    <span className="font-medium">{creditsCompleted}/{totalCredits}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Current GPA</span>
+                    <span className="font-medium">{gpa ? gpa.toFixed(2) : "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Expected Graduation</span>
+                    <span className="font-medium">{graduationYear ? `May ${graduationYear}` : "TBD"}</span>
                   </div>
                 </div>
-              </div>
+              </Card>
+
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                <div className="space-y-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.location.href = '/courses'}
+                  >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Browse Course Catalog
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.location.href = '/scheduler'}
+                  >
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    Plan Schedule
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.location.href = '/flowchart'}
+                  >
+                    <GitBranch className="h-4 w-4 mr-2" />
+                    View Flowchart
+                  </Button>
+                </div>
+              </Card>
             </div>
-          </>
+          </div>
         )}
 
         {/* Hidden Semesters Reset Button */}

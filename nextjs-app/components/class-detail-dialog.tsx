@@ -25,8 +25,7 @@ interface ClassDetailDialogProps {
   isOpen: boolean;
   onClose: () => void;
   groupedClass: any;
-  selectedSection: any;
-  onAddToSchedule: (section: any) => void;
+  onAddToSchedule: (section: any, labSection?: any) => void;
 }
 
 // Helper function to clean HTML and boilerplate text from description
@@ -58,20 +57,27 @@ export function ClassDetailDialog({
   isOpen,
   onClose,
   groupedClass,
-  selectedSection,
   onAddToSchedule
 }: ClassDetailDialogProps) {
   const [currentView, setCurrentView] = React.useState<"class" | "professor">("class");
-  const [currentSection, setCurrentSection] = React.useState(selectedSection);
+  const [currentSection, setCurrentSection] = React.useState<any>(null);
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
   const [professorData, setProfessorData] = React.useState<any>(null);
   const [loadingProfessor, setLoadingProfessor] = React.useState(false);
 
   React.useEffect(() => {
-    if (selectedSection) {
-      setCurrentSection(selectedSection);
+    // Reset state when dialog opens with new class
+    if (isOpen && groupedClass) {
+      // Set first section as default
+      if (groupedClass.sections && groupedClass.sections.length > 0) {
+        setCurrentSection(groupedClass.sections[0]);
+      }
+      // Reset lab selection
+      setCurrentLabSection(null);
+      // Reset view to class tab
+      setCurrentView("class");
     }
-  }, [selectedSection]);
+  }, [isOpen, groupedClass]);
 
   // Load professor data when section changes
   React.useEffect(() => {
@@ -110,8 +116,10 @@ export function ClassDetailDialog({
 
   if (!groupedClass) return null;
 
-  const seatPercentage = currentSection?.totalSeats ? 
-    ((currentSection.totalSeats - currentSection.availableSeats) / currentSection.totalSeats) * 100 : 0;
+  const totalSeats = currentSection?.total_seats ?? currentSection?.totalSeats;
+  const availableSeats = currentSection?.available_seats ?? currentSection?.availableSeats;
+  const seatPercentage = totalSeats ? 
+    ((totalSeats - availableSeats) / totalSeats) * 100 : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -121,10 +129,10 @@ export function ClassDetailDialog({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <DialogTitle className="scroll-m-20 text-2xl font-bold tracking-tight sans-serif">
-                {groupedClass.subject} {groupedClass.number}
+                {groupedClass.subject} {groupedClass.number || groupedClass.courseNumber}
               </DialogTitle>
               <p className="text-lg leading-6 sans-serif mt-3 whitespace-nowrap">{groupedClass.title}</p>
-              <p className="text-sm text-muted-foreground sans-serif mt-0 -mb-2">{groupedClass.credits || 3} Credits</p>
+              <p className="text-sm text-muted-foreground sans-serif mt-0 -mb-2">{groupedClass.credits || currentSection?.credits || 3} Credits</p>
             </div>
             <div className="flex gap-1 shrink-0">
               <Button
@@ -152,29 +160,38 @@ export function ClassDetailDialog({
           {currentView === "class" ? (
             <>
               {/* Section Selector */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium sans-serif -mt-2">Section</h4>
-                {groupedClass.sections && groupedClass.sections.length > 1 ? (
-                  <select
-                    value={currentSection?.id}
-                    onChange={(e) => {
-                      const section = groupedClass.sections.find((s: any) => s.id === e.target.value);
-                      if (section) setCurrentSection(section);
-                    }}
-                    className="w-full h-9 px-3 text-sm border rounded-md bg-background"
-                  >
-                    {groupedClass.sections.map((section: any) => (
-                      <option key={section.id} value={section.id}>
-                        {section.time || 'TBA'} - {section.instructor || 'TBA'}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="h-9 px-3 flex items-center text-sm border rounded-md bg-muted/50">
-                    {currentSection?.time || 'TBA'} - {currentSection?.instructor || 'TBA'}
-                  </div>
-                )}
-              </div>
+              {groupedClass.sections && groupedClass.sections.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium sans-serif -mt-2">Section</h4>
+                  {groupedClass.sections.length > 1 ? (
+                    <select
+                      value={currentSection?.id || ''}
+                      onChange={(e) => {
+                        const section = groupedClass.sections.find((s: any) => s.id === e.target.value);
+                        if (section) setCurrentSection(section);
+                      }}
+                      className="w-full h-9 px-3 text-sm border rounded-md bg-background"
+                    >
+                      {groupedClass.sections.map((section: any) => {
+                        const time = section.meetingTimes?.[0] ? 
+                          `${section.meetingTimes[0].days || ''} ${section.meetingTimes[0].startTime || ''}-${section.meetingTimes[0].endTime || ''}`.trim() || 'TBA' 
+                          : section.time || 'TBA';
+                        return (
+                          <option key={section.id} value={section.id}>
+                            {time} - {section.instructor || 'TBA'}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  ) : currentSection ? (
+                    <div className="h-9 px-3 flex items-center text-sm border rounded-md bg-muted/50">
+                      {currentSection.meetingTimes?.[0] ? 
+                        `${currentSection.meetingTimes[0].days || ''} ${currentSection.meetingTimes[0].startTime || ''}-${currentSection.meetingTimes[0].endTime || ''}`.trim() || 'TBA'
+                        : currentSection.time || 'TBA'} - {currentSection.instructor || 'TBA'}
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {/* Lab Section Selector - only show if labs exist */}
               {groupedClass.labSections && groupedClass.labSections.length > 0 && (
@@ -189,11 +206,17 @@ export function ClassDetailDialog({
                     className="w-full h-9 px-3 text-sm border rounded-md bg-background"
                   >
                     <option value="">Select a lab section...</option>
-                    {groupedClass.labSections.map((lab: any) => (
-                      <option key={lab.id} value={lab.id}>
-                        {lab.time || 'TBA'} - {lab.location || 'TBA'}
-                      </option>
-                    ))}
+                    {groupedClass.labSections.map((lab: any) => {
+                      const time = lab.meetingTimes?.[0] ? 
+                        `${lab.meetingTimes[0].days || ''} ${lab.meetingTimes[0].startTime || ''}-${lab.meetingTimes[0].endTime || ''}`.trim() || 'TBA' 
+                        : lab.time || 'TBA';
+                      const location = lab.meetingTimes?.[0]?.location || lab.location || 'TBA';
+                      return (
+                        <option key={lab.id} value={lab.id}>
+                          {time} - {location}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -202,11 +225,15 @@ export function ClassDetailDialog({
               <div className="space-y-3 pt-3">
                 <div className="flex items-center gap-3 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>{currentSection?.time || 'TBA'}</span>
+                  <span>
+                    {currentSection?.meetingTimes?.[0] ? 
+                      `${currentSection.meetingTimes[0].days || ''} ${currentSection.meetingTimes[0].startTime || ''}-${currentSection.meetingTimes[0].endTime || ''}`.trim() || 'TBA'
+                      : currentSection?.time || 'TBA'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{currentSection?.location || 'TBA'}</span>
+                  <span>{currentSection?.meetingTimes?.[0]?.location || currentSection?.location || 'TBA'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <User className="h-4 w-4 text-muted-foreground" />
@@ -214,12 +241,12 @@ export function ClassDetailDialog({
                 </div>
                 
                 {/* Seats Progress Bar */}
-                {currentSection?.totalSeats !== undefined && (
+                {(currentSection?.total_seats !== undefined || currentSection?.totalSeats !== undefined) && (
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Available Seats</span>
                       <span className="font-medium">
-                        {currentSection.availableSeats}/{currentSection.totalSeats}
+                        {currentSection.available_seats ?? currentSection.availableSeats}/{currentSection.total_seats ?? currentSection.totalSeats}
                       </span>
                     </div>
                     <Progress value={seatPercentage} className="h-2" />
@@ -328,15 +355,10 @@ export function ClassDetailDialog({
             onClick={() => {
               console.log('Add to Schedule button clicked!');
               console.log('Current section:', currentSection);
+              console.log('Current lab section:', currentLabSection);
               
-              // Add the lecture section
-              onAddToSchedule(currentSection);
-              
-              // If lab is required and selected, add it too
-              if (groupedClass.labSections && groupedClass.labSections.length > 0 && currentLabSection) {
-                console.log('Adding lab section:', currentLabSection);
-                onAddToSchedule(currentLabSection);
-              }
+              // Pass both section and lab (if selected) to the handler
+              onAddToSchedule(currentSection, currentLabSection);
               
               onClose();
             }}

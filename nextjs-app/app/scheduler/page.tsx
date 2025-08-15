@@ -22,6 +22,7 @@ import {
   User
 } from "lucide-react"
 import { LabSwitchingDropdown } from "@/components/lab-switching-dropdown"
+import { ClassBrowserPanel } from "@/components/class-browser-panel"
 import { useSchedule } from "@/hooks/use-schedule"
 // Removed useCourseStore - using local state instead
 import Link from "next/link"
@@ -134,6 +135,7 @@ export default function SchedulerPage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
+  const [isClassBrowserOpen, setIsClassBrowserOpen] = useState(false)
   
   // Use the schedule hook for persistent storage
   const {
@@ -145,76 +147,30 @@ export default function SchedulerPage() {
     loading: scheduleLoading,
   } = useSchedule()
   
-  // Local state for scheduled courses (replacing Zustand store)
-  const [scheduledCoursesFromStore, setScheduledCoursesFromStore] = useState<Map<string, any>>(new Map())
-  
-  // Local scheduled classes state (includes color info)
-  const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([])
+  // Map persisted classes with colors for display
+  const scheduledClasses = useMemo(() => {
+    return persistedClasses.map((cls: any, index: number) => ({
+      ...cls,
+      number: cls.number || cls.courseNumber,
+      colorBg: classColors[index % classColors.length].bg,
+      colorHex: cls.color || classColors[index % classColors.length].hex,
+    }))
+  }, [persistedClasses])
   
   // Credit tracking
   const totalCredits = scheduledClasses.reduce((sum, cls) => sum + (cls.credits || 3), 0)
   const creditLimit = 21
   
-  // Sync persisted classes with local state on load
+  // Generate calendar events from scheduled classes
   useEffect(() => {
-    if (!scheduleLoading && persistedClasses && persistedClasses.length > 0) {
-      const mappedClasses = persistedClasses.map((cls: any, index: number) => ({
-        ...cls,
-        number: cls.number || cls.courseNumber,
-        colorBg: classColors[index % classColors.length].bg,
-        colorHex: cls.color || classColors[index % classColors.length].hex,
-      }))
-      setScheduledClasses(mappedClasses)
-      
-      // Also sync with local store for status tracking
-      const newStore = new Map()
-      mappedClasses.forEach(cls => {
-        newStore.set(cls.id, {
-          id: cls.id,
-          code: `${cls.subject} ${cls.number}`,
-          name: cls.title,
-          credits: cls.credits || 3,
-          section: cls.id,
-          time: cls.time || 'TBA',
-          location: cls.location || 'TBA',
-          instructor: cls.instructor || 'TBA',
-          semester: 'Spring 2025'
-        })
-      })
-      setScheduledCoursesFromStore(newStore)
-      
-      // Generate calendar events
-      const allEvents: CalendarEvent[] = []
-      mappedClasses.forEach(cls => {
-        const events = parseTimeToEvents(cls)
-        allEvents.push(...events)
-      })
-      setCalendarEvents(allEvents)
-    }
-  }, [persistedClasses, scheduleLoading])
+    const allEvents: CalendarEvent[] = []
+    scheduledClasses.forEach(cls => {
+      const events = parseTimeToEvents(cls)
+      allEvents.push(...events)
+    })
+    setCalendarEvents(allEvents)
+  }, [scheduledClasses])
   
-  // Also sync with Zustand store
-  useEffect(() => {
-    const coursesArray = Array.from(scheduledCoursesFromStore.values())
-    if (coursesArray.length > 0) {
-      const mappedClasses = coursesArray.map((cls: any, index: number) => ({
-        ...cls,
-        subject: cls.code?.split(' ')[0] || cls.subject,
-        number: cls.code?.split(' ')[1] || cls.number,
-        colorBg: classColors[index % classColors.length].bg,
-        colorHex: classColors[index % classColors.length].hex,
-      }))
-      setScheduledClasses(mappedClasses)
-      
-      // Generate calendar events
-      const allEvents: CalendarEvent[] = []
-      mappedClasses.forEach(cls => {
-        const events = parseTimeToEvents(cls)
-        allEvents.push(...events)
-      })
-      setCalendarEvents(allEvents)
-    }
-  }, [scheduledCoursesFromStore])
 
   // Memoize subjects to prevent unnecessary API calls
   const subjects = useMemo(() => {
@@ -401,20 +357,8 @@ export default function SchedulerPage() {
       classesToRemove.push(...associatedLabs.map(lab => lab.id))
     }
     
-    // Remove from local state
-    setScheduledClasses(prev => prev.filter(cls => !classesToRemove.includes(cls.id)))
-    
-    // Remove from persisted schedule if authenticated
-    if (isAuthenticated) {
-      classesToRemove.forEach(id => removeFromPersistedSchedule(id))
-    }
-    
-    // Remove from local store
-    setScheduledCoursesFromStore(prev => {
-      const newStore = new Map(prev)
-      classesToRemove.forEach(id => newStore.delete(id))
-      return newStore
-    })
+    // Remove from persisted schedule
+    classesToRemove.forEach(id => removeFromPersistedSchedule(id))
     
     // Remove calendar events
     setCalendarEvents(prev => prev.filter(event => !classesToRemove.some(id => event.id.startsWith(id))))
@@ -422,38 +366,14 @@ export default function SchedulerPage() {
 
   const handleSectionSwitch = (currentClass: ClassData, newSection: ClassData) => {
     // Remove the current section
-    setScheduledClasses(prev => prev.filter(cls => cls.id !== currentClass.id))
-    setCalendarEvents(prev => prev.filter(event => !event.id.startsWith(currentClass.id)))
+    removeFromPersistedSchedule(currentClass.id)
     
-    // Remove from persisted schedule if authenticated
-    if (isAuthenticated) {
-      removeFromPersistedSchedule(currentClass.id)
-    }
-    
-    // Find the color of the current class
-    const currentScheduledClass = scheduledClasses.find(cls => cls.id === currentClass.id)
-    
-    // Add the new section with the same color
-    const newScheduledClass: ScheduledClass = {
+    // Add the new section
+    addToPersistedSchedule({
       ...newSection,
-      colorBg: currentScheduledClass?.colorBg || classColors[0].bg,
-      colorHex: currentScheduledClass?.colorHex || classColors[0].hex
-    }
-    
-    setScheduledClasses(prev => [...prev, newScheduledClass])
-    
-    // Persist new section if authenticated
-    if (isAuthenticated) {
-      addToPersistedSchedule({
-        ...newSection,
-        color: newScheduledClass.colorHex,
-        number: newSection.number || '',
-      } as any)
-    }
-    
-    // Add calendar events for new section
-    const newEvents = parseTimeToEvents(newScheduledClass)
-    setCalendarEvents(prev => [...prev, ...newEvents])
+      color: scheduledClasses.find(cls => cls.id === currentClass.id)?.colorHex || classColors[0].hex,
+      number: newSection.number || '',
+    } as any)
   }
 
   // Handle lab switching
@@ -546,7 +466,7 @@ export default function SchedulerPage() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => setIsClassBrowserOpen(true)}
               >
                 <BookOpen className="h-4 w-4 mr-2" />
                 Browse & Add Classes
@@ -587,6 +507,12 @@ export default function SchedulerPage() {
           </div>
         </div>
       </div>
+      
+      {/* Class Browser Panel */}
+      <ClassBrowserPanel
+        isOpen={isClassBrowserOpen}
+        onClose={() => setIsClassBrowserOpen(false)}
+      />
     </div>
   )
 }

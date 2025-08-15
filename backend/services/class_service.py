@@ -123,6 +123,25 @@ class ClassService:
         subjects = self.db.query(ClassModel.subject).distinct().all()
         return sorted([s[0] for s in subjects if s[0]])
     
+    def get_all_departments_with_counts(self) -> List[Dict[str, Any]]:
+        """
+        Get all departments with their class counts.
+        
+        Returns:
+            List of departments with counts
+        """
+        from sqlalchemy import func
+        
+        departments = self.db.query(
+            ClassModel.subject,
+            func.count(ClassModel.id).label('count')
+        ).group_by(ClassModel.subject).order_by(ClassModel.subject).all()
+        
+        return [
+            {"code": dept, "count": count}
+            for dept, count in departments if dept
+        ]
+    
     def get_classes_by_department(
         self,
         department: str,

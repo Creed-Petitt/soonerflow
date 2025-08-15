@@ -55,6 +55,14 @@ def get_db():
         db.close()
 
 
+@router.get("/departments")
+async def get_departments(db: Session = Depends(get_db)):
+    """Get all unique departments/subjects."""
+    class_service = ClassService(db)
+    departments = class_service.get_all_departments_with_counts()
+    return {"departments": departments}
+
+
 @router.get("")
 async def get_classes(
     subject: Optional[str] = None,

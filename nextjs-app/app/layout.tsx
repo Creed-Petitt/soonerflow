@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
 import { AuthModalProvider } from "@/contexts/auth-modal-context";
 import { AuthModalWrapper } from "@/components/auth/auth-modal-wrapper";
+import { ScheduleProvider } from "@/contexts/schedule-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,17 +33,19 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <AuthModalProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="dark"
-              enableSystem={false}
-              disableTransitionOnChange
-            >
-              {children}
-              <AuthModalWrapper />
-            </ThemeProvider>
-          </AuthModalProvider>
+          <ScheduleProvider>
+            <AuthModalProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="dark"
+                enableSystem={false}
+                disableTransitionOnChange
+              >
+                {children}
+                <AuthModalWrapper />
+              </ThemeProvider>
+            </AuthModalProvider>
+          </ScheduleProvider>
         </AuthProvider>
       </body>
     </html>
