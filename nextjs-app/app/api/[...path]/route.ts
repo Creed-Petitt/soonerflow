@@ -63,7 +63,21 @@ export async function PUT(
 ) {
   const { path: pathArray } = await params
   const path = pathArray.join('/')
-  const body = await request.json()
+  
+  let body = null
+  try {
+    // Try to parse JSON body, but handle empty body gracefully
+    const contentType = request.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const text = await request.text()
+      if (text) {
+        body = JSON.parse(text)
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing request body:', error)
+    // Continue with null body if parsing fails
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/api/${path}`, {
@@ -71,7 +85,7 @@ export async function PUT(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: body ? JSON.stringify(body) : undefined,
     })
 
     const data = await response.json()

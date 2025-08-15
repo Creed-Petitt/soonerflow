@@ -155,17 +155,24 @@ export function useSchedule() {
     }
   }, [schedule, session?.user?.githubId, isSaving, localClasses])
 
-  // Save schedule when debounced classes change (FIXED - smarter logic)
+  // Save schedule when debounced classes change (FIXED - prevent infinite loops)
   useEffect(() => {
-    if (!hasLoadedSchedule || !schedule) return
+    if (!hasLoadedSchedule || !schedule || isSaving) return
     
-    // Only save if classes actually changed
-    const classesChanged = JSON.stringify(debouncedClasses) !== JSON.stringify(schedule.classes)
-    if (classesChanged) {
-      console.log('💾 Saving schedule changes...')
+    // Skip auto-save if we just loaded
+    if (debouncedClasses.length === 0 && (!schedule.classes || schedule.classes.length === 0)) {
+      return // Both empty, no need to save
+    }
+    
+    // Compare class IDs to see if there's an actual change
+    const currentClassIds = debouncedClasses.map(c => c.id).sort().join(',')
+    const savedClassIds = (schedule.classes || []).map(c => c.id).sort().join(',')
+    
+    if (currentClassIds !== savedClassIds) {
+      console.log('💾 Auto-saving schedule changes...')
       saveSchedule()
     }
-  }, [debouncedClasses, schedule, saveSchedule, hasLoadedSchedule])
+  }, [debouncedClasses, hasLoadedSchedule, schedule, isSaving, saveSchedule]) // Include all deps but with proper guards
 
   const addClass = useCallback((classData: ScheduledClass) => {
     setLocalClasses(prev => {

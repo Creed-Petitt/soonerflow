@@ -18,6 +18,7 @@ import {
   Award,
   Users,
 } from "lucide-react";
+import { ProfessorRatingBarChart } from "@/components/professor-rating-bar-chart";
 import { useSchedule } from "@/hooks/use-schedule";
 
 interface ClassDetailDialogProps {
@@ -114,7 +115,7 @@ export function ClassDetailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[50vw] w-full h-[80vh] p-0 flex flex-col">
+      <DialogContent className="max-w-[90vw] md:max-w-[70vw] lg:max-w-[50vw] w-full max-h-[90vh] p-0 flex flex-col overflow-hidden">
         {/* Compact Header */}
         <div className="px-6 pt-4 pb-1 shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -147,7 +148,7 @@ export function ClassDetailDialog({
         </div>
         
         {/* Body */}
-        <div className="flex-1 min-h-[450px] px-6 py-1 space-y-2 overflow-y-auto">
+        <div className="flex-1 px-6 py-1 space-y-2 overflow-y-auto scrollbar-thin">
           {currentView === "class" ? (
             <>
               {/* Section Selector */}
@@ -299,7 +300,13 @@ export function ClassDetailDialog({
                     </div>
                   )}
 
-                  {/* Rating Distribution - Chart removed for cleanup */}
+                  {/* Rating Distribution */}
+                  {professorData.ratingDistribution && (
+                    <div className="pt-1">
+                      <h4 className="text-sm font-medium mb-1">Rating Distribution</h4>
+                      <ProfessorRatingBarChart ratingDistribution={professorData.ratingDistribution} />
+                    </div>
+                  )}
 
                   <p className="text-xs text-muted-foreground pt-2">
                     Based on {professorData.totalRatings} ratings from RateMyProfessor
