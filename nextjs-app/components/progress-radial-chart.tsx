@@ -52,10 +52,11 @@ export function ProgressRadialChart({ creditsCompleted, totalCredits }: Progress
     >
       <RadialBarChart
         data={chartData}
+        startAngle={0}
         endAngle={180}
-        innerRadius={80}
-        outerRadius={120}
-        margin={{ top: 48, right: 0, bottom: 0, left: 0 }}
+        innerRadius={120}
+        outerRadius={180}
+        margin={{ top: 100, right: 20, bottom: 0, left: 20 }}
         key={`radial-${creditsCompleted}`} // Force re-render for animation
       >
         <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
@@ -63,18 +64,18 @@ export function ProgressRadialChart({ creditsCompleted, totalCredits }: Progress
             content={({ viewBox }) => {
               if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                 return (
-                  <text x={viewBox.cx} y={(viewBox.cy || 0) - 19} textAnchor="middle">
+                  <text x={viewBox.cx} y={(viewBox.cy || 0) - 30} textAnchor="middle">
                     <tspan
                       x={viewBox.cx}
-                      y={(viewBox.cy || 0) - 27}
-                      className="fill-foreground text-lg font-bold transition-all duration-1000"
+                      y={(viewBox.cy || 0) - 45}
+                      className="fill-foreground text-2xl font-bold transition-all duration-1000"
                     >
                       {animatedCredits}/{totalCredits}
                     </tspan>
                     <tspan
                       x={viewBox.cx}
-                      y={(viewBox.cy || 0) - 11}
-                      className="fill-muted-foreground text-base"
+                      y={(viewBox.cy || 0) - 18}
+                      className="fill-muted-foreground text-xl"
                     >
                       Credits
                     </tspan>

@@ -407,11 +407,11 @@ export default function SchedulerPage() {
     <div className="h-screen bg-background text-foreground flex flex-col">
       <CustomNavbar />
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         {/* Left Sidebar - Expanded for Date Picker and Course Ledger */}
-        <div className="w-[350px] bg-background flex flex-col">
+        <div className="w-[350px] bg-background flex flex-col overflow-y-auto">
           {/* Date Picker */}
-          <div className="flex justify-center p-4">
+          <div className="flex justify-center p-4 flex-shrink-0">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -427,9 +427,10 @@ export default function SchedulerPage() {
           </div>
 
           {/* Enrolled Classes Ledger */}
-          <div className="flex-1 flex flex-col px-4 pb-4">
-            <ScrollArea className="flex-1">
-              <div className="space-y-2">
+          <div className="flex-1 flex flex-col px-4 pb-4 min-h-0">
+            <div className="relative flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="space-y-2">
                 {scheduledClasses.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <GraduationCap className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -458,11 +459,14 @@ export default function SchedulerPage() {
                     )
                   })
                 )}
-              </div>
-            </ScrollArea>
+                </div>
+              </ScrollArea>
+              {/* Subtle gradient fade at bottom */}
+              <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+            </div>
 
             {/* Actions */}
-            <div className="pt-3 mt-3 space-y-2">
+            <div className="pt-3 mt-3 space-y-2 flex-shrink-0">
               <Button 
                 variant="outline" 
                 className="w-full justify-start"

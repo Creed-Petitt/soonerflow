@@ -3,69 +3,187 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import CustomNavbar from "@/components/custom-navbar";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ProgressRadialChart } from "@/components/progress-radial-chart";
-import { AcademicProgressChart } from "@/components/academic-progress-chart";
-import { 
-  TextRevealCard,
-  TextRevealCardDescription,
-  TextRevealCardTitle,
-} from "@/components/ui/text-reveal-card";
-import PrerequisiteVisualizer from "@/components/prerequisite-flow/prerequisite-visualizer";
-import { generateStudentSemesters, type Semester } from "@/lib/semester-utils";
-// Removed useCourseStore - fetching data directly now
-import { 
-  Sparkles, 
-  X,
-  Expand,
-  Plus,
-  BookOpen,
-  CalendarDays,
-  GitBranch,
-} from "lucide-react";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from "@/components/ui/carousel";
+import { StudentProfileCard } from "@/components/dashboard/student-profile-card";
+import { GPACard } from "@/components/dashboard/gpa-card";
+import { DashboardCalendarWidget } from "@/components/dashboard/dashboard-calendar-widget";
+import { CompactSemesterTimeline } from "@/components/dashboard/compact-semester-timeline";
+import { QuickActionsPanel } from "@/components/dashboard/quick-actions-panel";
+import { useSchedule } from "@/hooks/use-schedule";
+import type { CalendarEvent } from "@/components/event-calendar/types";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [plannerOpen, setPlannerOpen] = useState(false);
-  const [flowFullscreen, setFlowFullscreen] = useState(false);
-  const [viewState, setViewState] = useState<'both' | 'semester' | 'flow'>('semester');
-  const [showCourseSelector, setShowCourseSelector] = useState(false);
-  const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
-  const [selectedCourses, setSelectedCourses] = useState<Map<string, Set<string>>>(new Map());
-  const [selectedGrade, setSelectedGrade] = useState<Map<string, string>>(new Map());
-  const [hiddenSemesters, setHiddenSemesters] = useState<Set<string>>(new Set());
-  const [availableCourses, setAvailableCourses] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  
+  const { scheduledClasses } = useSchedule();
   
   // Dynamic data from backend
   const [creditsCompleted, setCreditsCompleted] = useState(0);
   const [totalCredits, setTotalCredits] = useState(120);
   const [gpa, setGpa] = useState<number | null>(null);
   const [majorName, setMajorName] = useState<string | null>(null);
-  const [enrollmentYear, setEnrollmentYear] = useState<number | null>(null);
+  const [, setEnrollmentYear] = useState<number | null>(null);
   const [graduationYear, setGraduationYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState<string | null>(null);
   
-  // Calculate current year based on enrollment
-  const currentYear = enrollmentYear ? Math.min(4, new Date().getFullYear() - enrollmentYear + 1) : 1;
+  // State for courses
+  interface Course {
+    code: string;
+    name?: string;
+    title?: string;
+    credits?: number;
+    semester?: string;
+    grade?: string;
+    time?: string;
+    location?: string;
+    instructor?: string;
+    status?: 'completed' | 'scheduled';
+  }
   
-  // Dynamic semester generation
-  const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [additionalSemesters, setAdditionalSemesters] = useState(0); // For adding extra semesters if needed
-  
-  // State for completed and scheduled courses
-  const [completedCourses, setCompletedCourses] = useState<Map<string, any>>(new Map());
-  const [scheduledCourses, setScheduledCourses] = useState<Map<string, any>>(new Map());
+  const [currentSemesterCourses, setCurrentSemesterCourses] = useState<Course[]>([]);
+  const [completedCourses, setCompletedCourses] = useState<Map<string, Course>>(new Map());
+  const [scheduledCourses] = useState<Map<string, Course>>(new Map());
   const [loadingCourses, setLoadingCourses] = useState(true);
+  
+  // Function to parse class time string into calendar events
+  const parseTimeToEvents = (classData: any) => {
+    if (!classData.time || classData.time === 'TBA') return []
+    
+    // Parse "MWF 10:00 am-10:50 am" format
+    const parts = classData.time.split(' ')
+    if (parts.length < 3) return []
+    
+    const days = parts[0]
+    const timeRange = parts.slice(1).join(' ')
+    const [startTimeStr, endTimeStr] = timeRange.split('-')
+    
+    // Parse times
+    const parseTime = (timeStr: string) => {
+      const cleanTime = timeStr.trim()
+      const isPM = cleanTime.includes('pm')
+      const isAM = cleanTime.includes('am')
+      const timeOnly = cleanTime.replace(/[ap]m/g, '').trim()
+      const [hourStr, minStr] = timeOnly.split(':')
+      let hour = parseInt(hourStr)
+      const min = parseInt(minStr) || 0
+      
+      if (isPM && hour !== 12) hour += 12
+      if (isAM && hour === 12) hour = 0
+      
+      return { hour, min }
+    }
+    
+    const startTime = parseTime(startTimeStr)
+    const endTime = parseTime(endTimeStr)
+    
+    // Map day letters to day numbers (0 = Sunday)
+    const dayMap: { [key: string]: number } = {
+      'M': 1, 'T': 2, 'W': 3, 'R': 4, 'F': 5
+    }
+    
+    const classDays = []
+    let i = 0
+    while (i < days.length) {
+      if (i < days.length - 1 && days.slice(i, i + 2) === 'Th') {
+        classDays.push(4)
+        i += 2
+      } else if (days[i] === 'R') {
+        classDays.push(4)
+        i++
+      } else {
+        classDays.push(dayMap[days[i]] || 1)
+        i++
+      }
+    }
+    
+    // Create calendar events for the semester
+    const events = []
+    const today = new Date()
+    const startOfSemester = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const endOfSemester = new Date(today.getFullYear(), today.getMonth() + 4, 30)
+    
+    classDays.forEach(dayOfWeek => {
+      const currentDate = new Date(startOfSemester)
+      
+      while (currentDate.getDay() !== dayOfWeek) {
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+      
+      while (currentDate <= endOfSemester) {
+        const startDate = new Date(currentDate)
+        startDate.setHours(startTime.hour, startTime.min, 0, 0)
+        
+        const endDate = new Date(startDate)
+        endDate.setHours(endTime.hour, endTime.min, 0, 0)
+        
+        events.push({
+          id: `${classData.id}-${dayOfWeek}-${startDate.toISOString()}`,
+          title: `${classData.subject} ${classData.number}`,
+          description: `${classData.title}\nInstructor: ${classData.instructor}\nLocation: ${classData.location}`,
+          start: startDate,
+          end: endDate,
+          color: classData.color === 'bg-blue-500' ? 'sky' : 
+                 classData.color === 'bg-green-500' ? 'emerald' :
+                 classData.color === 'bg-purple-500' ? 'violet' :
+                 classData.color === 'bg-orange-500' ? 'orange' :
+                 classData.color === 'bg-pink-500' ? 'rose' :
+                 'sky',
+          location: classData.location
+        })
+        
+        currentDate.setDate(currentDate.getDate() + 7)
+      }
+    })
+    
+    return events
+  }
+
+  // Convert scheduled classes to calendar events for the dashboard widget
+  const calendarEvents = useMemo(() => {
+    const allEvents: CalendarEvent[] = []
+    
+    scheduledClasses.forEach(cls => {
+      const events = parseTimeToEvents(cls)
+      allEvents.push(...events)
+    })
+    
+    return allEvents
+  }, [scheduledClasses])
+  
+  // Load active schedule from backend
+  useEffect(() => {
+    const loadActiveSchedule = async () => {
+      if (session?.user?.githubId) {
+        try {
+          // Fetch user's active schedule with real class data
+          const response = await fetch(`/api/users/${session.user.githubId}/active-schedule`);
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Transform schedule data to course format
+            const scheduleCourses = data.classes.map((cls: any) => ({
+              code: `${cls.subject} ${cls.number}`,
+              name: cls.title,
+              title: cls.title,
+              credits: cls.credits,
+              time: cls.time,
+              location: cls.location,
+              instructor: cls.instructor,
+              status: 'scheduled' as const
+            }));
+            
+            setCurrentSemesterCourses(scheduleCourses);
+            console.log('✅ Active schedule loaded:', scheduleCourses);
+          }
+        } catch (error) {
+          console.error('Error loading active schedule:', error);
+        } finally {
+          setLoadingCourses(false);
+        }
+      }
+    };
+    
+    loadActiveSchedule();
+  }, [session?.user?.githubId]);
   
   // Load completed courses from backend when session is available
   useEffect(() => {
@@ -75,8 +193,8 @@ export default function DashboardPage() {
           const response = await fetch(`/api/user/courses/completed?user_email=${encodeURIComponent(session.user.email)}`);
           if (response.ok) {
             const data = await response.json();
-            const coursesMap = new Map();
-            data.completedCourses.forEach((course: any) => {
+            const coursesMap = new Map<string, Course>();
+            data.completedCourses.forEach((course: Course) => {
               coursesMap.set(course.course_code, {
                 id: course.course_code,
                 code: course.course_code,
@@ -88,8 +206,6 @@ export default function DashboardPage() {
           }
         } catch (error) {
           console.error('Error loading completed courses:', error);
-        } finally {
-          setLoadingCourses(false);
         }
       }
     };
@@ -113,43 +229,6 @@ export default function DashboardPage() {
   };
   
   const currentSemester = getCurrentSemester();
-  
-  // Organize courses by semester
-  const coursesBySemester = useMemo(() => {
-    const organized = new Map<string, any[]>();
-    
-    console.log('📊 Dashboard - scheduledCourses:', Array.from(scheduledCourses.values()));
-    console.log('📊 Dashboard - completedCourses:', Array.from(completedCourses.values()));
-    
-    // Add completed courses
-    completedCourses.forEach((course, key) => {
-      const semester = course.semester || 'Unassigned';
-      if (!organized.has(semester)) {
-        organized.set(semester, []);
-      }
-      organized.get(semester)!.push({
-        ...course,
-        status: 'completed'
-      });
-    });
-    
-    // Add scheduled courses
-    scheduledCourses.forEach((course, key) => {
-      const semester = course.semester || 'Spring 2025';
-      if (!organized.has(semester)) {
-        organized.set(semester, []);
-      }
-      organized.get(semester)!.push({
-        ...course,
-        status: 'scheduled'
-      });
-    });
-    
-    console.log('📊 Dashboard - coursesBySemester:', Array.from(organized.entries()));
-    console.log('📊 Dashboard - Spring 2025 courses:', organized.get('Spring 2025'));
-    
-    return organized;
-  }, [completedCourses, scheduledCourses]);
   
   // Fetch dashboard data from backend
   const fetchDashboardData = useCallback(async () => {
@@ -176,73 +255,71 @@ export default function DashboardPage() {
         setMajorName(data.majorName || null);
         setEnrollmentYear(data.enrollmentYear || null);
         setGraduationYear(data.graduationYear || null);
+        setUserName(session.user.name || null);
         console.log('✅ Dashboard data loaded:', data);
       } else {
         console.error('Failed to fetch dashboard data:', response.status);
-        // Set fallback values - but don't hardcode fake credits
+        // Set fallback values
         setCreditsCompleted(0);
         setTotalCredits(120);
         setGpa(null);
         setMajorName(null);
         setEnrollmentYear(null);
         setGraduationYear(null);
+        setUserName(session.user?.name || null);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      // Set fallback values on error - but don't hardcode fake credits
+      // Set fallback values on error
       setCreditsCompleted(0);
       setTotalCredits(120);
       setGpa(null);
       setMajorName(null);
       setEnrollmentYear(null);
       setGraduationYear(null);
+      setUserName(session.user?.name || null);
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.email]); // Only depend on email, not entire session object
+  }, [session?.user?.email, session?.user?.name]); // Depend on email and name
   
-  // Load available courses for the selector
+  // Load current semester courses
   useEffect(() => {
-    const fetchCourses = async () => {
-      if (!session?.user?.githubId) return;
+    if (!loadingCourses) {
+      const current = currentSemester;
+      const coursesForCurrentSemester = [];
       
-      try {
-        // First get user's major
-        const userResponse = await fetch(`/api/users/${session.user.githubId}`);
-        if (!userResponse.ok) {
-          console.error('Failed to fetch user data');
-          return;
-        }
-        const userData = await userResponse.json();
-        
-        if (!userData.major) {
-          console.log('User has no major selected');
-          return;
-        }
-        
-        // Then fetch major courses
-        const coursesResponse = await fetch(`/api/major-courses?major_name=${encodeURIComponent(userData.major)}`);
-        if (coursesResponse.ok) {
-          const majorCourses = await coursesResponse.json();
-          
-          // Transform to simpler format
-          const transformed = majorCourses.map((course: any) => ({
-            id: `${course.subject}-${course.courseNumber}`,
-            code: `${course.subject} ${course.courseNumber}`,
-            name: course.title || `${course.subject} ${course.courseNumber}`,
+      // Check scheduled courses for current semester
+      scheduledCourses.forEach((course) => {
+        if (course.semester === current) {
+          coursesForCurrentSemester.push({
+            code: course.code,
+            name: course.name || course.title,
             credits: course.credits || 3,
-            category: course.category
-          }));
-          
-          setAvailableCourses(transformed);
+            time: course.time,
+            location: course.location,
+            instructor: course.instructor
+          });
         }
-      } catch (error) {
-        console.error('Error fetching available courses:', error);
-      }
-    };
-    
-    fetchCourses();
-  }, [session?.user?.githubId]);
+      });
+      
+      // Check completed courses for current semester (in case student is retaking)
+      completedCourses.forEach((course) => {
+        if (course.semester === current) {
+          coursesForCurrentSemester.push({
+            code: course.code,
+            name: course.name || course.title,
+            credits: course.credits || 3,
+            time: course.time,
+            location: course.location,
+            instructor: course.instructor
+          });
+        }
+      });
+      
+      setCurrentSemesterCourses(coursesForCurrentSemester);
+    }
+  }, [completedCourses, scheduledCourses, currentSemester, loadingCourses]);
 
   // Load dashboard data once when session is available (FIXED - proper caching)
   const [hasLoadedDashboard, setHasLoadedDashboard] = useState(false)
@@ -280,524 +357,148 @@ export default function DashboardPage() {
     };
   }, [hasLoadedDashboard]);
   
-  // Load hidden semesters from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('hiddenSemesters');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setHiddenSemesters(new Set(parsed));
-      } catch (e) {
-        console.error('Failed to load hidden semesters:', e);
-      }
-    }
-  }, []);
-
-  // Save hidden semesters to localStorage whenever they change
-  useEffect(() => {
-    if (hiddenSemesters.size > 0) {
-      localStorage.setItem('hiddenSemesters', JSON.stringify(Array.from(hiddenSemesters)));
-    } else {
-      localStorage.removeItem('hiddenSemesters');
-    }
-  }, [hiddenSemesters]);
-
-  // Generate semesters for 2022-2027 timeline (10 semesters)
-  useEffect(() => {
-    // Check if user has any summer courses
-    const hasSummerCourses = Array.from(completedCourses.values()).some(
-      course => course.semester?.toLowerCase().includes('summer')
-    ) || Array.from(scheduledCourses.values()).some(
-      course => course.semester?.toLowerCase().includes('summer')
-    );
+  // Generate key semester data for timeline
+  const semesterTimelineData = useMemo(() => {
+    const semesters = [];
+    const current = currentSemester;
+    const currentYear = new Date().getFullYear();
     
-    // Generate 2022-2027 timeline as requested by user
-    const generatedSemesters = generateStudentSemesters(
-      2022, // Start year
-      2027, // End year
-      hasSummerCourses // Include summer only if user has summer courses
-    );
+    // Previous semester (completed)
+    const prevSemester = current.includes('Fall') 
+      ? `Spring ${currentYear}` 
+      : `Fall ${currentYear - 1}`;
     
-    // Filter out hidden semesters
-    const visibleSemesters = generatedSemesters.filter(
-      semester => !hiddenSemesters.has(semester.label)
-    );
+    // Next semester (upcoming)
+    const nextSemester = current.includes('Spring')
+      ? `Fall ${currentYear}`
+      : `Spring ${currentYear + 1}`;
     
-    setSemesters(visibleSemesters);
-  }, [additionalSemesters, completedCourses, scheduledCourses, hiddenSemesters]);
-
-  // Listen for course added events to trigger re-render
-  useEffect(() => {
-    const handleCourseAdded = () => {
-      console.log('Course added to schedule event received');
-      // Force a re-render by updating state
-      setAdditionalSemesters(prev => prev);
+    // Graduation semester
+    const gradSemester = graduationYear ? `Spring ${graduationYear}` : 'Spring 2027';
+    
+    // Count courses and credits for each
+    const getCourseData = (sem: string) => {
+      let count = 0;
+      let credits = 0;
+      
+      completedCourses.forEach((course) => {
+        if (course.semester === sem) {
+          count++;
+          credits += course.credits || 3;
+        }
+      });
+      
+      scheduledCourses.forEach((course) => {
+        if (course.semester === sem) {
+          count++;
+          credits += course.credits || 3;
+        }
+      });
+      
+      return { count, credits };
     };
     
-    if (typeof window !== 'undefined') {
-      window.addEventListener('courseAddedToSchedule', handleCourseAdded);
+    const prevData = getCourseData(prevSemester);
+    const currentData = getCourseData(current);
+    const nextData = getCourseData(nextSemester);
+    const gradData = getCourseData(gradSemester);
+    
+    semesters.push({
+      label: prevSemester,
+      status: 'completed' as const,
+      credits: prevData.credits,
+      courseCount: prevData.count
+    });
+    
+    semesters.push({
+      label: current,
+      status: 'current' as const,
+      credits: currentData.credits,
+      courseCount: currentData.count
+    });
+    
+    semesters.push({
+      label: nextSemester,
+      status: 'upcoming' as const,
+      credits: nextData.credits,
+      courseCount: nextData.count
+    });
+    
+    // Only add graduation semester if it's different from next semester
+    if (gradSemester !== nextSemester && gradSemester !== current) {
+      semesters.push({
+        label: gradSemester,
+        status: 'future' as const,
+        credits: gradData.credits,
+        courseCount: gradData.count
+      });
     }
     
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('courseAddedToSchedule', handleCourseAdded);
-      }
-    };
-  }, []);
+    return semesters;
+  }, [completedCourses, scheduledCourses, currentSemester, graduationYear]);
+
 
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       <CustomNavbar />
       
-      <main className="px-6 py-4">
-        {/* Main Layout - Now 3-9 split */}
+      <main className="max-w-7xl mx-auto px-1 py-6">
         {!loading && (
-          <div className="flex justify-center gap-8 items-start max-w-6xl mx-auto">
-            
-            {/* Left Column - Progress Overview */}
-            <div className="flex flex-col gap-4">
-              {/* Progress Chart Card */}
-              <div className="h-[220px]">
-                <ProgressRadialChart 
-                  creditsCompleted={creditsCompleted}
-                  totalCredits={totalCredits}
-                />
-              </div>
-
-              {/* GPA Display with Text Reveal Effect */}
-              <div className="flex justify-center -mt-[40px]">
-                <TextRevealCard
-                  text="GPA"
-                  revealText={gpa ? gpa.toFixed(2) : "N/A"}
-                  className="w-[150px]"
-                />
-              </div>
-
-              {/* Graduation Status */}
-              <div className="min-h-[180px] mt-2">
-                <AcademicProgressChart 
-                  currentYear={currentYear}
-                  graduationDate={graduationYear ? `May ${graduationYear}` : "TBD"}
-                  enrollmentYear={enrollmentYear}
-                  graduationYear={graduationYear}
-                />
-              </div>
-            </div>
-
-            {/* Center Spacer */}
-            <div className="w-16" />
-
-            {/* Right Column - Quick Stats */}
-            <div className="flex flex-col gap-4 pt-8">
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Academic Overview</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Major</span>
-                    <span className="font-medium">{majorName || "Not Selected"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Credits Completed</span>
-                    <span className="font-medium">{creditsCompleted}/{totalCredits}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Current GPA</span>
-                    <span className="font-medium">{gpa ? gpa.toFixed(2) : "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Expected Graduation</span>
-                    <span className="font-medium">{graduationYear ? `May ${graduationYear}` : "TBD"}</span>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => window.location.href = '/courses'}
-                  >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Browse Course Catalog
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => window.location.href = '/scheduler'}
-                  >
-                    <CalendarDays className="h-4 w-4 mr-2" />
-                    Plan Schedule
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => window.location.href = '/flowchart'}
-                  >
-                    <GitBranch className="h-4 w-4 mr-2" />
-                    View Flowchart
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Hidden Semesters Reset Button */}
-        {hiddenSemesters.size > 0 && (
-          <div className="mt-2 flex justify-end px-14">
-            <button
-              onClick={() => setHiddenSemesters(new Set())}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Show {hiddenSemesters.size} hidden semester{hiddenSemesters.size > 1 ? 's' : ''}
-            </button>
-          </div>
-        )}
-
-        {/* Clean Semester Carousel - Moved up to eliminate scrolling */}
-        <div className="mt-4">
-          <Carousel
-            opts={{
-              align: "start",
-            }}
-            className="w-full max-w-[calc(100vw-200px)] mx-auto px-14"
-          >
-            <CarouselContent>
-              {semesters.map((semester, index) => {
-                const hasClasses = coursesBySemester.get(semester.label)?.length > 0;
-                const isCurrentSemester = semester.label === currentSemester;
-                return (
-                  <CarouselItem key={semester.value} className="md:basis-1/8 lg:basis-1/8">
-                    <div className={`bg-background border rounded-lg shadow-sm hover:shadow-md transition-shadow h-[400px] flex flex-col ${
-                      isCurrentSemester ? 'border-2 border-red-500/40 shadow-red-500/20' : ''
-                    }`}>
-                      <div className="p-3 border-b flex items-center justify-between">
-                        <p className="text-sm font-bold text-center flex-1">{semester.label}</p>
-                        {!hasClasses && (
-                          <button 
-                            onClick={() => {
-                              setHiddenSemesters(prev => {
-                                const newSet = new Set(prev);
-                                newSet.add(semester.label);
-                                return newSet;
-                              });
-                            }}
-                            className="text-muted-foreground hover:text-destructive w-4 h-4 flex items-center justify-center"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                      <div className="p-3 flex-1 overflow-y-auto space-y-2">
-                        {/* Display actual courses for this semester */}
-                        {coursesBySemester.get(semester.label)?.map((course) => {
-                          const isCompleted = course.status === 'completed';
-                          return (
-                            <div 
-                              key={course.id || course.code}
-                              className="p-2 rounded border text-xs relative bg-muted/30 border-muted-foreground/20 hover:bg-muted/40"
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="font-semibold text-foreground">{course.code}</div>
-                                  <div className="text-muted-foreground text-xs">
-                                    {course.credits || 3} credits
-                                    {isCompleted && course.grade && (
-                                      <span className="ml-2 font-semibold">{course.grade}</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={async () => {
-                                    if (isCompleted) {
-                                      // Remove from completed courses
-                                      // Remove from completed courses
-                                      const newCompleted = new Map(completedCourses);
-                                      newCompleted.delete(course.id || course.code);
-                                      setCompletedCourses(newCompleted);
-                                      
-                                      // TODO: API call to remove from backend
-                                      if (session?.user?.email) {
-                                        fetch(`/api/user/courses/complete/${course.id || course.code}?user_email=${encodeURIComponent(session.user.email)}`, {
-                                          method: 'DELETE'
-                                        });
-                                      }
-                                      
-                                      // Update backend to remove completed status
-                                      if (session?.user?.email) {
-                                        try {
-                                          const response = await fetch(
-                                            `/api/user/courses/complete/${encodeURIComponent(course.code)}?user_email=${encodeURIComponent(session.user.email)}`,
-                                            { method: 'DELETE' }
-                                          );
-                                          if (!response.ok) {
-                                            console.error('Failed to remove course:', await response.text());
-                                          }
-                                        } catch (error) {
-                                          console.error('Failed to update backend:', error);
-                                        }
-                                      }
-                                      
-                                      // Trigger event to update table
-                                      window.dispatchEvent(new CustomEvent('courseRemoved'));
-                                    } else {
-                                      // Remove from scheduled courses
-                                      // Remove from scheduled courses
-                                      const newScheduled = new Map(scheduledCourses);
-                                      newScheduled.delete(course.id || course.code);
-                                      setScheduledCourses(newScheduled);
-                                    }
-                                    
-                                    // Trigger re-render
-                                    window.dispatchEvent(new CustomEvent('courseAddedToSchedule'));
-                                  }}
-                                  className="text-muted-foreground hover:text-destructive transition-colors text-sm font-bold"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <button 
-                          className="w-full p-2 border-2 border-dashed border-muted-foreground/30 rounded text-muted-foreground hover:border-muted-foreground/50 transition-colors"
-                          onClick={() => {
-                            setSelectedSemester(semester.label);
-                            setShowCourseSelector(true);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mx-auto" />
-                        </button>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                );
-              })}
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </div>
-
-        {/* Fullscreen Planning Tools Modal */}
-        {flowFullscreen && (
           <>
-            {/* Backdrop */}
-            <div className="fixed inset-0 bg-background z-50">
-              {/* Header */}
-              <div className="absolute top-0 left-0 right-0 h-16 bg-background/95 backdrop-blur border-b z-10 flex items-center justify-between px-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-lg font-semibold">Planning Tools</h2>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={viewState === 'semester' ? 'default' : 'ghost'}
-                      onClick={() => setViewState('semester')}
-                    >
-                      Semester Planner
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={viewState === 'flow' ? 'default' : 'ghost'}
-                      onClick={() => setViewState('flow')}
-                    >
-                      Prerequisite Flow
-                    </Button>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setFlowFullscreen(false)}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Close Fullscreen
-                </Button>
-              </div>
+            {/* Professional Two-Column Grid Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
               
-              {/* Full screen content */}
-              <div className="absolute inset-0 top-16 p-6">
-                {viewState === 'semester' ? (
-                  <div className="h-full flex gap-4 overflow-x-auto">
-                    {semesters.map((semester) => (
-                      <div key={semester.value} className="flex-shrink-0 w-[160px] h-full border rounded-lg bg-background shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-3 border-b">
-                          <p className="text-sm font-semibold text-center">{semester.label}</p>
-                        </div>
-                        <div className="p-3 h-[calc(100%-100px)] overflow-y-auto space-y-2">
-                          {coursesBySemester.get(semester.label)?.map((course) => (
-                            <div 
-                              key={course.id || course.code}
-                              className={`p-2 rounded border ${
-                                course.status === 'completed' 
-                                  ? 'bg-green-500/10 border-green-500/20' 
-                                  : 'bg-blue-500/10 border-blue-500/20'
-                              }`}
-                            >
-                              <div className="text-sm font-medium">{course.code}</div>
-                              <div className="text-xs text-muted-foreground">{course.credits || 3} credits</div>
-                            </div>
-                          ))}
-                          <button 
-                            className="w-full p-2 border-2 border-dashed border-muted-foreground/30 rounded text-muted-foreground hover:border-muted-foreground/50 transition-colors"
-                            onClick={() => {
-                              setSelectedSemester(semester.label);
-                              setShowCourseSelector(true);
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mx-auto" />
-                          </button>
-                        </div>
-                        <div className="p-3 border-t">
-                          <p className="text-sm text-center font-medium text-muted-foreground">
-                            {coursesBySemester.get(semester.label)?.reduce((sum, course) => sum + (course.credits || 3), 0) || 0} credits
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex-shrink-0 w-[120px] h-full flex items-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAdditionalSemesters(prev => prev + 1)}
-                        className="w-full h-[120px] flex-col gap-2"
-                      >
-                        <Plus className="h-5 w-5" />
-                        <span className="text-sm">Add<br/>Semester</span>
-                      </Button>
-                    </div>
+              {/* MAIN COLUMN (70% - Left Side) */}
+              <div className="space-y-6">
+                {/* Student Profile and GPA Cards */}
+                <div className="flex gap-4 items-stretch">
+                  <div className="flex-1">
+                    <StudentProfileCard
+                      userName={userName}
+                      majorName={majorName}
+                      graduationYear={graduationYear}
+                      gpa={gpa}
+                      creditsCompleted={creditsCompleted}
+                      totalCredits={totalCredits}
+                      academicStanding={gpa && gpa < 2.0 ? 'warning' : 'good'}
+                    />
                   </div>
-                ) : (
-                  <PrerequisiteVisualizer />
-                )}
+                  <div className="flex">
+                    <GPACard gpa={gpa} />
+                  </div>
+                </div>
+
+                {/* Academic Timeline */}
+                <CompactSemesterTimeline
+                  semesters={semesterTimelineData}
+                />
+              </div>
+
+              {/* ACTION COLUMN (30% - Right Side) */}
+              <div className="space-y-4">
+                {/* Quick Actions - Moved to top */}
+                <QuickActionsPanel />
+
+                {/* Today's Schedule - Moved below Quick Actions */}
+                <div className="mt-12">
+                  <DashboardCalendarWidget
+                    events={calendarEvents}
+                  />
+                </div>
               </div>
             </div>
           </>
         )}
-
-        {/* Course Selector Modal */}
-        {showCourseSelector && selectedSemester && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-              onClick={() => setShowCourseSelector(false)}
-            />
-            
-            {/* Modal */}
-            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] bg-background border rounded-lg shadow-xl z-50">
-              <div className="flex flex-col h-[500px]">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                  <h3 className="text-lg font-semibold">Add Course to {selectedSemester}</h3>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowCourseSelector(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 p-4 overflow-hidden flex flex-col">
-                  {/* Search bar */}
-                  <input
-                    type="text"
-                    placeholder="Search courses..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 mb-3 border rounded-md bg-background text-sm"
-                    autoFocus
-                  />
-                  
-                  {/* Course list */}
-                  <div className="flex-1 overflow-y-auto space-y-2">
-                    {availableCourses
-                      .filter(course => 
-                        searchQuery === '' || 
-                        course.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        course.name?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .slice(0, 20) // Limit to 20 courses for performance
-                      .map((course) => {
-                        const isAlreadyScheduled = Array.from(scheduledCourses.values()).some(
-                          c => c.code === course.code
-                        );
-                        const isCompleted = Array.from(completedCourses.values()).some(
-                          c => c.code === course.code
-                        );
-                        
-                        return (
-                          <div
-                            key={course.code}
-                            className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                              isAlreadyScheduled || isCompleted
-                                ? 'opacity-50 cursor-not-allowed bg-muted/20'
-                                : 'hover:bg-muted/50'
-                            }`}
-                            onClick={() => {
-                              if (!isAlreadyScheduled && !isCompleted) {
-                                // Add to scheduled courses
-                                const newScheduled = new Map(scheduledCourses);
-                                newScheduled.set(course.code, {
-                                  id: course.code,
-                                  code: course.code,
-                                  name: course.name,
-                                  credits: course.credits || 3,
-                                  semester: selectedSemester
-                                });
-                                setScheduledCourses(newScheduled);
-                                
-                                // Trigger re-render
-                                window.dispatchEvent(new CustomEvent('courseAddedToSchedule'));
-                                setShowCourseSelector(false);
-                              }
-                            }}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="font-medium text-sm">{course.code}</div>
-                                <div className="text-xs text-muted-foreground">{course.name}</div>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {course.credits || 3} cr
-                                {(isAlreadyScheduled || isCompleted) && (
-                                  <span className="ml-2">✓</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    
-                    {availableCourses.filter(course => 
-                      searchQuery === '' || 
-                      course.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      course.name?.toLowerCase().includes(searchQuery.toLowerCase())
-                    ).length === 0 && (
-                      <div className="text-center text-sm text-muted-foreground py-4">
-                        No courses found
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Footer */}
-                <div className="p-4 border-t bg-muted/20 rounded-b-lg">
-                  <Button 
-                    className="w-full" 
-                    onClick={() => setShowCourseSelector(false)}
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
+        
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading dashboard...</p>
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>
