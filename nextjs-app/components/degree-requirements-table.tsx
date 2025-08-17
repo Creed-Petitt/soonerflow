@@ -943,43 +943,31 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
               selectedSection={classDataForModal.selectedSection}
               onAddToSchedule={(section) => {
                 const selectedSection = section || classDataForModal.selectedSection;
-                // Format the data properly for the store
-                // Prepare course data for both systems
-                const courseData = {
-                  id: selectedSection.id || `${selectedSection.subject}-${selectedSection.number}`,
-                  code: `${selectedSection.subject} ${selectedSection.number || selectedSection.courseNumber}`,
-                  name: selectedSection.title,
-                  credits: selectedSection.credits || 3,
-                  section: selectedSection.id,
-                  time: selectedSection.time || 'TBA',
-                  location: selectedSection.location || 'TBA',
-                  instructor: selectedSection.instructor || 'TBA'
-                };
                 
-                // Prepare data for backend persistence
-                const backendCourseData = {
+                // Generate a random color for the class
+                const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#ec4899', '#14b8a6'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Add to schedule using the hook
+                addClass({
                   id: selectedSection.id,
                   subject: selectedSection.subject,
-                  number: selectedSection.number || selectedSection.courseNumber,
+                  number: selectedSection.number || selectedSection.courseNumber || '',
                   title: selectedSection.title,
                   instructor: selectedSection.instructor || 'TBA',
                   time: selectedSection.time || 'TBA',
                   location: selectedSection.location || 'TBA',
                   credits: selectedSection.credits || 3,
                   type: selectedSection.type,
-                  color: 'bg-blue-500', // Default color
+                  color: randomColor,
                   available_seats: selectedSection.availableSeats,
                   total_seats: selectedSection.totalSeats,
-                };
+                  rating: selectedSection.rating,
+                  difficulty: selectedSection.difficulty,
+                  wouldTakeAgain: selectedSection.wouldTakeAgain
+                });
                 
-                console.log('Adding to schedule:', courseData, 'for semester: Spring 2025');
-                console.log('Adding to backend:', backendCourseData);
-                
-                // Add to backend (via useSchedule)
-                // This ensures the course appears on the scheduler page immediately
-                addClass(backendCourseData); // Persist to backend
-                
-                // Force a re-render by triggering a state update
+                // Close the modal
                 setShowClassModal(false);
                 setClassDataForModal(null);
                 

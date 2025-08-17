@@ -73,7 +73,11 @@ export function StudentProfileCard({
               {creditsCompleted} / {totalCredits}
             </span>
           </div>
-          <Progress value={creditProgress} className="h-2" />
+          <Progress value={creditProgress} className="h-2 mb-1" />
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>{Math.round(creditProgress)}% Complete</span>
+            <span>{totalCredits - creditsCompleted} credits remaining</span>
+          </div>
         </div>
       </CardContent>
     </Card>

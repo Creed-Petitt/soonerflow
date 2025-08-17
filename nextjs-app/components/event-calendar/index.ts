@@ -1,11 +1,9 @@
 "use client"
 
 // Component exports
-export { AgendaView } from "./agenda-view"
 export { EventDialog } from "./event-dialog"
 export { EventItem } from "./event-item"
 export { EventCalendar } from "./event-calendar"
-export { MonthView } from "./month-view"
 export { TimeGridView } from "./time-grid-view"
 
 // Constants and utility exports

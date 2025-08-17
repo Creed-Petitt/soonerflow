@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react"
 import {
+  addDays,
   addHours,
   areIntervalsOverlapping,
   differenceInMinutes,
@@ -51,19 +52,33 @@ export function TimeGridView({
   events,
   onEventSelect,
   onEventCreate,
-  days = 7, // Default to week view
+  days = 5, // Default to weekdays only
 }: TimeGridViewProps) {
+  // Debug events in TimeGridView
+  console.log('⏰ TimeGridView received:', {
+    eventsCount: events.length,
+    events: events.slice(0, 3), // Show first 3 events
+    currentDate: currentDate,
+    days: days
+  })
+  
+  // Debug each event's day of week
+  events.forEach((event, i) => {
+    const eventStart = new Date(event.start)
+    console.log(`⏰ Event ${i}: ${event.title} on day ${eventStart.getDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][eventStart.getDay()]}) at ${eventStart.toDateString()}`)
+  })
   const daysToDisplay = useMemo(() => {
-    if (days === 1) {
-      // Day view - just show the current date
-      return [currentDate]
-    } else {
-      // Week view - show the full week
-      const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
-      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 })
-      return eachDayOfInterval({ start: weekStart, end: weekEnd })
-    }
-  }, [currentDate, days])
+    // Always show a static Monday-Friday template regardless of actual dates
+    // This creates a template week for class schedule display
+    const mondayTemplate = new Date(2025, 0, 6) // A fixed Monday (Jan 6, 2025)
+    return [
+      mondayTemplate,                    // Monday (day 1)
+      addDays(mondayTemplate, 1),       // Tuesday (day 2) 
+      addDays(mondayTemplate, 2),       // Wednesday (day 3)
+      addDays(mondayTemplate, 3),       // Thursday (day 4)
+      addDays(mondayTemplate, 4),       // Friday (day 5)
+    ]
+  }, []) // No dependencies - always the same template week
 
   const rangeStart = useMemo(
     () => daysToDisplay[0],
@@ -99,22 +114,28 @@ export function TimeGridView({
 
   // Process events for each day to calculate positions
   const processedDayEvents = useMemo(() => {
-    const result = daysToDisplay.map((day) => {
-      // Get events for this day that are not all-day events or multi-day events
+    const result = daysToDisplay.map((day, dayIndex) => {
+      // Template day matching: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday
+      const templateDayOfWeek = dayIndex + 1 // Convert to 1=Monday, 2=Tuesday, etc.
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+      
+      console.log(`⏰ Processing column ${dayIndex} (${dayNames[dayIndex]}) looking for events on day ${templateDayOfWeek}`)
+      
       const dayEvents = events.filter((event) => {
         // Skip all-day events and multi-day events
         if (event.allDay || isMultiDayEvent(event)) return false
 
         const eventStart = new Date(event.start)
-        const eventEnd = new Date(event.end)
-
-        // Check if event is on this day
-        return (
-          isSameDay(day, eventStart) ||
-          isSameDay(day, eventEnd) ||
-          (eventStart < day && eventEnd > day)
-        )
+        const eventDayOfWeek = eventStart.getDay() // 0=Sunday, 1=Monday, etc.
+        
+        const matches = eventDayOfWeek === templateDayOfWeek
+        console.log(`⏰   Event ${event.title}: day ${eventDayOfWeek} ${matches ? 'MATCHES' : 'NO MATCH'} template day ${templateDayOfWeek}`)
+        
+        // Match by day-of-week: Monday events go to Monday column, etc.
+        return matches
       })
+      
+      console.log(`⏰ Column ${dayNames[dayIndex]} has ${dayEvents.length} events:`, dayEvents.map(e => e.title))
 
       // Sort events by start time and duration
       const sortedEvents = [...dayEvents].sort((a, b) => {
@@ -224,27 +245,30 @@ export function TimeGridView({
 
   return (
     <div data-slot="week-view" className="flex h-full flex-col">
-      <div className="bg-background/80 border-border/70 sticky top-0 z-30 grid grid-cols-8 border-b backdrop-blur-md">
+      <div className="bg-background/80 border-border/70 sticky top-0 z-30 grid border-b backdrop-blur-md" style={{ gridTemplateColumns: '60px repeat(5, 1fr)' }}>
         <div className="text-muted-foreground/70 py-2 text-center text-sm">
           <span className="max-[479px]:sr-only">{format(new Date(), "O")}</span>
         </div>
-        {daysToDisplay.map((day) => (
-          <div
-            key={day.toString()}
-            className="data-today:text-foreground text-muted-foreground/70 py-2 text-center text-sm data-today:font-medium"
-            data-today={isToday(day) || undefined}
-          >
-            <span className="sm:hidden" aria-hidden="true">
-              {format(day, "E")[0]} {format(day, "d")}
-            </span>
-            <span className="max-sm:hidden">{format(day, "EEE dd")}</span>
-          </div>
-        ))}
+        {daysToDisplay.map((day, index) => {
+          const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+          const dayName = dayNames[index]
+          return (
+            <div
+              key={day.toString()}
+              className="text-muted-foreground/70 py-2 text-center text-sm"
+            >
+              <span className="sm:hidden" aria-hidden="true">
+                {dayName[0]}
+              </span>
+              <span className="max-sm:hidden">{dayName}</span>
+            </div>
+          )
+        })}
       </div>
 
       {showAllDaySection && (
         <div className="border-border/70 bg-muted/50 border-b">
-          <div className="grid grid-cols-8">
+          <div className="grid" style={{ gridTemplateColumns: '60px repeat(5, 1fr)' }}>
             <div className="border-border/70 relative border-r">
               <span className="text-muted-foreground/70 absolute bottom-0 left-0 h-6 w-16 max-w-full pe-2 text-right text-[10px] sm:pe-4 sm:text-xs">
                 All day
@@ -307,7 +331,7 @@ export function TimeGridView({
         </div>
       )}
 
-      <div className="grid flex-1 grid-cols-8">
+      <div className="grid flex-1" style={{ gridTemplateColumns: '60px repeat(5, 1fr)' }}>
         <div className="border-border/70 grid auto-cols-fr border-r">
           {hours.map((hour, index) => (
             <div
@@ -315,7 +339,7 @@ export function TimeGridView({
               className="border-border/70 relative min-h-[var(--week-cells-height)] border-b last:border-b-0"
             >
               {index > 0 && (
-                <span className="bg-background text-muted-foreground/70 absolute -top-3 left-0 flex h-6 w-16 max-w-full items-center justify-end pe-2 text-[10px] sm:pe-4 sm:text-xs">
+                <span className="bg-background text-muted-foreground/70 absolute -top-3 left-0 flex h-6 w-full items-center justify-end pe-1 text-[10px]">
                   {format(hour, "h a")}
                 </span>
               )}
@@ -326,8 +350,7 @@ export function TimeGridView({
         {daysToDisplay.map((day, dayIndex) => (
           <div
             key={day.toString()}
-            className="border-border/70 relative grid auto-cols-fr border-r last:border-r-0"
-            data-today={isToday(day) || undefined}
+            className="border-border/70 relative grid auto-cols-fr border-r last:border-r-0 last:pr-2"
           >
             {/* Positioned events */}
             {(processedDayEvents[dayIndex] ?? []).map((positionedEvent) => (
@@ -355,18 +378,7 @@ export function TimeGridView({
               </div>
             ))}
 
-            {/* Current time indicator - only show for today's column */}
-            {currentTimeVisible && isToday(day) && (
-              <div
-                className="pointer-events-none absolute right-0 left-0 z-20"
-                style={{ top: `${currentTimePosition}%` }}
-              >
-                <div className="relative flex items-center">
-                  <div className="bg-primary absolute -left-1 h-2 w-2 rounded-full"></div>
-                  <div className="bg-primary h-[2px] w-full"></div>
-                </div>
-              </div>
-            )}
+            {/* Current time indicator removed - this is a template view */}
             {hours.map((hour) => {
               const hourValue = getHours(hour)
               return (

@@ -10,24 +10,25 @@ Base = declarative_base()
 class Class(Base):
     __tablename__ = 'classes'
     
-    id = Column(String, primary_key=True)  # class_id from API (e.g., "13384")
-    subject = Column(String, nullable=False)  # Subject code (e.g., "ECE")
-    courseNumber = Column(String, nullable=False)  # Course number (e.g., "2214") 
+    id = Column(String, primary_key=True)  # class_id from API (e.g., "13384-202510")
+    subject = Column(String, nullable=False, index=True)  # Subject code (e.g., "ECE")
+    courseNumber = Column(String, nullable=False, index=True)  # Course number (e.g., "2214") 
     section = Column(String, nullable=False)  # Section (e.g., "010")
-    title = Column(String, nullable=False)  # Course title
+    title = Column(String, nullable=False, index=True)  # Course title
     description = Column(Text)  # Course description
-    instructor = Column(String)  # Primary instructor name
+    instructor = Column(String, index=True)  # Primary instructor name
     allInstructors = Column(String)  # All instructors (comma-separated)
-    type = Column(String)  # "Lecture", "Lab", "Seminar", etc.
+    type = Column(String, index=True)  # "Lecture", "Lab", "Seminar", etc.
     delivery = Column(String)  # "Traditional In-Person", "Online", etc.
-    genEd = Column(String)  # Gen Ed requirement
+    genEd = Column(String, index=True)  # Gen Ed requirement - indexed for filtering
     term = Column(String)  # "Full Term", etc.
     semesterDates = Column(String)  # "Aug 25 - Dec 12"
     examInfo = Column(String)  # Final exam information
     repeatability = Column(String)  # Repeatability rules
-    credits = Column(Integer)  # Credit hours for the course
-    availableSeats = Column(Integer, default=0)  # Available seats
+    credits = Column(Integer, index=True)  # Credit hours - indexed for filtering
+    availableSeats = Column(Integer, default=0, index=True)  # Available seats - indexed for filtering
     totalSeats = Column(Integer, default=0)  # Total seats
+    semester = Column(String, nullable=False, index=True, default="202510")  # Semester code (e.g., "202510" for Fall 2025)
     
     # Relationships
     meetingTimes = relationship("MeetingTime", back_populates="class_", cascade="all, delete-orphan")
@@ -110,6 +111,20 @@ class ScheduledClass(Base):
     schedule = relationship("Schedule", back_populates="scheduled_classes")
     class_ = relationship("Class")
 
+class Prerequisite(Base):
+    __tablename__ = 'prerequisites'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    class_id = Column(String, ForeignKey('classes.id', ondelete='CASCADE'), nullable=False)
+    prerequisite_subject = Column(String, nullable=False, index=True)  # e.g., "MATH"
+    prerequisite_number = Column(String, nullable=False, index=True)   # e.g., "1914"
+    prerequisite_type = Column(String, default="required")  # "required", "or", "concurrent", "corequisite"
+    prerequisite_group = Column(Integer, default=1)  # For grouping OR conditions
+    raw_text = Column(Text)  # Original prerequisite text for reference
+    
+    # Relationships
+    class_ = relationship("Class")
+
 class Department(Base):
     __tablename__ = 'departments'
     
@@ -120,12 +135,12 @@ class Professor(Base):
     __tablename__ = 'professors'
     
     id = Column(String, primary_key=True)  # GraphQL ID from RMP
-    firstName = Column(String, nullable=False)
-    lastName = Column(String, nullable=False)
+    firstName = Column(String, nullable=False, index=True)
+    lastName = Column(String, nullable=False, index=True)
     department = Column(String)
 
     # Rating info
-    avgRating = Column(Float)
+    avgRating = Column(Float, index=True)
     numRatings = Column(Integer, default=0)
     avgDifficulty = Column(Float)
     wouldTakeAgainPercent = Column(Float)
@@ -215,9 +230,9 @@ class MajorCourse(Base):
     __tablename__ = 'major_courses'
     
     id = Column(String, primary_key=True)
-    requirementId = Column(String, ForeignKey('requirements.id', ondelete='CASCADE'), nullable=False)  # Foreign key to Requirement
-    subject = Column(String, nullable=False)  # "ECE", "MATH", etc.
-    courseNumber = Column(String, nullable=False)  # "2214", "2924", etc.
+    requirementId = Column(String, ForeignKey('requirements.id', ondelete='CASCADE'), nullable=False, index=True)  # Foreign key to Requirement
+    subject = Column(String, nullable=False, index=True)  # "ECE", "MATH", etc. - indexed for joins
+    courseNumber = Column(String, nullable=False, index=True)  # "2214", "2924", etc. - indexed for joins
     title = Column(String)  # "Digital Design", etc.
     credits = Column(Integer, default=3)
     

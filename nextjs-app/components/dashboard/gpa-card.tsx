@@ -18,10 +18,7 @@ export function GPACard({ gpa }: GPACardProps) {
     <Card className="overflow-hidden w-48 h-full bg-transparent">
       <CardContent className="flex items-center justify-center h-full px-4 pt-0 pb-4">
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <TrendingUp className="h-5 w-5 text-muted-foreground" />
-            <p className="text-lg font-medium text-muted-foreground">GPA</p>
-          </div>
+          <p className="text-2xl font-semibold tracking-tight mb-1">GPA</p>
           <p className={`text-5xl font-bold ${getGPAColor()}`}>
             {gpa !== null ? gpa.toFixed(2) : "N/A"}
           </p>

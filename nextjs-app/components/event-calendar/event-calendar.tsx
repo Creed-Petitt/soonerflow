@@ -13,6 +13,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns"
+import { useSchedule } from "@/contexts/schedule-context"
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -20,14 +21,11 @@ import {
   PlusIcon,
   X,
   ChevronDown,
-  Save,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "@/components/event-calendar/constants"
 import { addHoursToDate } from "@/components/event-calendar/utils"
-import { AgendaView } from "@/components/event-calendar/agenda-view"
-import { MonthView } from "@/components/event-calendar/month-view"
 import { TimeGridView } from "@/components/event-calendar/time-grid-view"
 import { EventDialog } from "@/components/event-calendar/event-dialog"
 import type { CalendarEvent, CalendarView } from "@/components/event-calendar/types"
@@ -47,8 +45,11 @@ export interface EventCalendarProps {
   onEventAdd?: (event: CalendarEvent) => void
   onEventUpdate?: (event: CalendarEvent) => void
   onEventDelete?: (eventId: string) => void
+  onEventSelect?: (event: CalendarEvent) => void
   className?: string
   initialView?: CalendarView
+  currentDate?: Date
+  onDateChange?: (date: Date) => void
   scheduledClasses?: any[]
   totalCredits?: number
   isSaving?: boolean
@@ -62,8 +63,11 @@ export function EventCalendar({
   onEventAdd,
   onEventUpdate,
   onEventDelete,
+  onEventSelect,
   className,
   initialView = "month",
+  currentDate: externalDate,
+  onDateChange,
   scheduledClasses = [],
   totalCredits = 0,
   isSaving = false,
@@ -71,82 +75,57 @@ export function EventCalendar({
   onRemoveFromSchedule,
   onLabSwitch,
 }: EventCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState<CalendarView>(initialView)
+  const { currentSemester, availableSemesters } = useSchedule()
+  
+  // Debug events received
+  console.log('📅 EventCalendar received:', {
+    eventsCount: events.length,
+    events: events,
+    scheduledClassesCount: scheduledClasses.length,
+    currentSemester
+  })
+  const [internalDate, setInternalDate] = useState(new Date())
+  const currentDate = externalDate || internalDate
+  const setCurrentDate = (date: Date) => {
+    if (onDateChange) {
+      onDateChange(date)
+    } else {
+      setInternalDate(date)
+    }
+  }
+  // Force week view only - no view switching
+  const view = "week"
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  
+  // Get current semester details
+  const currentSemesterDetails = availableSemesters.find(
+    sem => sem.code === currentSemester
+  )
 
-  // Add keyboard shortcuts for view switching
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input, textarea or contentEditable element
-      // or if the event dialog is open
-      if (
-        isEventDialogOpen ||
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target instanceof HTMLElement && e.target.isContentEditable)
-      ) {
-        return
-      }
-
-      switch (e.key.toLowerCase()) {
-        case "m":
-          setView("month")
-          break
-        case "w":
-          setView("week")
-          break
-        case "d":
-          setView("day")
-          break
-        case "a":
-          setView("agenda")
-          break
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [isEventDialogOpen])
+  // Removed keyboard shortcuts - calendar is now week-only
 
   const handlePrevious = () => {
-    if (view === "month") {
-      setCurrentDate(subMonths(currentDate, 1))
-    } else if (view === "week") {
-      setCurrentDate(subWeeks(currentDate, 1))
-    } else if (view === "day") {
-      setCurrentDate(addDays(currentDate, -1))
-    } else if (view === "agenda") {
-      // For agenda view, go back 30 days (a full month)
-      setCurrentDate(addDays(currentDate, -AgendaDaysToShow))
-    }
+    // Week view only
+    setCurrentDate(subWeeks(currentDate, 1))
   }
 
   const handleNext = () => {
-    if (view === "month") {
-      setCurrentDate(addMonths(currentDate, 1))
-    } else if (view === "week") {
-      setCurrentDate(addWeeks(currentDate, 1))
-    } else if (view === "day") {
-      setCurrentDate(addDays(currentDate, 1))
-    } else if (view === "agenda") {
-      // For agenda view, go forward 30 days (a full month)
-      setCurrentDate(addDays(currentDate, AgendaDaysToShow))
-    }
+    // Week view only
+    setCurrentDate(addWeeks(currentDate, 1))
   }
 
-  const handleToday = () => {
-    setCurrentDate(new Date())
-  }
 
   const handleEventSelect = (event: CalendarEvent) => {
     console.log("Event selected:", event) // Debug log
-    setSelectedEvent(event)
-    setIsEventDialogOpen(true)
+    
+    // Use custom event handler if provided, otherwise fallback to default dialog
+    if (onEventSelect) {
+      onEventSelect(event)
+    } else {
+      setSelectedEvent(event)
+      setIsEventDialogOpen(true)
+    }
   }
 
   const handleEventCreate = (startTime: Date) => {
@@ -227,48 +206,29 @@ export function EventCalendar({
   }
 
   const viewTitle = useMemo(() => {
+    // Show semester name instead of month/year navigation
+    const semesterName = currentSemesterDetails?.name || currentSemester
+    
     if (view === "month") {
-      return format(currentDate, "MMMM yyyy")
+      return `${semesterName} - ${format(currentDate, "MMMM yyyy")}`
     } else if (view === "week") {
-      const start = startOfWeek(currentDate, { weekStartsOn: 0 })
-      const end = endOfWeek(currentDate, { weekStartsOn: 0 })
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 }) // Start on Monday
+      const end = endOfWeek(currentDate, { weekStartsOn: 1 })
       if (isSameMonth(start, end)) {
-        return format(start, "MMMM yyyy")
+        return `${semesterName} - ${format(start, "MMMM d")}`
       } else {
-        return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`
+        return `${semesterName} - ${format(start, "MMM d")} - ${format(end, "MMM d")}`
       }
-    } else if (view === "day") {
-      return (
-        <>
-          <span className="min-[480px]:hidden" aria-hidden="true">
-            {format(currentDate, "MMM d, yyyy")}
-          </span>
-          <span className="max-[479px]:hidden min-md:hidden" aria-hidden="true">
-            {format(currentDate, "MMMM d, yyyy")}
-          </span>
-          <span className="max-md:hidden">
-            {format(currentDate, "EEE MMMM d, yyyy")}
-          </span>
-        </>
-      )
     } else if (view === "agenda") {
-      // Show the month range for agenda view
-      const start = currentDate
-      const end = addDays(currentDate, AgendaDaysToShow - 1)
-
-      if (isSameMonth(start, end)) {
-        return format(start, "MMMM yyyy")
-      } else {
-        return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`
-      }
+      return semesterName
     } else {
-      return format(currentDate, "MMMM yyyy")
+      return semesterName
     }
-  }, [currentDate, view])
+  }, [currentDate, view, currentSemesterDetails, currentSemester])
 
   return (
     <div
-      className="flex flex-col rounded-lg border has-data-[slot=month-view]:flex-1"
+      className="flex flex-col h-full has-data-[slot=month-view]:flex-1"
       style={
         {
           "--event-height": `${EventHeight}px`,
@@ -278,140 +238,17 @@ export function EventCalendar({
       }
     >
       <>
-        <div
-          className={cn(
-            "flex items-center justify-between p-2",
-            className
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={handleToday}
-            >
-              Today
-            </Button>
-            
-            {/* Credits display */}
-            {scheduledClasses.length > 0 && (
-              <div className="text-xs font-medium text-muted-foreground">
-                {totalCredits} credits
-                {isSaving && (
-                  <span className="ml-2">
-                    <Save className="h-3 w-3 animate-pulse inline" />
-                    Saving...
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handlePrevious}
-                aria-label="Previous"
-              >
-                <ChevronLeftIcon size={14} aria-hidden="true" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleNext}
-                aria-label="Next"
-              >
-                <ChevronRightIcon size={14} aria-hidden="true" />
-              </Button>
-            </div>
-            <h2 className="text-sm font-semibold">
-              {viewTitle}
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1">
-                  <span>{view.charAt(0).toUpperCase() + view.slice(1)}</span>
-                  <ChevronDownIcon
-                    className="-me-1 opacity-60"
-                    size={14}
-                    aria-hidden="true"
-                  />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-32">
-                <DropdownMenuItem onClick={() => setView("month")}>
-                  Month <DropdownMenuShortcut>M</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setView("week")}>
-                  Week <DropdownMenuShortcut>W</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setView("day")}>
-                  Day <DropdownMenuShortcut>D</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setView("agenda")}>
-                  Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="default"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => {
-                setSelectedEvent(null) // Ensure we're creating a new event
-                setIsEventDialogOpen(true)
-              }}
-            >
-              <PlusIcon
-                className="opacity-60 -ms-0.5"
-                size={14}
-                aria-hidden="true"
-              />
-              New event
-            </Button>
-          </div>
-        </div>
+        {/* Removed view selector and new event controls - calendar is now week-only */}
 
         <div className="flex flex-1 flex-col">
-          {view === "month" && (
-            <MonthView
-              currentDate={currentDate}
-              events={events}
-              onEventSelect={handleEventSelect}
-              onEventCreate={handleEventCreate}
-            />
-          )}
-          {view === "week" && (
-            <TimeGridView
-              currentDate={currentDate}
-              events={events}
-              onEventSelect={handleEventSelect}
-              onEventCreate={handleEventCreate}
-              days={7}
-            />
-          )}
-          {view === "day" && (
-            <TimeGridView
-              currentDate={currentDate}
-              events={events}
-              onEventSelect={handleEventSelect}
-              onEventCreate={handleEventCreate}
-              days={1}
-            />
-          )}
-          {view === "agenda" && (
-            <AgendaView
-              currentDate={currentDate}
-              events={events}
-              onEventSelect={handleEventSelect}
-            />
-          )}
+          {/* Always show week view - removed other views */}
+          <TimeGridView
+            currentDate={currentDate}
+            events={events}
+            onEventSelect={handleEventSelect}
+            onEventCreate={() => {}} // Disabled event creation
+            days={5} // Only show weekdays
+          />
         </div>
 
         <EventDialog

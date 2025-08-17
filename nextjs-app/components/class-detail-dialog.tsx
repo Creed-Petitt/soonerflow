@@ -17,6 +17,8 @@ import {
   TrendingUp,
   Award,
   Users,
+  Gauge,
+  ThumbsUp,
 } from "lucide-react";
 import { ProfessorRatingBarChart } from "@/components/professor-rating-bar-chart";
 import { useSchedule } from "@/hooks/use-schedule";
@@ -26,6 +28,8 @@ interface ClassDetailDialogProps {
   onClose: () => void;
   groupedClass: any;
   onAddToSchedule: (section: any, labSection?: any) => void;
+  selectedSection?: any; // Pre-selected section for change mode
+  isChangeMode?: boolean; // If true, this is for changing existing class
 }
 
 // Helper function to clean HTML and boilerplate text from description
@@ -43,41 +47,74 @@ function cleanDescription(description: string): string {
     /This course\/section has been selected for the Inclusive Access \(IA\) program.*?Check here to view the savings for your course material: https:\/\/link\.ou\.edu\/ia-savings\s*/gi,
     /STUDENTS MUST ENROLL IN ONE OF THE FOLLOWING CO-REQUISITE:.*?\s*/gi,
     /Co-requisite:.*?\s*/gi,
-    /Corequisite:.*?\s*/gi
+    /Corequisite:.*?\s*/gi,
+    /Prerequisite[s]?:.*?\.\s*/gi,  // Remove prerequisite text and following period
+    /Prerequisites?:.*?\.\s*/gi,
   ];
   
   boilerplatePatterns.forEach(pattern => {
     cleaned = cleaned.replace(pattern, '');
   });
   
-  return cleaned.replace(/\s+/g, ' ').trim();
+  // Clean up any leading periods or extra spaces
+  cleaned = cleaned.replace(/^\.\s*/, '').replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
+// Helper function to format prerequisites for display
+function formatPrerequisites(prerequisites: any[]): string {
+  if (!prerequisites || prerequisites.length === 0) return '';
+  
+  const groups = prerequisites.map(group => {
+    const courses = group.courses.map((c: any) => `${c.subject} ${c.number}`).join(' or ');
+    return courses;
+  });
+  
+  return groups.join(' and ');
 }
 
 export function ClassDetailDialog({
   isOpen,
   onClose,
   groupedClass,
-  onAddToSchedule
+  onAddToSchedule,
+  selectedSection,
+  isChangeMode = false
 }: ClassDetailDialogProps) {
   const [currentView, setCurrentView] = React.useState<"class" | "professor">("class");
   const [currentSection, setCurrentSection] = React.useState<any>(null);
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
   const [professorData, setProfessorData] = React.useState<any>(null);
   const [loadingProfessor, setLoadingProfessor] = React.useState(false);
+  
+  // Track original selections for change mode
+  const [originalSection, setOriginalSection] = React.useState<any>(null);
+  const [originalLabSection, setOriginalLabSection] = React.useState<any>(null);
 
   React.useEffect(() => {
     // Reset state when dialog opens with new class
     if (isOpen && groupedClass) {
-      // Set first section as default
-      if (groupedClass.sections && groupedClass.sections.length > 0) {
-        setCurrentSection(groupedClass.sections[0]);
-      }
+      // Set section - use selectedSection prop if provided, otherwise first section
+      const initialSection = selectedSection || (groupedClass.sections && groupedClass.sections.length > 0 ? groupedClass.sections[0] : null);
+      setCurrentSection(initialSection);
+      
       // Reset lab selection
       setCurrentLabSection(null);
+      
       // Reset view to class tab
       setCurrentView("class");
+      
+      // Store original selections for change mode
+      if (isChangeMode) {
+        setOriginalSection(initialSection);
+        setOriginalLabSection(null); // TODO: Could detect original lab if needed
+      } else {
+        setOriginalSection(null);
+        setOriginalLabSection(null);
+      }
     }
-  }, [isOpen, groupedClass]);
+  }, [isOpen, groupedClass, selectedSection, isChangeMode]);
 
   // Load professor data when section changes
   React.useEffect(() => {
@@ -121,9 +158,26 @@ export function ClassDetailDialog({
   const seatPercentage = totalSeats ? 
     ((totalSeats - availableSeats) / totalSeats) * 100 : 0;
 
+  // Helper functions for change detection
+  const hasChangedSection = isChangeMode && originalSection && currentSection && originalSection.id !== currentSection.id;
+  const hasChangedLab = isChangeMode && originalLabSection !== currentLabSection;
+  const hasAnyChanges = hasChangedSection || hasChangedLab;
+  
+  // Determine button text and availability
+  const getButtonText = () => {
+    if (!isChangeMode) return "Add to Schedule";
+    if (!hasAnyChanges) return null; // No button when no changes
+    if (hasChangedSection && hasChangedLab) return "Change Section & Lab";
+    if (hasChangedSection) return "Change Section";
+    if (hasChangedLab) return "Change Lab";
+    return null;
+  };
+  
+  const buttonText = getButtonText();
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[90vw] md:max-w-[70vw] lg:max-w-[50vw] w-full max-h-[90vh] p-0 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-[600px] w-full min-h-[85vh] max-h-[90vh] h-[88vh] p-0 flex flex-col overflow-hidden">
         {/* Compact Header */}
         <div className="px-6 pt-4 pb-1 shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -156,7 +210,7 @@ export function ClassDetailDialog({
         </div>
         
         {/* Body */}
-        <div className="flex-1 px-6 py-1 space-y-2 overflow-y-auto scrollbar-thin">
+        <div className="flex-1 px-6 py-2 space-y-3 overflow-hidden">
           {currentView === "class" ? (
             <>
               {/* Section Selector */}
@@ -222,7 +276,7 @@ export function ClassDetailDialog({
               )}
 
               {/* Meeting Info */}
-              <div className="space-y-3 pt-3">
+              <div className="space-y-2 pt-2">
                 <div className="flex items-center gap-3 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span>
@@ -242,7 +296,7 @@ export function ClassDetailDialog({
                 
                 {/* Seats Progress Bar */}
                 {(currentSection?.total_seats !== undefined || currentSection?.totalSeats !== undefined) && (
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Available Seats</span>
                       <span className="font-medium">
@@ -253,12 +307,22 @@ export function ClassDetailDialog({
                   </div>
                 )}
               </div>
+              
+              {/* Prerequisites Section */}
+              {currentSection?.prerequisites && currentSection.prerequisites.length > 0 && (
+                <div className="space-y-2 pt-3 border-t">
+                  <h4 className="text-sm font-medium sans-serif">Prerequisites</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {formatPrerequisites(currentSection.prerequisites)}
+                  </p>
+                </div>
+              )}
 
               {/* Course Description */}
               {currentSection?.description && (
-                <div className="space-y-2 pt-4 border-t">
+                <div className="space-y-2 pt-3 border-t">
                   <h4 className="text-sm font-medium sans-serif">Course Description</h4>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground leading-relaxed max-h-[200px] overflow-y-auto scrollbar-thin pr-2">
                     {cleanDescription(currentSection.description)}
                   </p>
                 </div>
@@ -266,7 +330,7 @@ export function ClassDetailDialog({
             </>
           ) : (
             /* Professor View */
-            <div className="space-y-4">
+            <div className="space-y-3">
               {loadingProfessor ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   Loading professor information...
@@ -282,7 +346,7 @@ export function ClassDetailDialog({
                   </div>
 
                   {/* Rating Overview */}
-                  <div className="grid grid-cols-3 gap-4 pt-2 text-center">
+                  <div className="grid grid-cols-3 gap-4 pt-1 text-center">
                     <div className="space-y-1">
                       <p className="text-2xl font-bold">{professorData.rating.toFixed(1)}</p>
                       <div className="flex gap-0.5 justify-center">
@@ -304,12 +368,34 @@ export function ClassDetailDialog({
                     
                     <div className="space-y-1">
                       <p className="text-2xl font-bold">{professorData.difficulty.toFixed(1)}</p>
-                      <p className="text-xs text-muted-foreground mt-4">Difficulty</p>
+                      <div className="flex justify-center">
+                        <Gauge 
+                          className={`h-4 w-4 ${
+                            professorData.difficulty <= 2 
+                              ? 'text-green-500'
+                              : professorData.difficulty <= 3.5 
+                              ? 'text-yellow-500'
+                              : 'text-red-500'
+                          }`}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Difficulty</p>
                     </div>
                     
                     <div className="space-y-1">
                       <p className="text-2xl font-bold">{Math.round(professorData.wouldTakeAgain)}%</p>
-                      <p className="text-xs text-muted-foreground mt-4">Would Take Again</p>
+                      <div className="flex justify-center">
+                        <ThumbsUp 
+                          className={`h-4 w-4 ${
+                            professorData.wouldTakeAgain >= 70 
+                              ? 'text-green-500 fill-green-500/20'
+                              : professorData.wouldTakeAgain >= 50 
+                              ? 'text-yellow-500 fill-yellow-500/20'
+                              : 'text-red-500 fill-red-500/20'
+                          }`}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Would Take Again</p>
                     </div>
                   </div>
 
@@ -350,27 +436,38 @@ export function ClassDetailDialog({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t shrink-0">
-          <Button
-            className="w-full"
-            onClick={() => {
-              console.log('Add to Schedule button clicked!');
-              console.log('Current section:', currentSection);
-              console.log('Current lab section:', currentLabSection);
-              
-              // Pass both section and lab (if selected) to the handler
-              onAddToSchedule(currentSection, currentLabSection);
-              
-              onClose();
-            }}
-            disabled={
-              // Disable if lab is required but not selected
-              groupedClass.labSections && groupedClass.labSections.length > 0 && !currentLabSection
-            }
-          >
-            {groupedClass.labSections && groupedClass.labSections.length > 0 && !currentLabSection
-              ? "Select a lab section to continue"
-              : "Add to Schedule"}
-          </Button>
+          {buttonText ? (
+            <Button
+              className="w-full"
+              onClick={() => {
+                console.log('Action button clicked!');
+                console.log('Current section:', currentSection);
+                console.log('Current lab section:', currentLabSection);
+                console.log('Action:', buttonText);
+                
+                // Pass both section and lab (if selected) to the handler
+                onAddToSchedule(currentSection, currentLabSection);
+                
+                onClose();
+              }}
+              disabled={
+                // Disable if lab is required but not selected
+                groupedClass.labSections && groupedClass.labSections.length > 0 && !currentLabSection
+              }
+            >
+              {groupedClass.labSections && groupedClass.labSections.length > 0 && !currentLabSection
+                ? "Select a lab section to continue"
+                : buttonText}
+            </Button>
+          ) : isChangeMode ? (
+            <div className="text-center text-sm text-muted-foreground py-3">
+              Select a different section or lab to make changes
+            </div>
+          ) : (
+            <Button className="w-full" disabled>
+              Add to Schedule
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

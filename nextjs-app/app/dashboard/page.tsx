@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import CustomNavbar from "@/components/custom-navbar";
 import { StudentProfileCard } from "@/components/dashboard/student-profile-card";
 import { GPACard } from "@/components/dashboard/gpa-card";
-import { DashboardCalendarWidget } from "@/components/dashboard/dashboard-calendar-widget";
+import { TodaysScheduleWidget } from "@/components/dashboard/todays-schedule-widget";
 import { CompactSemesterTimeline } from "@/components/dashboard/compact-semester-timeline";
 import { QuickActionsPanel } from "@/components/dashboard/quick-actions-panel";
 import { useSchedule } from "@/hooks/use-schedule";
@@ -13,14 +13,14 @@ import type { CalendarEvent } from "@/components/event-calendar/types";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const { scheduledClasses } = useSchedule();
+  const { scheduledClasses, currentSemester } = useSchedule();
   
   // Dynamic data from backend
   const [creditsCompleted, setCreditsCompleted] = useState(0);
   const [totalCredits, setTotalCredits] = useState(120);
   const [gpa, setGpa] = useState<number | null>(null);
   const [majorName, setMajorName] = useState<string | null>(null);
-  const [, setEnrollmentYear] = useState<number | null>(null);
+  const [enrollmentYear, setEnrollmentYear] = useState<number | null>(null);
   const [graduationYear, setGraduationYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function DashboardPage() {
   
   const [currentSemesterCourses, setCurrentSemesterCourses] = useState<Course[]>([]);
   const [completedCourses, setCompletedCourses] = useState<Map<string, Course>>(new Map());
-  const [scheduledCourses] = useState<Map<string, Course>>(new Map());
+  const [scheduledCourses, setScheduledCourses] = useState<Map<string, Course>>(new Map());
   const [loadingCourses, setLoadingCourses] = useState(true);
   
   // Function to parse class time string into calendar events
@@ -149,30 +149,62 @@ export default function DashboardPage() {
     return allEvents
   }, [scheduledClasses])
   
-  // Load active schedule from backend
+  // Real-time sync with scheduler: Update dashboard when scheduledClasses change
+  useEffect(() => {
+    if (scheduledClasses && scheduledClasses.length > 0) {
+      console.log('🔄 Dashboard syncing with scheduler changes:', scheduledClasses.length, 'classes');
+      
+      // Transform scheduler classes to course format
+      const scheduleCourses = scheduledClasses.map((cls: any) => ({
+        code: `${cls.subject} ${cls.number}`,
+        name: cls.title,
+        title: cls.title,
+        credits: cls.credits,
+        time: cls.time,
+        location: cls.location,
+        instructor: cls.instructor,
+        status: 'scheduled' as const,
+        semester: getCurrentSemester() // Use current semester
+      }));
+      
+      setCurrentSemesterCourses(scheduleCourses);
+      
+      // Update scheduled courses map
+      setScheduledCourses(prevScheduled => {
+        const newScheduledCourses = new Map(prevScheduled);
+        const currentSem = getCurrentSemester();
+        
+        // Remove existing scheduled courses for current semester
+        Array.from(newScheduledCourses.keys()).forEach(key => {
+          if (key.endsWith(`-${currentSem}`)) {
+            newScheduledCourses.delete(key);
+          }
+        });
+        
+        // Add updated courses
+        scheduleCourses.forEach(course => {
+          const key = `${course.code}-${currentSem}`;
+          newScheduledCourses.set(key, course);
+        });
+        
+        console.log('✅ Dashboard synced with scheduler:', scheduleCourses.length, 'courses');
+        return newScheduledCourses;
+      });
+      
+      setLoadingCourses(false);
+    }
+  }, [scheduledClasses]);
+  
+  // Load active schedule from backend (fallback for initial load)
   useEffect(() => {
     const loadActiveSchedule = async () => {
-      if (session?.user?.githubId) {
+      if (session?.user?.githubId && (!scheduledClasses || scheduledClasses.length === 0)) {
         try {
-          // Fetch user's active schedule with real class data
+          console.log('📡 Loading initial active schedule from backend...');
           const response = await fetch(`/api/users/${session.user.githubId}/active-schedule`);
           if (response.ok) {
             const data = await response.json();
-            
-            // Transform schedule data to course format
-            const scheduleCourses = data.classes.map((cls: any) => ({
-              code: `${cls.subject} ${cls.number}`,
-              name: cls.title,
-              title: cls.title,
-              credits: cls.credits,
-              time: cls.time,
-              location: cls.location,
-              instructor: cls.instructor,
-              status: 'scheduled' as const
-            }));
-            
-            setCurrentSemesterCourses(scheduleCourses);
-            console.log('✅ Active schedule loaded:', scheduleCourses);
+            console.log('📡 Loaded initial schedule:', data.classes?.length || 0, 'classes');
           }
         } catch (error) {
           console.error('Error loading active schedule:', error);
@@ -183,7 +215,7 @@ export default function DashboardPage() {
     };
     
     loadActiveSchedule();
-  }, [session?.user?.githubId]);
+  }, [session?.user?.githubId, scheduledClasses]);
   
   // Load completed courses from backend when session is available
   useEffect(() => {
@@ -194,12 +226,17 @@ export default function DashboardPage() {
           if (response.ok) {
             const data = await response.json();
             const coursesMap = new Map<string, Course>();
-            data.completedCourses.forEach((course: Course) => {
-              coursesMap.set(course.course_code, {
+            data.completedCourses.forEach((course: any) => {
+              // Use consistent key format: CODE-SEMESTER
+              const key = `${course.course_code}-${course.semester_completed}`;
+              coursesMap.set(key, {
                 id: course.course_code,
                 code: course.course_code,
+                name: course.course_name,
+                credits: course.credits,
                 grade: course.grade,
-                semester: course.semester
+                semester: course.semester_completed || course.semester, // Fix: ensure semester is set
+                status: 'completed'
               });
             });
             setCompletedCourses(coursesMap);
@@ -213,22 +250,25 @@ export default function DashboardPage() {
     loadCompletedCourses();
   }, [session?.user?.email]);
   
-  // Determine current semester based on today's date
-  const getCurrentSemester = () => {
-    const today = new Date();
-    const month = today.getMonth() + 1; // 1-12
-    const year = today.getFullYear();
+  // Use semester from schedule context instead of calculating locally
+  const currentSemesterName = useMemo(() => {
+    // Convert semester code to name
+    if (!currentSemester) return 'Spring 2025';
     
-    if (month >= 1 && month <= 5) {
-      return `Spring ${year}`;
-    } else if (month >= 6 && month <= 7) {
-      return `Summer ${year}`;
-    } else {
+    const year = parseInt(currentSemester.substring(0, 4));
+    const term = currentSemester.substring(4);
+    
+    if (term === '10') {
       return `Fall ${year}`;
+    } else if (term === '20') {
+      return `Spring ${year + 1}`;
+    } else {
+      return `Summer ${year + 1}`;
     }
-  };
+  }, [currentSemester]);
   
-  const currentSemester = getCurrentSemester();
+  // Helper function for compatibility 
+  const getCurrentSemester = () => currentSemesterName;
   
   // Fetch dashboard data from backend
   const fetchDashboardData = useCallback(async () => {
@@ -286,7 +326,7 @@ export default function DashboardPage() {
   // Load current semester courses
   useEffect(() => {
     if (!loadingCourses) {
-      const current = currentSemester;
+      const current = currentSemesterName;
       const coursesForCurrentSemester = [];
       
       // Check scheduled courses for current semester
@@ -319,7 +359,7 @@ export default function DashboardPage() {
       
       setCurrentSemesterCourses(coursesForCurrentSemester);
     }
-  }, [completedCourses, scheduledCourses, currentSemester, loadingCourses]);
+  }, [completedCourses, scheduledCourses, currentSemesterName, loadingCourses]);
 
   // Load dashboard data once when session is available (FIXED - proper caching)
   const [hasLoadedDashboard, setHasLoadedDashboard] = useState(false)
@@ -357,93 +397,304 @@ export default function DashboardPage() {
     };
   }, [hasLoadedDashboard]);
   
-  // Generate key semester data for timeline
+  // Generate comprehensive semester data for timeline
   const semesterTimelineData = useMemo(() => {
     const semesters = [];
-    const current = currentSemester;
-    const currentYear = new Date().getFullYear();
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
     
-    // Previous semester (completed)
-    const prevSemester = current.includes('Fall') 
-      ? `Spring ${currentYear}` 
-      : `Fall ${currentYear - 1}`;
+    // Determine current semester
+    let currentSem;
+    if (currentMonth >= 1 && currentMonth <= 5) {
+      currentSem = `Spring ${currentYear}`;
+    } else if (currentMonth >= 6 && currentMonth <= 7) {
+      currentSem = `Summer ${currentYear}`;
+    } else {
+      currentSem = `Fall ${currentYear}`;
+    }
     
-    // Next semester (upcoming)
-    const nextSemester = current.includes('Spring')
-      ? `Fall ${currentYear}`
-      : `Spring ${currentYear + 1}`;
+    // If no enrollment year, default to current year minus 1
+    const startYear = enrollmentYear || (currentYear - 1);
     
-    // Graduation semester
-    const gradSemester = graduationYear ? `Spring ${graduationYear}` : 'Spring 2027';
+    // Generate all semesters from enrollment to graduation
+    for (let year = startYear; year <= (graduationYear || currentYear + 2); year++) {
+      // Fall semester
+      const fallSem = `Fall ${year}`;
+      let fallStatus;
+      if (fallSem === currentSem) {
+        fallStatus = 'current';
+      } else if (year < currentYear) {
+        fallStatus = 'completed';
+      } else if (year === currentYear && currentMonth > 12) {
+        // Fall is over if we're past December (which never happens, so Fall current year is never completed unless year changes)
+        fallStatus = 'completed';
+      } else if (year > currentYear || (year === currentYear && currentMonth <= 7)) {
+        fallStatus = 'upcoming';
+      } else {
+        fallStatus = 'upcoming';
+      }
+      
+      semesters.push({
+        label: fallSem,
+        status: fallStatus as "completed" | "current" | "upcoming" | "future",
+        credits: 0,
+        courseCount: 0
+      });
+      
+      // Spring semester (following year)
+      if (year < (graduationYear || currentYear + 2)) {
+        const springSem = `Spring ${year + 1}`;
+        let springStatus;
+        if (springSem === currentSem) {
+          springStatus = 'current';
+        } else if (year + 1 < currentYear) {
+          springStatus = 'completed';
+        } else if (year + 1 === currentYear && currentMonth > 5) {
+          // Spring is over after May
+          springStatus = 'completed';
+        } else {
+          springStatus = 'upcoming';
+        }
+        
+        semesters.push({
+          label: springSem,
+          status: springStatus as "completed" | "current" | "upcoming" | "future",
+          credits: 0,
+          courseCount: 0
+        });
+      }
+    }
     
-    // Count courses and credits for each
-    const getCourseData = (sem: string) => {
-      let count = 0;
-      let credits = 0;
+    // Count courses and credits for each semester
+    semesters.forEach(semester => {
+      // Use a Map to ensure unique courses by code
+      const semesterCoursesMap = new Map();
       
       completedCourses.forEach((course) => {
-        if (course.semester === sem) {
-          count++;
-          credits += course.credits || 3;
+        if (course.semester === semester.label) {
+          // Use course code as key to prevent duplicates
+          if (!semesterCoursesMap.has(course.code)) {
+            semester.courseCount++;
+            semester.credits += course.credits || 3;
+            semesterCoursesMap.set(course.code, {
+              code: course.code,
+              name: course.name || course.title,
+              credits: course.credits || 3,
+              grade: course.grade
+            });
+          }
         }
       });
       
       scheduledCourses.forEach((course) => {
-        if (course.semester === sem) {
-          count++;
-          credits += course.credits || 3;
+        if (course.semester === semester.label) {
+          // Only add if not already in completed courses
+          if (!semesterCoursesMap.has(course.code)) {
+            semester.courseCount++;
+            semester.credits += course.credits || 3;
+            semesterCoursesMap.set(course.code, {
+              code: course.code,
+              name: course.name || course.title,
+              credits: course.credits || 3,
+              grade: undefined // No grade for scheduled courses
+            });
+          }
         }
       });
       
-      return { count, credits };
-    };
-    
-    const prevData = getCourseData(prevSemester);
-    const currentData = getCourseData(current);
-    const nextData = getCourseData(nextSemester);
-    const gradData = getCourseData(gradSemester);
-    
-    semesters.push({
-      label: prevSemester,
-      status: 'completed' as const,
-      credits: prevData.credits,
-      courseCount: prevData.count
+      // Convert Map to array for semester data
+      semester.courses = Array.from(semesterCoursesMap.values());
+      
+      // Calculate semester GPA for completed courses
+      const semesterCourses = semester.courses || [];
+      if (semesterCourses.some(c => c.grade)) {
+        const gradePoints: { [key: string]: number } = {
+          'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0
+        };
+        
+        const gradedCourses = semesterCourses.filter(c => c.grade);
+        const totalPoints = gradedCourses.reduce((sum, course) => {
+          return sum + (gradePoints[course.grade] || 0) * course.credits;
+        }, 0);
+        const totalCredits = gradedCourses.reduce((sum, course) => sum + course.credits, 0);
+        
+        if (totalCredits > 0) {
+          semester.gpa = Number((totalPoints / totalCredits).toFixed(2));
+        }
+      }
     });
-    
-    semesters.push({
-      label: current,
-      status: 'current' as const,
-      credits: currentData.credits,
-      courseCount: currentData.count
-    });
-    
-    semesters.push({
-      label: nextSemester,
-      status: 'upcoming' as const,
-      credits: nextData.credits,
-      courseCount: nextData.count
-    });
-    
-    // Only add graduation semester if it's different from next semester
-    if (gradSemester !== nextSemester && gradSemester !== current) {
-      semesters.push({
-        label: gradSemester,
-        status: 'future' as const,
-        credits: gradData.credits,
-        courseCount: gradData.count
-      });
-    }
     
     return semesters;
-  }, [completedCourses, scheduledCourses, currentSemester, graduationYear]);
+  }, [completedCourses, scheduledCourses, enrollmentYear, graduationYear]);
 
+  // Handle removing a completed course
+  const handleRemoveCourse = async (semester: string, courseCode: string) => {
+    try {
+      if (!session?.user?.email) {
+        console.error('No user email available');
+        return;
+      }
 
+      // Call backend to remove the course
+      const response = await fetch(`/api/user/courses/complete/${encodeURIComponent(courseCode)}?user_email=${encodeURIComponent(session.user.email)}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Remove from local state - need to find and remove the course by matching code and semester
+        const newCompletedCourses = new Map(completedCourses);
+        
+        // Find and remove all entries that match this course code and semester
+        for (const [key, course] of newCompletedCourses.entries()) {
+          if (course.code === courseCode && course.semester === semester) {
+            newCompletedCourses.delete(key);
+            console.log(`Deleted key: ${key}`);
+          }
+        }
+        
+        setCompletedCourses(newCompletedCourses);
+
+        // Recalculate GPA and credits
+        const allCourses = Array.from(newCompletedCourses.values());
+        const totalCredits = allCourses.reduce((sum, course) => sum + (course.credits || 0), 0);
+        setCreditsCompleted(totalCredits);
+
+        // Calculate GPA
+        const gradePoints: { [key: string]: number } = {
+          'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0
+        };
+        
+        const totalGradePoints = allCourses.reduce((sum, course) => {
+          const points = gradePoints[course.grade || 'F'] || 0;
+          return sum + (points * (course.credits || 0));
+        }, 0);
+        
+        const newGPA = totalCredits > 0 ? totalGradePoints / totalCredits : 0;
+        setGpa(Number(newGPA.toFixed(2)));
+
+        // Trigger re-render of dashboard
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('coursesCompleted'));
+        }
+
+        console.log(`Removed ${courseCode} from ${semester}`);
+      } else {
+        console.error('Failed to remove course');
+      }
+    } catch (error) {
+      console.error('Error removing course:', error);
+    }
+  };
+
+  // Handle adding completed courses
+  const handleCoursesUpdate = async (semester: string, courses: any[]) => {
+    try {
+      if (!session?.user?.email) {
+        console.error('No user email available');
+        return;
+      }
+
+      // Save courses to backend
+      const response = await fetch(`/api/user/courses/completed?user_email=${encodeURIComponent(session.user.email)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          semester,
+          courses: courses.map(course => ({
+            code: course.code,
+            name: course.name || course.title || course.code, // Fallback to code if name missing
+            credits: course.credits,
+            grade: course.grade
+          }))
+        })
+      });
+      
+      if (response.ok) {
+        // Create a completely new Map to ensure React detects the change
+        const newCompletedCourses = new Map();
+        
+        // First, copy all courses that are NOT from this semester
+        completedCourses.forEach((course, key) => {
+          if (course.semester !== semester) {
+            newCompletedCourses.set(key, course);
+          }
+        });
+        
+        // Then add only the new courses for this semester
+        courses.forEach(course => {
+          const key = `${course.code}-${semester}`;
+          newCompletedCourses.set(key, {
+            code: course.code,
+            name: course.name,
+            credits: course.credits,
+            grade: course.grade,
+            semester,
+            status: 'completed'
+          });
+        });
+        
+        setCompletedCourses(newCompletedCourses);
+        
+        // Sync with scheduler - trigger migration for this user
+        if (session?.user?.githubId) {
+          try {
+            const migrationResponse = await fetch(`/api/users/${session.user.githubId}/migrate-completed-courses`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            });
+            
+            if (migrationResponse.ok) {
+              const result = await migrationResponse.json();
+              console.log('Migration result:', result);
+            }
+          } catch (error) {
+            console.error('Failed to sync with scheduler:', error);
+          }
+        }
+
+        // Recalculate GPA and credits
+        const allCourses = Array.from(newCompletedCourses.values());
+        const totalCredits = allCourses.reduce((sum, course) => sum + (course.credits || 0), 0);
+        setCreditsCompleted(totalCredits);
+
+        // Calculate GPA
+        const gradePoints: { [key: string]: number } = {
+          'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0
+        };
+        
+        const totalGradePoints = allCourses.reduce((sum, course) => {
+          const points = gradePoints[course.grade || 'F'] || 0;
+          return sum + (points * (course.credits || 0));
+        }, 0);
+        
+        const newGPA = totalCredits > 0 ? totalGradePoints / totalCredits : 0;
+        setGpa(Number(newGPA.toFixed(2)));
+
+        // Trigger custom event to refresh dashboard
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('coursesCompleted'));
+        }
+
+        console.log(`Added ${courses.length} courses to ${semester}`);
+      } else {
+        const errorData = await response.text();
+        console.error('Failed to save courses:', response.status, errorData);
+      }
+    } catch (error) {
+      console.error('Error saving courses:', error);
+    }
+  };
 
   return (
-    <div className="h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <CustomNavbar />
       
-      <main className="max-w-7xl mx-auto px-1 py-6">
+      <main className="max-w-7xl mx-auto px-6 py-6">
         {!loading && (
           <>
             {/* Professional Two-Column Grid Layout */}
@@ -452,7 +703,7 @@ export default function DashboardPage() {
               {/* MAIN COLUMN (70% - Left Side) */}
               <div className="space-y-6">
                 {/* Student Profile and GPA Cards */}
-                <div className="flex gap-4 items-stretch">
+                <div className="flex flex-col sm:flex-row gap-4 items-stretch">
                   <div className="flex-1">
                     <StudentProfileCard
                       userName={userName}
@@ -464,7 +715,7 @@ export default function DashboardPage() {
                       academicStanding={gpa && gpa < 2.0 ? 'warning' : 'good'}
                     />
                   </div>
-                  <div className="flex">
+                  <div className="flex justify-center sm:justify-start">
                     <GPACard gpa={gpa} />
                   </div>
                 </div>
@@ -472,20 +723,15 @@ export default function DashboardPage() {
                 {/* Academic Timeline */}
                 <CompactSemesterTimeline
                   semesters={semesterTimelineData}
+                  onCoursesUpdate={handleCoursesUpdate}
+                  onRemoveCourse={handleRemoveCourse}
                 />
               </div>
 
               {/* ACTION COLUMN (30% - Right Side) */}
-              <div className="space-y-4">
-                {/* Quick Actions - Moved to top */}
+              <div>
+                {/* Quick Actions Only */}
                 <QuickActionsPanel />
-
-                {/* Today's Schedule - Moved below Quick Actions */}
-                <div className="mt-12">
-                  <DashboardCalendarWidget
-                    events={calendarEvents}
-                  />
-                </div>
               </div>
             </div>
           </>

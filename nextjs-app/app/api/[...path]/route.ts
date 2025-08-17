@@ -35,15 +35,31 @@ export async function POST(
 ) {
   const { path: pathArray } = await params
   const path = pathArray.join('/')
-  const body = await request.json()
+  const url = new URL(request.url)
+  const queryString = url.search
+  
+  // Handle POST requests that may or may not have a body
+  let body = null
+  const contentType = request.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    const text = await request.text()
+    if (text) {
+      try {
+        body = JSON.parse(text)
+      } catch (e) {
+        // Empty body or invalid JSON
+        body = null
+      }
+    }
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/${path}`, {
+    const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: body ? JSON.stringify(body) : undefined,
     })
 
     const data = await response.json()
@@ -105,9 +121,11 @@ export async function DELETE(
 ) {
   const { path: pathArray } = await params
   const path = pathArray.join('/')
+  const url = new URL(request.url)
+  const queryString = url.search
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/${path}`, {
+    const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

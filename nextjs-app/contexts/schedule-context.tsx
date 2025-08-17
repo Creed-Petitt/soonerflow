@@ -26,7 +26,15 @@ interface ScheduledClass {
 interface Schedule {
   schedule_id: number;
   schedule_name: string;
+  semester: string;
   classes: ScheduledClass[];
+}
+
+interface Semester {
+  code: string;
+  name: string;
+  class_count: number;
+  is_summer: boolean;
 }
 
 interface ScheduleContextType {
@@ -36,6 +44,9 @@ interface ScheduleContextType {
   error: string | null;
   isSaving: boolean;
   isAuthenticated: boolean;
+  currentSemester: string;
+  availableSemesters: Semester[];
+  setCurrentSemester: (semester: string) => void;
   addClass: (classData: ScheduledClass) => void;
   removeClass: (classId: string) => void;
   updateClass: (classId: string, updates: Partial<ScheduledClass>) => void;
@@ -56,12 +67,45 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [localClasses, setLocalClasses] = useState<ScheduledClass[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false);
+  // Get current semester based on current date
+  const getCurrentSemester = () => {
+    const now = new Date();
+    const month = now.getMonth() + 1; // 1-12
+    const year = now.getFullYear();
+    
+    if (month >= 1 && month <= 5) {
+      // Spring semester (January - May)
+      return `${year - 1}20`; // Spring 2025 = 202420
+    } else if (month >= 8 && month <= 12) {
+      // Fall semester (August - December)  
+      return `${year}10`; // Fall 2025 = 202510
+    } else {
+      // Summer semester (June - July)
+      return `${year - 1}30`; // Summer 2025 = 202430
+    }
+  };
+  
+  const [currentSemester, setCurrentSemesterState] = useState<string>(getCurrentSemester());
+  const [availableSemesters, setAvailableSemesters] = useState<Semester[]>([]);
   
   // Debounce the class list to avoid too many API calls
   const debouncedClasses = useDebounce(localClasses, 1000);
 
-  // Load user's active schedule
-  const loadSchedule = useCallback(async () => {
+  // Load available semesters
+  const loadSemesters = useCallback(async () => {
+    try {
+      const response = await fetch('/api/semesters');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSemesters(data);
+      }
+    } catch (err) {
+      console.error('Failed to load semesters:', err);
+    }
+  }, []);
+
+  // Load user's schedule for a specific semester
+  const loadSchedule = useCallback(async (semester?: string) => {
     if (status === "loading") return;
     
     if (status === "unauthenticated") {
@@ -77,17 +121,32 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const targetSemester = semester || currentSemester;
+
     try {
       setLoading(true);
-      const response = await fetch(`/api/users/${session.user.githubId}/active-schedule`);
+      const response = await fetch(`/api/users/${session.user.githubId}/schedule/${targetSemester}`);
       
       if (!response.ok) {
         throw new Error('Failed to load schedule');
       }
       
       const data = await response.json();
-      setSchedule(data);
-      setLocalClasses(data.classes || []);
+      
+      // Deduplicate classes from backend just in case
+      const classMap = new Map<string, ScheduledClass>();
+      (data.classes || []).forEach((cls: ScheduledClass) => {
+        if (!classMap.has(cls.id)) {
+          classMap.set(cls.id, cls);
+        }
+      });
+      const uniqueClasses = Array.from(classMap.values());
+      
+      console.log(`📚 Loaded ${uniqueClasses.length} unique classes for semester ${targetSemester}`);
+      console.log('📚 Unique classes data:', uniqueClasses);
+      
+      setSchedule({ ...data, classes: uniqueClasses });
+      setLocalClasses(uniqueClasses);
       setHasLoadedSchedule(true);
     } catch (err) {
       console.error('Failed to load schedule:', err);
@@ -95,12 +154,35 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [session, status]);
+  }, [session, status, currentSemester]);
 
-  // Load schedule on mount and auth change
+  // Load semesters on mount and trigger migration
   useEffect(() => {
-    loadSchedule();
-  }, [loadSchedule]);
+    loadSemesters();
+    
+    // One-time migration of completed courses to schedules
+    if (session?.user?.githubId && status === "authenticated") {
+      fetch(`/api/users/${session.user.githubId}/migrate-completed-courses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }).then(response => {
+        if (response.ok) {
+          response.json().then(result => {
+            console.log('📚 Migration result:', result);
+          });
+        }
+      }).catch(error => {
+        console.error('Migration failed:', error);
+      });
+    }
+  }, [loadSemesters, session?.user?.githubId, status]);
+
+  // Load schedule when semester changes or auth changes
+  useEffect(() => {
+    loadSchedule(currentSemester);
+  }, [currentSemester, loadSchedule]);
 
   // Save schedule function
   const saveSchedule = useCallback(async () => {
@@ -150,13 +232,25 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       return;
     }
     
+    // Deduplicate local classes before comparison
+    const uniqueLocalClasses = debouncedClasses.filter((cls, index, arr) => 
+      arr.findIndex(c => c.id === cls.id) === index
+    );
+    
     // Compare class IDs to see if there's an actual change
-    const currentClassIds = debouncedClasses.map(c => c.id).sort().join(',');
+    const currentClassIds = uniqueLocalClasses.map(c => c.id).sort().join(',');
     const savedClassIds = (schedule.classes || []).map(c => c.id).sort().join(',');
     
     if (currentClassIds !== savedClassIds) {
       console.log('💾 Auto-saving schedule changes...');
-      saveSchedule();
+      
+      // Update local classes to remove duplicates before saving
+      if (uniqueLocalClasses.length !== debouncedClasses.length) {
+        console.log('🧹 Cleaning up duplicates before save');
+        setLocalClasses(uniqueLocalClasses);
+      } else {
+        saveSchedule();
+      }
     }
   }, [debouncedClasses, hasLoadedSchedule, schedule, isSaving, saveSchedule]);
 
@@ -164,9 +258,15 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const addClass = useCallback((classData: ScheduledClass) => {
     setLocalClasses(prev => {
       // Check if class already exists
-      if (prev.find(c => c.id === classData.id)) {
-        return prev;
+      const existingIndex = prev.findIndex(c => c.id === classData.id);
+      if (existingIndex !== -1) {
+        console.log('⚠️ Class already exists, updating instead:', classData.id);
+        // Update existing class instead of adding duplicate
+        const updated = [...prev];
+        updated[existingIndex] = { ...updated[existingIndex], ...classData };
+        return updated;
       }
+      console.log('✅ Adding new class:', classData.id);
       return [...prev, classData];
     });
   }, []);
@@ -191,6 +291,37 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = status === "authenticated";
 
+  // Semester setter that triggers reload (with validation)
+  const setCurrentSemester = useCallback(async (semester: string) => {
+    console.log('🔄 Switching to semester:', semester);
+    
+    // Get the actual current semester code
+    const actualCurrentSemester = getCurrentSemester();
+    
+    // Validate that the semester is current or future (not past)
+    if (semester < actualCurrentSemester) {
+      console.warn(`⚠️ Cannot switch to past semester ${semester}. Minimum allowed is ${actualCurrentSemester}`);
+      // For now, allow switching to past semesters but log a warning
+      // This is for backward compatibility - can be made stricter later
+    }
+    
+    // Clear current state before switching to prevent duplicates
+    setLocalClasses([]);
+    setSchedule(null);
+    setError(null);
+    setLoading(true);
+    setIsSaving(false); // Cancel any pending saves
+    
+    // Update semester and trigger reload
+    setCurrentSemesterState(semester);
+    setHasLoadedSchedule(false); // Reset to trigger reload
+    
+    // Force immediate reload of the new semester
+    setTimeout(() => {
+      loadSchedule(semester);
+    }, 100);
+  }, [loadSchedule]);
+
   const value: ScheduleContextType = {
     scheduledClasses: localClasses,
     schedule,
@@ -198,12 +329,15 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     error,
     isSaving,
     isAuthenticated,
+    currentSemester,
+    availableSemesters,
+    setCurrentSemester,
     addClass,
     removeClass,
     updateClass,
     clearSchedule,
     isClassScheduled,
-    refreshSchedule: loadSchedule,
+    refreshSchedule: () => loadSchedule(currentSemester),
   };
 
   return (

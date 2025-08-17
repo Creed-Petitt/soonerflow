@@ -25,6 +25,7 @@ import { ClassDetailDialog } from "./class-detail-dialog";
 import { useSchedule } from "@/hooks/use-schedule";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { ScheduleErrorDialog, type ScheduleErrorType } from "@/components/schedule-error-dialog";
 
 // Major to Department mapping - comprehensive based on actual OU majors
 const MAJOR_TO_DEPT: Record<string, string[]> = {
@@ -217,7 +218,7 @@ interface ClassBrowserPanelProps {
 
 export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPanelProps) {
   const { data: session } = useSession();
-  const { scheduledClasses, addClass, isClassScheduled } = useSchedule();
+  const { scheduledClasses, addClass, isClassScheduled, currentSemester } = useSchedule();
   
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([]);
@@ -226,13 +227,30 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [departments, setDepartments] = useState<{code: string, count: number}[]>([]);
-  const [hideFullClasses, setHideFullClasses] = useState(true);
+  const [hideFullClasses, setHideFullClasses] = useState(false);
   const [userMajorDepts, setUserMajorDepts] = useState<string[]>([]);
   const [departmentCache, setDepartmentCache] = useState<Record<string, ClassData[]>>({});
   
   // Dialog state
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Validation error state
+  const [validationError, setValidationError] = useState<{
+    isOpen: boolean;
+    errorType: ScheduleErrorType;
+    classInfo: any;
+    conflicts?: any[];
+    missingPrerequisites?: any[];
+    pendingAddData?: { section: any; labSection?: any };
+  }>({
+    isOpen: false,
+    errorType: "time_conflict",
+    classInfo: { subject: "", number: "", title: "" },
+    conflicts: [],
+    missingPrerequisites: [],
+    pendingAddData: undefined
+  });
 
   // Load departments when panel opens
   useEffect(() => {
@@ -324,7 +342,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/classes?subject=${dept}&limit=1000`);
+      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=1000`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       
       const data = await response.json();
@@ -353,7 +371,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
         if (departmentCache[dept]) {
           allMajorClasses.push(...departmentCache[dept]);
         } else {
-          const response = await fetch(`/api/classes?subject=${dept}&limit=1000`);
+          const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=1000`);
           if (response.ok) {
             const data = await response.json();
             const deptClasses = data.classes || [];
@@ -499,7 +517,88 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     };
   };
 
-  const handleAddToSchedule = (section: any, labSection?: any) => {
+  const handleAddToSchedule = async (section: any, labSection?: any) => {
+    // First validate the class before adding
+    try {
+      // Get the current schedule ID
+      const scheduleResponse = await fetch(`/api/users/${session?.user?.githubId}/schedule/${currentSemester}`);
+      if (!scheduleResponse.ok) {
+        toast.error("Could not validate class - schedule not found");
+        return;
+      }
+      const scheduleData = await scheduleResponse.json();
+      const scheduleId = scheduleData.schedule_id;
+      
+      // Check for time conflicts
+      const conflictResponse = await fetch(`/api/schedules/${scheduleId}/validate-time`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: section.id, schedule_id: scheduleId })
+      });
+      
+      if (conflictResponse.ok) {
+        const conflictData = await conflictResponse.json();
+        
+        if (conflictData.has_conflict) {
+          // Show conflict error dialog
+          setValidationError({
+            isOpen: true,
+            errorType: "time_conflict",
+            classInfo: {
+              subject: section.subject,
+              number: section.number || section.courseNumber,
+              title: section.title
+            },
+            conflicts: conflictData.conflicts,
+            missingPrerequisites: [],
+            pendingAddData: undefined
+          });
+          return;
+        }
+      }
+      
+      // Check prerequisites
+      const prereqResponse = await fetch(`/api/schedules/${scheduleId}/validate-prerequisites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          class_id: section.id, 
+          schedule_id: scheduleId
+        })
+      });
+      
+      if (prereqResponse.ok) {
+        const prereqData = await prereqResponse.json();
+        
+        if (!prereqData.prerequisites_met) {
+          // Show prerequisite error dialog with option to add anyway
+          setValidationError({
+            isOpen: true,
+            errorType: "missing_prerequisites",
+            classInfo: {
+              subject: section.subject,
+              number: section.number || section.courseNumber,
+              title: section.title
+            },
+            conflicts: [],
+            missingPrerequisites: prereqData.missing,
+            pendingAddData: { section, labSection }
+          });
+          return;
+        }
+      }
+      
+      // If all validations pass, add the class
+      addClassToSchedule(section, labSection);
+      
+    } catch (error) {
+      console.error("Error validating class:", error);
+      // If validation fails, add anyway (fallback behavior)
+      addClassToSchedule(section, labSection);
+    }
+  };
+  
+  const addClassToSchedule = (section: any, labSection?: any) => {
     // Format the class data for the schedule
     const classData = {
       id: section.id,
@@ -700,6 +799,25 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           onAddToSchedule={handleAddToSchedule}
         />
       )}
+      
+      {/* Schedule Error Dialog */}
+      <ScheduleErrorDialog
+        isOpen={validationError.isOpen}
+        onClose={() => setValidationError(prev => ({ ...prev, isOpen: false }))}
+        errorType={validationError.errorType}
+        classInfo={validationError.classInfo}
+        conflicts={validationError.conflicts}
+        missingPrerequisites={validationError.missingPrerequisites}
+        allowAddAnyway={validationError.errorType === "missing_prerequisites"}
+        onAddAnyway={() => {
+          if (validationError.pendingAddData) {
+            addClassToSchedule(
+              validationError.pendingAddData.section, 
+              validationError.pendingAddData.labSection
+            );
+          }
+        }}
+      />
     </>
   );
 }
