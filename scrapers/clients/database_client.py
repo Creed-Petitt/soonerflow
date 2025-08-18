@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database.models import create_engine_and_session, Class, MeetingTime, Professor, Rating, Major, Requirement, MajorCourse
+from database.models import create_engine_and_session, Class, MeetingTime, Professor, Rating, Major, Requirement, MajorCourse, Prerequisite
 
 class SQLAlchemyDatabaseClient:
     """Database client using SQLAlchemy for all operations"""
@@ -19,12 +19,15 @@ class SQLAlchemyDatabaseClient:
         """Get a database session"""
         return self.SessionLocal()
     
-    def save_class(self, class_data: Dict[str, Any]) -> bool:
+    def save_class(self, class_data: Dict[str, Any], semester: str = "202510") -> bool:
         """Save class data to database using SQLAlchemy"""
         session = self.get_session()
         try:
+            # Create ID with semester
+            class_id_with_semester = f"{class_data['id']}-{semester}"
+            
             # Check if class already exists
-            existing_class = session.query(Class).filter(Class.id == class_data['id']).first()
+            existing_class = session.query(Class).filter(Class.id == class_id_with_semester).first()
             if existing_class:
                 # Update existing class with new data (including seat availability)
                 existing_class.subject = class_data.get('subject', existing_class.subject)
@@ -44,14 +47,19 @@ class SQLAlchemyDatabaseClient:
                 existing_class.credits = class_data.get('credits', existing_class.credits or 3)
                 existing_class.availableSeats = class_data.get('availableSeats', 0)
                 existing_class.totalSeats = class_data.get('totalSeats', 0)
+                existing_class.semester = semester
                 
-                self.logger.info(f"Updated existing class {class_data['id']} with seat data: {class_data.get('availableSeats', 0)}/{class_data.get('totalSeats', 0)}")
+                # Save prerequisites if they exist
+                if class_data.get('prerequisites'):
+                    self._save_prerequisites(session, class_id_with_semester, class_data)
+                
+                self.logger.info(f"Updated existing class {class_id_with_semester} with seat data: {class_data.get('availableSeats', 0)}/{class_data.get('totalSeats', 0)}")
                 session.commit()
                 return True
             
             # Create new class
             new_class = Class(
-                id=class_data['id'],
+                id=class_id_with_semester,
                 subject=class_data['subject'],
                 courseNumber=class_data['courseNumber'],
                 section=class_data['section'],
@@ -66,14 +74,18 @@ class SQLAlchemyDatabaseClient:
                 semesterDates=class_data.get('semesterDates'),
                 examInfo=class_data.get('examInfo'),
                 repeatability=class_data.get('repeatability'),
-                additionalInfo=class_data.get('additionalInfo'),
                 credits=class_data.get('credits', 3),
                 availableSeats=class_data.get('availableSeats', 0),
-                totalSeats=class_data.get('totalSeats', 0)
+                totalSeats=class_data.get('totalSeats', 0),
+                semester=semester
             )
             
             session.add(new_class)
             session.commit()
+            
+            # Save prerequisites if they exist
+            if class_data.get('prerequisites'):
+                self._save_prerequisites(session, class_id_with_semester, class_data)
             
             self.logger.info(f"Successfully saved class: {class_data.get('subject', '')} {class_data.get('courseNumber', '')}")
             return True
@@ -89,13 +101,46 @@ class SQLAlchemyDatabaseClient:
         finally:
             session.close()
     
-    def save_meeting_time(self, meeting_time_data: Dict[str, Any]) -> bool:
+    def _save_prerequisites(self, session: Session, class_id: str, class_data: Dict[str, Any]):
+        """Save already-parsed prerequisites for a class"""
+        try:
+            # Remove existing prerequisites for this class
+            session.query(Prerequisite).filter(Prerequisite.class_id == class_id).delete()
+            
+            # Get already-parsed prerequisites from class data
+            prerequisites = class_data.get('prerequisites', [])
+            
+            # Save each prerequisite
+            for prereq_data in prerequisites:
+                prerequisite = Prerequisite(
+                    class_id=class_id,
+                    prerequisite_subject=prereq_data['prerequisite_subject'],
+                    prerequisite_number=prereq_data['prerequisite_number'],
+                    prerequisite_type=prereq_data.get('prerequisite_type', 'required'),
+                    prerequisite_group=prereq_data.get('prerequisite_group', 1),
+                    raw_text=prereq_data.get('raw_text', '')
+                )
+                session.add(prerequisite)
+            
+            session.commit()
+            
+            if prerequisites:
+                self.logger.info(f"Saved {len(prerequisites)} prerequisites for class {class_id}")
+                
+        except Exception as e:
+            self.logger.error(f"Error saving prerequisites for class {class_id}: {e}")
+            session.rollback()
+    
+    def save_meeting_time(self, meeting_time_data: Dict[str, Any], semester: str = "202510") -> bool:
         """Save meeting time data to database using SQLAlchemy"""
         session = self.get_session()
         try:
+            # Update classId to include semester
+            class_id_with_semester = f"{meeting_time_data['classId']}-{semester}"
+            
             # Create new meeting time
             new_meeting_time = MeetingTime(
-                classId=meeting_time_data['classId'],
+                classId=class_id_with_semester,
                 days=meeting_time_data.get('days'),
                 startTime=meeting_time_data.get('startTime'),
                 endTime=meeting_time_data.get('endTime'),

@@ -13,9 +13,9 @@ from typing import List, Dict, Any, Optional
 # Import our modules
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scrapers.api_clients.professors_client import RateMyProfessorsAPIClient
+from scrapers.clients.professors_client import RateMyProfessorsAPIClient
 from scrapers.processors.professors_processor import ProfessorDataProcessor
-from database_client import SQLAlchemyDatabaseClient
+from scrapers.clients.database_client import SQLAlchemyDatabaseClient
 
 # Constants
 GRAPHQL_URL = "https://www.ratemyprofessors.com/graphql"

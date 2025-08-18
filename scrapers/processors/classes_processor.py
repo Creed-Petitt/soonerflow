@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Dict, List, Any, Optional
 
 class ClassDataProcessor:
@@ -99,6 +100,14 @@ class ClassDataProcessor:
         seat_data = self.parse_seat_availability(class_data.get('seat_availability', ''))
         class_data.update(seat_data)
         
+        # Parse prerequisites if description exists
+        prerequisites = []
+        if class_data.get('description'):
+            prerequisites = self.parse_prerequisites(
+                class_data.get('description'),
+                class_data.get('subject', '')
+            )
+        
         return {
             'id': class_data.get('class_id'),
             'subject': class_data.get('subject', ''),
@@ -118,7 +127,8 @@ class ClassDataProcessor:
             'credits': self.extract_credits_from_course_number(class_data.get('course_number', '')),
             'meetingTimes': self.parse_meeting_times(class_data.get('meeting_times', '')),
             'availableSeats': class_data.get('available_seats', 0),
-            'totalSeats': class_data.get('total_seats', 0)
+            'totalSeats': class_data.get('total_seats', 0),
+            'prerequisites': prerequisites  # Add parsed prerequisites
         }
     
     def process_meeting_time_data(self, raw_meeting_time_data: Dict[str, Any], class_id: str) -> Dict[str, Any]:
@@ -150,6 +160,131 @@ class ClassDataProcessor:
                 processed_meeting_times.append(processed_meeting_time)
         
         return processed_meeting_times
+    
+    def parse_prerequisites(self, description: str, subject: str) -> List[Dict[str, Any]]:
+        """
+        Parse prerequisites from class description
+        
+        Args:
+            description: The class description containing prerequisite info
+            subject: The subject of the class (used for context)
+            
+        Returns:
+            List of prerequisite dictionaries
+        """
+        if not description:
+            return []
+        
+        try:
+            # Extract prerequisite text
+            prereq_text = self._extract_prerequisite_text(description)
+            if not prereq_text:
+                return []
+            
+            # Parse into structured data
+            return self._parse_prerequisite_text(prereq_text, subject)
+        except Exception as e:
+            self.logger.error(f"Error parsing prerequisites: {e}")
+            return []
+    
+    def _extract_prerequisite_text(self, description: str) -> str:
+        """Extract the prerequisite section from description"""
+        prereq_patterns = [
+            r'Prerequisite[s]?:\s*([^.]*(?:\.[^A-Z][^.]*)*)',  # Main pattern
+            r'Prerequisites?:\s*([^.]+\.)',  # Alternative with period
+        ]
+        
+        for pattern in prereq_patterns:
+            match = re.search(pattern, description, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+    
+    def _parse_prerequisite_text(self, text: str, class_subject: str = None) -> List[Dict[str, Any]]:
+        """Parse the prerequisite text into structured data"""
+        prerequisites = []
+        
+        # Clean up the text
+        text = self._clean_prereq_text(text)
+        
+        # Find all course codes
+        courses = self._extract_prerequisite_courses(text, class_subject)
+        
+        # Analyze the structure for OR/AND conditions
+        prereq_groups = self._analyze_prerequisite_conditions(text, courses)
+        
+        # Convert to structured format
+        for group_num, group in enumerate(prereq_groups, 1):
+            for course in group['courses']:
+                prerequisites.append({
+                    'prerequisite_subject': course['subject'],
+                    'prerequisite_number': course['number'],
+                    'prerequisite_type': group['type'],
+                    'prerequisite_group': group_num,
+                    'raw_text': text
+                })
+        
+        return prerequisites
+    
+    def _clean_prereq_text(self, text: str) -> str:
+        """Clean and normalize the prerequisite text"""
+        # Remove HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Remove extra punctuation at the end
+        text = text.rstrip('.')
+        
+        return text.strip()
+    
+    def _extract_prerequisite_courses(self, text: str, class_subject: str = None) -> List[Dict[str, str]]:
+        """Extract course codes from text"""
+        courses = []
+        
+        # Standard format: SUBJ ####
+        matches = re.findall(r'([A-Z]{2,5})\s+G?(\d{4})', text)
+        for subject, number in matches:
+            courses.append({'subject': subject, 'number': number})
+        
+        # Handle number-only references (like "1113" when subject is implied)
+        if class_subject:
+            # Look for standalone numbers that might be course numbers
+            number_matches = re.findall(r'\b(\d{4})\b', text)
+            for number in number_matches:
+                # Only add if not already found with a subject
+                if not any(c['number'] == number for c in courses):
+                    courses.append({'subject': class_subject, 'number': number})
+        
+        return courses
+    
+    def _analyze_prerequisite_conditions(self, text: str, courses: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        """Analyze the logical structure of prerequisites (AND/OR conditions)"""
+        if not courses:
+            return []
+        
+        # Simple heuristic: if "or" appears, treat as OR group, otherwise AND
+        text_lower = text.lower()
+        
+        if ' or ' in text_lower:
+            # Handle OR conditions - for now, put all in one OR group
+            return [{
+                'type': 'or',
+                'courses': courses
+            }]
+        elif 'concurrent' in text_lower or 'corequisite' in text_lower:
+            # Handle concurrent/corequisite
+            return [{
+                'type': 'concurrent',
+                'courses': courses
+            }]
+        else:
+            # Default to required (AND logic)
+            return [{
+                'type': 'required',
+                'courses': courses
+            }]
     
     def process_classes_batch(self, classes_data: List[List[Any]]) -> List[Dict[str, Any]]:
         """Process a batch of raw class arrays"""

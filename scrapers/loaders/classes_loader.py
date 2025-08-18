@@ -10,9 +10,9 @@ from typing import List, Dict, Any
 
 # Import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scrapers.api_clients.classes_client import ClassNavAPIClient
+from scrapers.clients.classes_client import ClassNavAPIClient
 from scrapers.processors.classes_processor import ClassDataProcessor
-from database_client import SQLAlchemyDatabaseClient
+from scrapers.clients.database_client import SQLAlchemyDatabaseClient
 
 def setup_logging():
     """Set up logging for the class loader"""
@@ -96,9 +96,9 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                     continue
                 
                 # Save class to database
-                if db_client.save_class(class_data):
+                if db_client.save_class(class_data, semester):
                     successful_saves += 1
-                    logger.info(f"Saved class {i}/{len(processed_classes)}: {class_data.get('subject', '')} {class_data.get('courseNumber', '')}")
+                    logger.info(f"Saved class {i}/{len(processed_classes)}: {class_data.get('subject', '')} {class_data.get('courseNumber', '')} ({semester})")
                     
                     # Save meeting times for this class
                     meeting_times = class_data.get('meetingTimes', [])
@@ -106,7 +106,7 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                         for meeting_time in meeting_times:
                             processed_meeting_time = data_processor.process_meeting_time_data(meeting_time, class_data['id'])
                             if processed_meeting_time and data_processor.validate_meeting_time_data(processed_meeting_time):
-                                if not db_client.save_meeting_time(processed_meeting_time):
+                                if not db_client.save_meeting_time(processed_meeting_time, semester):
                                     logger.error(f"Failed to save meeting time for class {class_data['id']}")
                         logger.info(f"Saved {len(meeting_times)} meeting times for class {class_data['id']}")
                     else:
