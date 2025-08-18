@@ -8,8 +8,9 @@ from sqlalchemy import and_, or_
 
 import sys
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import Class as ClassModel, MeetingTime
+from database.models import Class as ClassModel, MeetingTime, Prerequisite, ScheduledClass, Schedule, CompletedCourse
 from backend.config import settings
+from datetime import datetime, time
 
 
 class ClassService:
@@ -29,6 +30,7 @@ class ClassService:
         self,
         subject: Optional[str] = None,
         search: Optional[str] = None,
+        semester: Optional[str] = None,
         limit: int = 500,
         page: int = 1,
         skip_ratings: bool = False
@@ -39,6 +41,7 @@ class ClassService:
         Args:
             subject: Filter by subject/department
             search: Search term for title, subject, or course number
+            semester: Filter by semester code (e.g., "202510" for Fall 2025)
             limit: Maximum number of classes to return
             page: Page number for pagination
             skip_ratings: Whether to skip professor ratings
@@ -61,6 +64,9 @@ class ClassService:
                     ClassModel.courseNumber.ilike(f"%{search}%")
                 )
             )
+        
+        if semester:
+            query = query.filter(ClassModel.semester == semester)
         
         # Get total count for pagination
         total_count = query.count()
@@ -172,6 +178,48 @@ class ClassService:
         
         return classes
     
+    def get_prerequisites(self, class_id: str) -> List[Dict[str, Any]]:
+        """
+        Get prerequisites for a specific class.
+        
+        Args:
+            class_id: The class ID to get prerequisites for
+            
+        Returns:
+            List of prerequisite dictionaries
+        """
+        prereqs = self.db.query(Prerequisite).filter(
+            Prerequisite.class_id == class_id
+        ).all()
+        
+        if not prereqs:
+            return []
+        
+        # Group prerequisites by group number for OR conditions
+        prereq_groups = {}
+        for prereq in prereqs:
+            group_num = prereq.prerequisite_group or 1
+            if group_num not in prereq_groups:
+                prereq_groups[group_num] = {
+                    'type': prereq.prerequisite_type,
+                    'courses': []
+                }
+            prereq_groups[group_num]['courses'].append({
+                'subject': prereq.prerequisite_subject,
+                'number': prereq.prerequisite_number
+            })
+        
+        # Format for response
+        formatted_prereqs = []
+        for group_num, group_data in sorted(prereq_groups.items()):
+            formatted_prereqs.append({
+                'group': group_num,
+                'type': group_data['type'],
+                'courses': group_data['courses']
+            })
+        
+        return formatted_prereqs
+    
     def format_class_response(
         self,
         cls: ClassModel,
@@ -207,6 +255,9 @@ class ClassService:
             "seats": f"{cls.availableSeats or 0}/{cls.totalSeats or 0}"
         }]
         
+        # Get prerequisites
+        prerequisites = self.get_prerequisites(cls.id) if not skip_ratings else []
+        
         return {
             "id": cls.id,
             "subject": cls.subject,
@@ -220,7 +271,7 @@ class ClassService:
             "available_seats": cls.availableSeats or 0,
             "total_seats": cls.totalSeats or 0,
             "description": cls.description or "",
-            "prerequisites": "",  # Could be extracted from description if needed
+            "prerequisites": prerequisites,
             "genEd": cls.genEd or "",
             "type": cls.type or "",
             "sections": sections,
@@ -282,6 +333,238 @@ class ClassService:
             if mt.days:
                 days.append(mt.days)
         return days
+    
+    def check_time_conflicts(self, class_id: str, schedule_id: int) -> Dict[str, Any]:
+        """
+        Check if a class has time conflicts with existing scheduled classes.
+        
+        Args:
+            class_id: ID of the class to check
+            schedule_id: ID of the schedule to check against
+            
+        Returns:
+            Dictionary with conflict status and details
+        """
+        # Get the class to check
+        new_class = self.db.query(ClassModel).filter(ClassModel.id == class_id).first()
+        if not new_class:
+            return {"has_conflict": False, "conflicts": []}
+        
+        # Get existing scheduled classes
+        scheduled_classes = self.db.query(ScheduledClass).filter(
+            ScheduledClass.schedule_id == schedule_id
+        ).all()
+        
+        conflicts = []
+        
+        for scheduled in scheduled_classes:
+            existing_class = scheduled.class_
+            
+            # Check if there's a time conflict
+            if self._classes_have_time_conflict(new_class, existing_class):
+                conflicts.append({
+                    "class_id": existing_class.id,
+                    "subject": existing_class.subject,
+                    "number": existing_class.courseNumber,
+                    "title": existing_class.title,
+                    "time": self.format_meeting_times(existing_class.meetingTimes),
+                    "days": self.extract_days(existing_class.meetingTimes)
+                })
+        
+        return {
+            "has_conflict": len(conflicts) > 0,
+            "conflicts": conflicts
+        }
+    
+    def _classes_have_time_conflict(self, class1: ClassModel, class2: ClassModel) -> bool:
+        """
+        Check if two classes have overlapping meeting times.
+        
+        Args:
+            class1: First class to compare
+            class2: Second class to compare
+            
+        Returns:
+            True if classes have time conflict, False otherwise
+        """
+        # Get meeting times for both classes
+        times1 = class1.meetingTimes
+        times2 = class2.meetingTimes
+        
+        # If either has no meeting times, no conflict
+        if not times1 or not times2:
+            return False
+        
+        # Check each combination of meeting times
+        for mt1 in times1:
+            for mt2 in times2:
+                if self._meeting_times_overlap(mt1, mt2):
+                    return True
+        
+        return False
+    
+    def _meeting_times_overlap(self, mt1: MeetingTime, mt2: MeetingTime) -> bool:
+        """
+        Check if two meeting times overlap.
+        
+        Args:
+            mt1: First meeting time
+            mt2: Second meeting time
+            
+        Returns:
+            True if meeting times overlap, False otherwise
+        """
+        # Check if days overlap
+        if not mt1.days or not mt2.days:
+            return False
+        
+        # Convert day strings to sets for overlap checking
+        days1 = set(mt1.days)
+        days2 = set(mt2.days)
+        
+        # If no common days, no conflict
+        if not days1.intersection(days2):
+            return False
+        
+        # Parse times
+        try:
+            start1 = self._parse_time(mt1.startTime)
+            end1 = self._parse_time(mt1.endTime)
+            start2 = self._parse_time(mt2.startTime)
+            end2 = self._parse_time(mt2.endTime)
+        except:
+            # If can't parse times, assume no conflict
+            return False
+        
+        # Check if time ranges overlap
+        # Overlap occurs if one starts before the other ends
+        return not (end1 <= start2 or end2 <= start1)
+    
+    def _parse_time(self, time_str: str) -> time:
+        """
+        Parse a time string into a time object.
+        
+        Args:
+            time_str: Time string (e.g., "10:30am", "2:45pm")
+            
+        Returns:
+            time object
+        """
+        if not time_str:
+            return time(0, 0)
+        
+        # Remove am/pm and parse
+        time_str = time_str.strip().upper()
+        is_pm = 'PM' in time_str
+        time_str = time_str.replace('AM', '').replace('PM', '').strip()
+        
+        # Split hours and minutes
+        parts = time_str.split(':')
+        hours = int(parts[0])
+        minutes = int(parts[1]) if len(parts) > 1 else 0
+        
+        # Adjust for PM
+        if is_pm and hours != 12:
+            hours += 12
+        elif not is_pm and hours == 12:
+            hours = 0
+        
+        return time(hours, minutes)
+    
+    def check_prerequisites(self, class_id: str, user_id: int, schedule_id: int) -> Dict[str, Any]:
+        """
+        Check if prerequisites are met for a class.
+        
+        Args:
+            class_id: ID of the class to check
+            user_id: ID of the user
+            schedule_id: ID of the current schedule
+            
+        Returns:
+            Dictionary with prerequisite status and details
+        """
+        # Get prerequisites for the class
+        prereqs = self.get_prerequisites(class_id)
+        if not prereqs:
+            return {"prerequisites_met": True, "missing": []}
+        
+        # Get completed courses
+        completed = self.db.query(CompletedCourse).filter(
+            CompletedCourse.user_id == user_id
+        ).all()
+        
+        # Get currently scheduled courses (in same or earlier semesters)
+        current_schedule = self.db.query(Schedule).filter(
+            Schedule.id == schedule_id
+        ).first()
+        
+        scheduled = []
+        if current_schedule:
+            # Get all schedules for same or earlier semesters
+            all_schedules = self.db.query(Schedule).filter(
+                Schedule.user_id == user_id,
+                Schedule.semester <= current_schedule.semester
+            ).all()
+            
+            for sched in all_schedules:
+                scheduled.extend(sched.scheduled_classes)
+        
+        # Check each prerequisite group
+        missing_prereqs = []
+        
+        # Create sets of completed course codes for easier checking
+        completed_course_codes = set()
+        for c in completed:
+            # Normalize the course code format
+            completed_course_codes.add(c.course_code.upper().strip())
+            # Also add without spaces for flexibility
+            completed_course_codes.add(c.course_code.upper().replace(' ', ''))
+        
+        # Create set of scheduled course codes
+        scheduled_course_codes = set()
+        for sc in scheduled:
+            code = f"{sc.class_.subject} {sc.class_.courseNumber}".upper().strip()
+            scheduled_course_codes.add(code)
+            scheduled_course_codes.add(code.replace(' ', ''))
+        
+        for prereq_group in prereqs:
+            group_met = False
+            group_courses = []
+            
+            # For OR groups, only one needs to be met
+            for course in prereq_group['courses']:
+                course_code = f"{course['subject']} {course['number']}".upper().strip()
+                course_code_no_space = course_code.replace(' ', '')
+                group_courses.append(course_code)
+                
+                # Check if completed (check both with and without space)
+                if course_code in completed_course_codes or course_code_no_space in completed_course_codes:
+                    group_met = True
+                    break
+                
+                # Check if scheduled
+                if course_code in scheduled_course_codes or course_code_no_space in scheduled_course_codes:
+                    group_met = True
+                    break
+            
+            if not group_met:
+                if prereq_group['type'] == 'or':
+                    missing_prereqs.append({
+                        "type": "or",
+                        "courses": group_courses,
+                        "message": f"One of: {' or '.join(group_courses)}"
+                    })
+                else:
+                    missing_prereqs.append({
+                        "type": "required",
+                        "courses": group_courses,
+                        "message": ' and '.join(group_courses)
+                    })
+        
+        return {
+            "prerequisites_met": len(missing_prereqs) == 0,
+            "missing": missing_prereqs
+        }
     
     def clean_title(self, title: str) -> str:
         """

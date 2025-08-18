@@ -9,7 +9,7 @@ from datetime import datetime
 
 import sys
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import User, CompletedCourse, Schedule, Major, create_engine_and_session
+from database.models import User, CompletedCourse, Schedule, Major, ScheduledClass, Class as ClassModel, create_engine_and_session
 
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -45,6 +45,18 @@ class DashboardData(BaseModel):
     graduationYear: Optional[int]
     majorName: Optional[str]
     completedCourses: List[dict]
+
+
+class CourseToAdd(BaseModel):
+    code: str
+    name: str
+    credits: int
+    grade: str
+
+
+class AddCoursesRequest(BaseModel):
+    semester: str
+    courses: List[CourseToAdd]
 
 
 # Database dependency
@@ -85,7 +97,7 @@ async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get
             user_id=user.id,
             name="Spring 2025 Schedule",
             is_active=True,
-            semester="202510"
+            semester="202420"  # Spring 2025
         )
         db.add(default_schedule)
     
@@ -146,7 +158,14 @@ async def save_onboarding_data(data: dict, db: Session = Depends(get_db)):
     
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # Create new user during onboarding
+        user = User(
+            email=email,
+            name=data.get('name', ''),
+            github_id=data.get('github_id', ''),
+        )
+        db.add(user)
+        db.flush()  # Get the user ID
     
     # Update user with onboarding data
     if 'major' in data:
@@ -198,13 +217,73 @@ async def get_completed_courses(
     }
 
 
+@router.post("/user/courses/completed")
+async def add_completed_courses(
+    request: AddCoursesRequest,
+    user_email: str = Query(...),
+    auto_sync_schedules: bool = Query(True, description="Automatically sync with semester schedules"),
+    db: Session = Depends(get_db)
+):
+    """Add completed courses for a user and optionally sync with semester schedules."""
+    if not user_email:
+        raise HTTPException(status_code=400, detail="User email is required")
+    
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # First, remove all existing completed courses for this semester
+    db.query(CompletedCourse).filter(
+        CompletedCourse.user_id == user.id,
+        CompletedCourse.semester_completed == request.semester
+    ).delete()
+    
+    # Then add all the new courses
+    added_courses = []
+    for course_data in request.courses:
+        completed_course = CompletedCourse(
+            user_id=user.id,
+            course_code=course_data.code,
+            course_name=course_data.name,
+            credits=course_data.credits,
+            grade=course_data.grade,
+            semester_completed=request.semester
+        )
+        db.add(completed_course)
+        added_courses.append(course_data.code)
+    
+    db.commit()
+    
+    # Auto-sync with schedules if requested
+    schedule_sync_message = ""
+    if auto_sync_schedules:
+        try:
+            # Call the migration endpoint to sync the newly added courses
+            from backend.routers.schedules import migrate_completed_courses_to_schedules
+            
+            # Get user by github_id (need to get github_id from email)
+            if user.github_id:
+                sync_result = await migrate_completed_courses_to_schedules(user.github_id, db)
+                if sync_result.get("migrated_count", 0) > 0:
+                    schedule_sync_message = f" Synced {sync_result['migrated_count']} courses to schedules."
+        except Exception as e:
+            print(f"Failed to auto-sync schedules: {e}")
+            schedule_sync_message = " (Schedule sync failed)"
+    
+    return {
+        "success": True,
+        "message": f"Added {len(added_courses)} courses to {request.semester}{schedule_sync_message}",
+        "added_courses": added_courses
+    }
+
+
 @router.delete("/user/courses/complete/{course_code}")
 async def remove_completed_course(
     course_code: str,
     user_email: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    """Remove a course from completed status."""
+    """Remove a course from completed status and all semester schedules."""
     if not user_email or not course_code:
         raise HTTPException(status_code=400, detail="Email and course code are required")
     
@@ -218,12 +297,58 @@ async def remove_completed_course(
         CompletedCourse.course_code == course_code
     ).first()
     
-    if completed_course:
+    if not completed_course:
+        return {"success": False, "message": f"Course {course_code} not found in completed courses"}
+    
+    # Parse course code to extract subject and course number
+    parts = course_code.split()
+    if len(parts) >= 2:
+        # Handle multi-word subjects like "C S", "A HI", "B AD"
+        if len(parts) >= 3 and len(parts[0]) <= 2:
+            # Case: "C S 2414" -> subject="C S", number="2414" 
+            subject = f"{parts[0]} {parts[1]}"
+            course_number = parts[2]
+        else:
+            # Case: "MATH 3333" -> subject="MATH", number="3333"
+            subject = parts[0]
+            course_number = parts[1]
+        
+        # Remove course from ALL semester schedules for this user
+        schedules_updated = []
+        user_schedules = db.query(Schedule).filter(Schedule.user_id == user.id).all()
+        
+        for schedule in user_schedules:
+            # Find scheduled classes for this course in this schedule
+            scheduled_classes_to_remove = db.query(ScheduledClass).join(ClassModel).filter(
+                ScheduledClass.schedule_id == schedule.id,
+                ClassModel.subject == subject,
+                ClassModel.courseNumber == course_number
+            ).all()
+            
+            if scheduled_classes_to_remove:
+                schedules_updated.append(schedule.name)
+                for sc in scheduled_classes_to_remove:
+                    print(f"  Removing {course_code} from schedule: {schedule.name}")
+                    db.delete(sc)
+        
+        # Remove the completed course record
+        db.delete(completed_course)
+        db.commit()
+        
+        message = f"Removed {course_code} from completed courses"
+        if schedules_updated:
+            message += f" and from schedules: {', '.join(schedules_updated)}"
+        
+        return {
+            "success": True, 
+            "message": message,
+            "schedules_updated": schedules_updated
+        }
+    else:
+        # Invalid course code format - just remove from completed courses
         db.delete(completed_course)
         db.commit()
         return {"success": True, "message": f"Removed {course_code} from completed courses"}
-    else:
-        return {"success": False, "message": f"Course {course_code} not found in completed courses"}
 
 
 @router.get("/user/dashboard", response_model=DashboardData)

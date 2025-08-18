@@ -33,7 +33,7 @@ class ClassResponse(BaseModel):
     difficulty: float = 0.0
     wouldTakeAgain: float = 0.0
     description: str = ""
-    prerequisites: str = ""
+    prerequisites: List[dict] = []
     genEd: str = ""
     type: str = ""
     sections: List[dict] = []
@@ -67,6 +67,7 @@ async def get_departments(db: Session = Depends(get_db)):
 async def get_classes(
     subject: Optional[str] = None,
     search: Optional[str] = None,
+    semester: Optional[str] = None,
     limit: Optional[int] = 500,
     page: Optional[int] = 1,
     db: Session = Depends(get_db)
@@ -84,6 +85,7 @@ async def get_classes(
     result = class_service.get_classes(
         subject=subject,
         search=search,
+        semester=semester,
         limit=limit,
         page=page,
         skip_ratings=limit > settings.skip_ratings_threshold
@@ -113,6 +115,41 @@ async def get_classes(
             "credits": creditOptions,
             "semesters": semesters
         }
+    }
+
+
+@router.get("/all")
+async def get_all_courses(db: Session = Depends(get_db)):
+    """Get all unique courses for course selection modal."""
+    from sqlalchemy import text
+    
+    # Get all unique courses with their details
+    courses = db.execute(text("""
+        SELECT DISTINCT 
+            subject, 
+            courseNumber, 
+            title, 
+            credits,
+            subject || ' ' || courseNumber as code
+        FROM classes 
+        WHERE title NOT LIKE 'Lab-%'
+        ORDER BY subject, courseNumber
+    """)).fetchall()
+    
+    return {
+        "courses": [
+            {
+                "id": f"{course.subject}-{course.courseNumber}",
+                "subject": course.subject,
+                "courseNumber": course.courseNumber,
+                "code": course.code,
+                "name": course.title,
+                "title": course.title,
+                "credits": course.credits or 3,
+                "category": course.subject
+            }
+            for course in courses
+        ]
     }
 
 
