@@ -227,7 +227,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [departments, setDepartments] = useState<{code: string, count: number}[]>([]);
-  const [hideFullClasses, setHideFullClasses] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState("all");
   const [userMajorDepts, setUserMajorDepts] = useState<string[]>([]);
   const [departmentCache, setDepartmentCache] = useState<Record<string, ClassData[]>>({});
   
@@ -261,7 +261,9 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   
   // Load classes when department changes
   useEffect(() => {
-    if (selectedDepartment && selectedDepartment !== "major") {
+    if (selectedDepartment === "all") {
+      loadAllClasses();
+    } else if (selectedDepartment && selectedDepartment !== "major") {
       loadClassesForDepartment(selectedDepartment);
     } else if (selectedDepartment === "major" && userMajorDepts.length > 0) {
       // Load classes for all major departments
@@ -391,6 +393,26 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     }
   };
   
+  const loadAllClasses = async () => {
+    try {
+      setLoading(true);
+      
+      // Load classes without department filter to search across all
+      const response = await fetch(`/api/classes?semester=${currentSemester}&limit=2000`);
+      if (!response.ok) throw new Error('Failed to fetch classes');
+      
+      const data = await response.json();
+      const allClasses = data.classes || [];
+      
+      processClasses(allClasses);
+    } catch (error) {
+      console.error('Error loading all classes:', error);
+      toast.error('Failed to load classes');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const processClasses = (allClasses: ClassData[]) => {
     setClasses(allClasses);
     
@@ -437,14 +459,18 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     // Note: Department filtering is now done at load time
     // This only handles search and hide full
 
-    // Hide full classes (check if any section has seats)
-    if (hideFullClasses) {
+    // Filter by class level
+    if (selectedLevel && selectedLevel !== "all") {
       filtered = filtered.filter(g => {
-        // Check if at least one section has available seats
-        const hasAvailableSection = g.sections.some(s => 
-          s.available_seats === undefined || s.available_seats > 0
-        );
-        return hasAvailableSection;
+        const courseNum = parseInt(g.number);
+        if (isNaN(courseNum)) return false;
+        
+        if (selectedLevel === "5000") {
+          return courseNum >= 5000;
+        } else {
+          const levelStart = parseInt(selectedLevel);
+          return courseNum >= levelStart && courseNum < levelStart + 1000;
+        }
       });
     }
 
@@ -462,7 +488,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     }
 
     setFilteredGroupedClasses(filtered);
-  }, [groupedClasses, searchTerm, hideFullClasses]);
+  }, [groupedClasses, searchTerm, selectedLevel]);
 
   const checkTimeConflict = (classToCheck: ClassData) => {
     // Simple conflict check - you can enhance this
@@ -689,6 +715,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
                 {userMajorDepts.length > 0 && (
                   <SelectItem value="major">My Major</SelectItem>
                 )}
+                <SelectItem value="all">All Departments</SelectItem>
                 {departments.map(dept => (
                   <SelectItem key={dept.code} value={dept.code}>
                     {dept.code} ({dept.count})
@@ -697,14 +724,19 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
               </SelectContent>
             </Select>
             
-            <Button
-              variant={hideFullClasses ? "default" : "outline"}
-              size="sm"
-              onClick={() => setHideFullClasses(!hideFullClasses)}
-            >
-              <Filter className="h-4 w-4 mr-1" />
-              Hide Full
-            </Button>
+            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="1000">1000 Level</SelectItem>
+                <SelectItem value="2000">2000 Level</SelectItem>
+                <SelectItem value="3000">3000 Level</SelectItem>
+                <SelectItem value="4000">4000 Level</SelectItem>
+                <SelectItem value="5000">5000+ Graduate</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

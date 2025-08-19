@@ -90,7 +90,7 @@
    --destructive: oklch(0.577 0.245 27.325);
    --border: oklch(0.92 0.004 286.32);
    --input: oklch(0.92 0.004 286.32);
-   --ring: oklch(0.637 0.237 25.331);
+   --ring: rgb(75 85 99);
    --chart-1: oklch(0.646 0.222 41.116);
    --chart-2: oklch(0.6 0.118 184.704);
    --chart-3: oklch(0.398 0.07 227.392);
@@ -124,7 +124,7 @@
    --destructive: oklch(0.704 0.191 22.216);
    --border: oklch(1 0 0 / 10%);
    --input: oklch(1 0 0 / 15%);
-   --ring: oklch(0.637 0.237 25.331);
+   --ring: rgb(75 85 99);
    --chart-1: oklch(0.488 0.243 264.376);
    --chart-2: oklch(0.696 0.17 162.48);
    --chart-3: oklch(0.769 0.188 70.08);
@@ -137,7 +137,7 @@
    --sidebar-accent: oklch(0.274 0.006 286.033);
    --sidebar-accent-foreground: oklch(0.985 0 0);
    --sidebar-border: oklch(1 0 0 / 10%);
-   --sidebar-ring: oklch(0.637 0.237 25.331);
+   --sidebar-ring: oklch(0.274 0.006 286.033);
  }
 
 /* React Big Calendar Dark Mode Overrides */
@@ -250,4 +250,198 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Remove ALL blue tints and focus states globally */
+.dark * {
+  --tw-ring-color: transparent !important;
+}
+
+.dark *:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+}
+
+.dark *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+}
+
+/* Fix Radix UI Select components */
+.dark [role="combobox"],
+.dark [data-state],
+.dark [data-radix-collection-item] {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.dark [data-state="open"],
+.dark [data-state="closed"] {
+  --tw-ring-color: transparent !important;
+  outline: none !important;
+}
+
+/* Fix Select trigger and content */
+.dark [data-slot="select-trigger"]:focus-visible {
+  --tw-ring-color: transparent !important;
+  border-color: rgb(75 85 99) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.dark [data-slot="select-item"]:focus {
+  background-color: rgb(31 41 55) !important;
+  outline: none !important;
+}
+
+/* Fix Command/cmdk components - REMOVE ALL BLUE */
+.dark [cmdk-root] {
+  background-color: rgb(17 24 39) !important;
+}
+
+.dark [cmdk-item] {
+  outline: none !important;
+  background-color: transparent !important;
+}
+
+.dark [cmdk-item][aria-selected="true"],
+.dark [cmdk-item][data-selected="true"] {
+  background-color: rgb(31 41 55) !important;
+  color: white !important;
+}
+
+.dark [cmdk-input]:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: rgb(55 65 81) !important;
+}
+
+.dark [cmdk-input-wrapper] {
+  border-color: rgb(31 41 55) !important;
+}
+
+.dark [cmdk-input] {
+  caret-color: white !important;
+  background: transparent !important;
+}
+
+/* Override Popover content backgrounds */
+.dark [data-radix-popper-content-wrapper] {
+  --popover: rgb(17 24 39) !important;
+  --popover-foreground: white !important;
+}
+
+.dark [role="presentation"] [cmdk-root] {
+  background-color: rgb(17 24 39) !important;
+}
+
+/* Force dark backgrounds on all dropdown content */
+.dark .bg-popover {
+  background-color: rgb(17 24 39) !important;
+}
+
+/* Aggressively override ALL accent colors in dark mode */
+.dark [data-selected="true"],
+.dark [data-highlighted="true"],
+.dark [aria-selected="true"] {
+  background-color: rgb(31 41 55) !important;
+}
+
+/* Override the data-highlighted state that causes blue */
+.dark [cmdk-item][data-highlighted] {
+  background-color: rgb(31 41 55) !important;
+  color: white !important;
+}
+
+/* KILL ALL BLUE - Override cmdk library styles directly */
+[cmdk-item] {
+  background-color: transparent !important;
+  color: rgb(156 163 175) !important;
+}
+
+/* Target the exact cmdk hover/selection states */
+[cmdk-item][data-selected],
+[cmdk-item][data-highlighted], 
+[cmdk-item][aria-selected],
+[cmdk-item]:hover,
+[data-value] {
+  background-color: rgb(31 41 55) !important;
+  color: white !important;
+}
+
+/* Override the built-in cmdk CSS */
+.cmdk-item[data-selected='true'],
+.cmdk-item[aria-selected='true'],
+.cmdk-item:hover {
+  background-color: rgb(31 41 55) !important;
+  color: white !important;
+}
+
+/* KILL BROWSER DEFAULT BLUE FOCUS STYLES */
+button:focus,
+button:active,
+button:focus-visible,
+input:focus,
+input:active,
+input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: rgb(75 85 99) !important;
+}
+
+/* Override any blue button focus backgrounds */
+button:focus,
+button:active {
+  background-color: rgb(31 41 55) !important;
+  color: white !important;
+}
+
+/* Remove browser default blue outline */
+*:focus {
+  outline: none !important;
+}
+
+*:focus-visible {
+  outline: none !important;
+}
+
+/* NUCLEAR OPTION: Force gray colors on onboarding page */
+.onboarding-page button:focus,
+.onboarding-page button:active,
+.onboarding-page button:hover,
+.onboarding-page button {
+  background: rgb(31 41 55) !important;
+  color: white !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: rgb(75 85 99) !important;
+}
+
+.onboarding-page button[style*="transparent"] {
+  background: transparent !important;
+  color: rgb(156 163 175) !important;
+}
+
+/* Remove all traces of accent color */
+.dark .bg-accent,
+.dark .hover\:bg-accent:hover,
+.dark .focus\:bg-accent:focus,
+.dark .data-\[selected\=true\]\:bg-accent[data-selected="true"] {
+  background-color: rgb(31 41 55) !important;
+}
+
+/* Override Tailwind accent color variable in dark mode */
+.dark .data-\[selected\=true\]\:bg-gray-800[data-selected="true"] {
+  background-color: rgb(31 41 55) !important;
+}
+
+/* Override focus-visible rings globally */
+.dark .focus-visible\:ring-\[3px\]:focus-visible,
+.dark .focus-visible\:ring-ring\/50:focus-visible,
+.dark .focus\:ring-1:focus,
+.dark .focus\:ring-gray-500:focus {
+  --tw-ring-color: transparent !important;
+  box-shadow: none !important;
 }
