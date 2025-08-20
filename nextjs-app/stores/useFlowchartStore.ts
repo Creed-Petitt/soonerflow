@@ -6,6 +6,9 @@ interface FlowchartStore {
   // State
   nodes: Node<CourseNodeData>[];
   edges: Edge[];
+  isLoading: boolean;
+  isSaving: boolean;
+  lastSavedAt: Date | null;
   
   // Actions
   addNode: (node: Node<CourseNodeData>) => void;
@@ -13,6 +16,10 @@ interface FlowchartStore {
   updateNodes: (nodes: Node<CourseNodeData>[]) => void;
   updateEdges: (edges: Edge[]) => void;
   clearFlowchart: () => void;
+  
+  // Persistence
+  saveToDatabase: (githubId: string) => Promise<void>;
+  loadFromDatabase: (githubId: string) => Promise<void>;
   
   // Export function for scheduler
   exportNodes: () => Array<{
@@ -27,6 +34,9 @@ const useFlowchartStore = create<FlowchartStore>((set, get) => ({
   // Initial state
   nodes: [],
   edges: [],
+  isLoading: false,
+  isSaving: false,
+  lastSavedAt: null,
   
   // Add a single node
   addNode: (node) => {
@@ -62,6 +72,59 @@ const useFlowchartStore = create<FlowchartStore>((set, get) => ({
   // Clear everything
   clearFlowchart: () => {
     set({ nodes: [], edges: [] });
+  },
+  
+  // Save flowchart to database
+  saveToDatabase: async (githubId: string) => {
+    const { nodes, edges } = get();
+    set({ isSaving: true });
+    
+    try {
+      const response = await fetch(`/api/flowchart/${githubId}/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nodes, edges }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        set({ 
+          isSaving: false, 
+          lastSavedAt: data.updated_at ? new Date(data.updated_at) : new Date() 
+        });
+      } else {
+        throw new Error('Failed to save flowchart');
+      }
+    } catch (error) {
+      console.error('Error saving flowchart:', error);
+      set({ isSaving: false });
+    }
+  },
+  
+  // Load flowchart from database
+  loadFromDatabase: async (githubId: string) => {
+    set({ isLoading: true });
+    
+    try {
+      const response = await fetch(`/api/flowchart/${githubId}/load`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        set({ 
+          nodes: data.nodes || [], 
+          edges: data.edges || [],
+          isLoading: false,
+          lastSavedAt: data.updated_at ? new Date(data.updated_at) : null
+        });
+      } else {
+        throw new Error('Failed to load flowchart');
+      }
+    } catch (error) {
+      console.error('Error loading flowchart:', error);
+      set({ isLoading: false });
+    }
   },
   
   // Export nodes for scheduler

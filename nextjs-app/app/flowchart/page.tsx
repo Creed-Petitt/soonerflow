@@ -5,171 +5,120 @@ import { useSession } from "next-auth/react";
 import CustomNavbar from "@/components/custom-navbar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import PrerequisiteVisualizer from "@/components/prerequisite-flow/prerequisite-visualizer";
 import useFlowchartStore from "@/stores/useFlowchartStore";
-import { Node } from '@xyflow/react';
-import { CourseNodeData } from '@/components/prerequisite-flow/course-node';
-import {
-  Search,
-  Plus,
-  BookOpen,
-  ArrowLeft,
-  Download,
-  Settings,
-  Trash2,
-  X,
-} from "lucide-react";
-
-interface Course {
-  id: number;
-  code: string;
-  title: string;
-  credits: number;
-  category: string;
-  status: string;
-}
+import { Plus, Trash2, CloudUpload, Check } from "lucide-react";
+import QuickAddPanel from "@/components/prerequisite-flow/quick-add-panel";
+import { useDebounce } from "@/hooks/use-debounce";
+import { toast } from "sonner";
 
 export default function FlowchartPage() {
-  const { data: session } = useSession();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showCourseSearch, setShowCourseSearch] = useState(false);
-  const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: session, status } = useSession();
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   // Flowchart store methods
   const nodes = useFlowchartStore((state) => state.nodes);
-  const addNode = useFlowchartStore((state) => state.addNode);
-  const removeNode = useFlowchartStore((state) => state.removeNode);
+  const edges = useFlowchartStore((state) => state.edges);
   const clearFlowchart = useFlowchartStore((state) => state.clearFlowchart);
-  const exportNodes = useFlowchartStore((state) => state.exportNodes);
+  const loadFromDatabase = useFlowchartStore((state) => state.loadFromDatabase);
+  const saveToDatabase = useFlowchartStore((state) => state.saveToDatabase);
+  const isSaving = useFlowchartStore((state) => state.isSaving);
+  const lastSavedAt = useFlowchartStore((state) => state.lastSavedAt);
 
-  // Get courses currently in flowchart
-  const flowchartCourses = useMemo(() => {
-    return nodes.map(node => ({
-      code: node.data.code,
-      title: node.data.title,
-      credits: node.data.credits || 3
-    }));
-  }, [nodes]);
+  // Create a debounced version of the nodes and edges for auto-save
+  const debouncedNodes = useDebounce(nodes, 2000); // 2 second delay
+  const debouncedEdges = useDebounce(edges, 2000);
 
-  // Fetch available courses for search
-  const fetchCourses = async (searchTerm: string = "") => {
-    if (!session?.user?.email) return;
-    
-    setLoading(true);
-    try {
-      const url = `/api/courses/search?q=${encodeURIComponent(searchTerm)}`;
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableCourses(data.courses || []);
-      }
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Search courses when search term changes
+  // Load flowchart on mount when user is authenticated
   useEffect(() => {
-    if (showCourseSearch) {
-      const debounceTimer = setTimeout(() => {
-        fetchCourses(searchTerm);
-      }, 300);
-      return () => clearTimeout(debounceTimer);
+    if (status === "authenticated" && session?.user?.githubId) {
+      loadFromDatabase(session.user.githubId).then(() => {
+        console.log("Flowchart loaded from database");
+      });
     }
-  }, [searchTerm, showCourseSearch, session?.user?.email]);
+  }, [status, session?.user?.githubId]);
 
-  // Filter out courses already in flowchart
-  const searchResults = useMemo(() => {
-    const flowchartCodes = new Set(flowchartCourses.map(c => c.code));
-    return availableCourses.filter(course => !flowchartCodes.has(course.code));
-  }, [availableCourses, flowchartCourses]);
+  // Auto-save when nodes or edges change (debounced)
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.githubId && debouncedNodes.length > 0) {
+      saveToDatabase(session.user.githubId).then(() => {
+        console.log("Flowchart auto-saved");
+      });
+    }
+  }, [debouncedNodes, debouncedEdges, session?.user?.githubId, status]);
 
-  const handleAddCourse = (course: Course) => {
-    const newNode: Node<CourseNodeData> = {
-      id: course.code,
-      type: 'courseNode',
-      position: { x: Math.random() * 600 + 100, y: Math.random() * 400 + 100 },
-      data: {
-        code: course.code,
-        name: course.title,
-        credits: course.credits || 3,
-        status: 'not-started' as const,
-      },
-    };
-    addNode(newNode);
-    setShowCourseSearch(false);
-    setSearchTerm("");
+  // Handle manual clear with database update
+  const handleClearFlowchart = async () => {
+    clearFlowchart();
+    if (session?.user?.githubId) {
+      try {
+        await fetch(`/api/flowchart/${session.user.githubId}/clear`, {
+          method: 'DELETE',
+        });
+        toast.success("Flowchart cleared");
+      } catch (error) {
+        console.error("Error clearing flowchart:", error);
+      }
+    }
   };
 
-  const handleRemoveCourse = (courseCode: string) => {
-    removeNode(courseCode);
-  };
-
-  const handleExportToScheduler = () => {
-    const exportedCourses = exportNodes();
-    // For now, just show what would be exported
-    // TODO: Implement actual export to scheduler page via localStorage or URL params
-    console.log('Courses to export:', exportedCourses);
-    alert(`Ready to export ${exportedCourses.length} courses to semester planner!`);
-  };
-
-  const totalCredits = flowchartCourses.reduce((sum, course) => sum + course.credits, 0);
+  // Calculate total credits
+  const totalCredits = nodes.reduce(
+    (sum, node) => sum + (node.data.credits || 3),
+    0
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <CustomNavbar />
       
       <main className="px-6 py-4">
-        {/* Header */}
+        {/* Simplified Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => window.history.back()}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Prerequisite Flowchart</h1>
-              <p className="text-sm text-muted-foreground">
-                Visualize course prerequisites and plan your academic path
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold">Prerequisite Flowchart</h1>
+            <p className="text-sm text-muted-foreground">
+              Visualize course prerequisites and plan your academic path
+            </p>
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Save status indicator */}
+            {session?.user && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {isSaving ? (
+                  <>
+                    <CloudUpload className="h-4 w-4 animate-pulse" />
+                    <span>Saving...</span>
+                  </>
+                ) : lastSavedAt ? (
+                  <>
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Saved</span>
+                  </>
+                ) : null}
+              </div>
+            )}
+            
+            {/* Course counter */}
             <div className="text-right text-sm">
-              <p className="font-medium">{flowchartCourses.length} courses</p>
+              <p className="font-medium">{nodes.length} courses</p>
               <p className="text-muted-foreground">{totalCredits} credits</p>
             </div>
+            
+            {/* Add Course button */}
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCourseSearch(true)}
+              onClick={() => setShowQuickAdd(true)}
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Course
             </Button>
+            
+            {/* Clear All button */}
             <Button
               variant="outline"
-              size="sm"
-              onClick={handleExportToScheduler}
-              disabled={flowchartCourses.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export to Scheduler
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearFlowchart}
-              disabled={flowchartCourses.length === 0}
+              onClick={handleClearFlowchart}
+              disabled={nodes.length === 0}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Clear All
@@ -182,110 +131,12 @@ export default function FlowchartPage() {
           <PrerequisiteVisualizer />
         </Card>
 
-        {/* Course Search Modal */}
-        {showCourseSearch && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-              onClick={() => setShowCourseSearch(false)}
-            />
-            
-            {/* Modal */}
-            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[500px] bg-background border rounded-lg shadow-xl z-50">
-              <div className="flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
-                    <h3 className="text-lg font-semibold">Add Course to Flowchart</h3>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowCourseSearch(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                {/* Search */}
-                <div className="p-4 border-b">
-                  <div className="relative">
-                    <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
-                    <Input
-                      placeholder="Search courses (e.g. CS 2813, Calculus, Programming)..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-                
-                {/* Results */}
-                <div className="flex-1 overflow-y-auto">
-                  {loading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Searching courses...</p>
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="divide-y">
-                      {searchResults.slice(0, 50).map((course) => (
-                        <div 
-                          key={course.id}
-                          className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => handleAddCourse(course)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-sm font-medium">
-                                  {course.code}
-                                </span>
-                                <span className="text-xs px-2 py-1 bg-muted/50 rounded">
-                                  {course.credits} credits
-                                </span>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                                {course.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {course.category}
-                              </p>
-                            </div>
-                            <Button size="sm" variant="outline">
-                              <Plus className="h-3 w-3 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : searchTerm ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center">
-                        <p className="text-muted-foreground">No courses found</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Try different search terms
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center">
-                        <BookOpen className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-muted-foreground">Start typing to search courses</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Search by course code, title, or subject
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
+        {/* Quick Add Panel Modal */}
+        {showQuickAdd && (
+          <QuickAddPanel
+            isOpen={showQuickAdd}
+            onClose={() => setShowQuickAdd(false)}
+          />
         )}
       </main>
     </div>

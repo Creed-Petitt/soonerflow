@@ -45,11 +45,6 @@ function CourseNode({ data, id }: NodeProps<CourseNodeType>) {
           <div className="text-xs mt-2 font-medium">
             {data.credits} credits
           </div>
-          {data.semester && (
-            <div className="text-xs text-muted-foreground mt-1">
-              {data.semester}
-            </div>
-          )}
         </div>
       </div>
 

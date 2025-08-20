@@ -1,11 +1,13 @@
 import {
   BaseEdge,
   EdgeProps,
-  getSmoothStepPath,
-  Position,
+  EdgeLabelRenderer,
+  useNodes,
 } from "@xyflow/react";
+import { getSmartEdge } from "@tisoap/react-flow-smart-edge";
 
 export default function PrerequisiteEdge({
+  id,
   sourceX,
   sourceY,
   targetX,
@@ -14,25 +16,52 @@ export default function PrerequisiteEdge({
   targetPosition,
   style = {},
   markerEnd,
+  markerStart,
   data,
+  source,
+  target,
 }: EdgeProps) {
-  const [edgePath] = getSmoothStepPath({
+  const nodes = useNodes();
+  
+  // Use smart edge routing that avoids all nodes
+  const getSmartEdgeResponse = getSmartEdge({
     sourceX,
     sourceY,
-    sourcePosition: sourcePosition || Position.Bottom,
     targetX,
     targetY,
-    targetPosition: targetPosition || Position.Top,
-    borderRadius: 8,
+    sourcePosition,
+    targetPosition,
+    nodes,
   });
 
-  // Different styles based on prerequisite status
+  // Fallback to direct path if smart edge fails
+  const edgePath = getSmartEdgeResponse?.svgPathString || `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+  
+  // Calculate label position (middle of the edge)
+  const labelX = (sourceX + targetX) / 2;
+  const labelY = (sourceY + targetY) / 2;
+
+  // Determine edge color and style based on type and status
+  const isCorequisite = data?.type === "concurrent";
+  const isSatisfied = data?.satisfied;
+  
   const edgeStyle = {
     ...style,
-    stroke: data?.satisfied ? "#10b981" : "#ef4444", // Green if satisfied, red if not
+    stroke: isCorequisite 
+      ? "#f59e0b" // Amber for corequisites
+      : isSatisfied 
+        ? "#10b981" // Green if prerequisite satisfied
+        : "#ef4444", // Red if prerequisite not satisfied
     strokeWidth: 2,
-    strokeDasharray: data?.corequisite ? "5,5" : undefined, // Dashed for corequisites
+    strokeDasharray: isCorequisite ? "5,5" : undefined, // Dotted ONLY for corequisites
   };
 
-  return <BaseEdge path={edgePath} style={edgeStyle} markerEnd={markerEnd} />;
+  return (
+    <BaseEdge 
+      path={edgePath} 
+      style={edgeStyle} 
+      markerEnd={markerEnd}
+      markerStart={isCorequisite ? markerStart : undefined} // Bidirectional for corequisites
+    />
+  );
 }
