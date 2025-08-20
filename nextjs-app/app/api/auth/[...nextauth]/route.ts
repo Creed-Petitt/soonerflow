@@ -36,42 +36,16 @@ const handler = NextAuth({
       return true
     },
     async session({ session, token }) {
-      // Add GitHub user id and major status to session
+      // Add GitHub user id to session
       if (session?.user) {
         session.user.id = token.sub!
         session.user.githubId = token.sub! // Add GitHub ID for API calls
-        session.user.needsOnboarding = token.needsOnboarding as boolean
       }
       return session
     },
     async jwt({ token, user, account, trigger }) {
       if (user) {
         token.uid = user.id
-      }
-      
-      // Check if user needs onboarding (no major selected)
-      // Force fresh check when session is being updated
-      try {
-        const response = await fetch(`http://127.0.0.1:8000/api/users/${token.sub}`)
-        if (response.ok) {
-          const userData = await response.json()
-          const needsOnboarding = !userData.major
-          
-          console.log(`JWT Callback - User ${token.sub}:`, {
-            trigger,
-            major: userData.major,
-            needsOnboarding,
-            prevNeedsOnboarding: token.needsOnboarding
-          })
-          
-          token.needsOnboarding = needsOnboarding
-        } else {
-          console.error(`Failed to fetch user data for ${token.sub}`)
-          token.needsOnboarding = true // Default to onboarding if we can't check
-        }
-      } catch (error) {
-        console.error("Error checking user major:", error)
-        token.needsOnboarding = true // Default to onboarding if we can't check
       }
       
       return token

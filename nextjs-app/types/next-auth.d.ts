@@ -5,7 +5,6 @@ declare module "next-auth" {
     user: {
       id: string
       githubId: string
-      needsOnboarding: boolean
     } & DefaultSession["user"]
   }
 }
@@ -13,6 +12,5 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     uid?: string
-    needsOnboarding?: boolean
   }
 }

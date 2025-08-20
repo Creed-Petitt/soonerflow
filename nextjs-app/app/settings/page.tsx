@@ -46,6 +46,7 @@ export default function SettingsPage() {
   // User data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null)
+  const [enrollmentYear, setEnrollmentYear] = useState<string>("")
   const [graduationYear, setGraduationYear] = useState<string>("")
   
   // Data from API
