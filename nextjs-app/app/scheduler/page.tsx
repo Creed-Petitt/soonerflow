@@ -5,15 +5,16 @@ import { useState, useEffect, useMemo } from "react"
 import { EventCalendar, type CalendarEvent } from "@/components/event-calendar/event-calendar"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { SemesterPicker } from "@/components/semester-picker"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import CustomNavbar from "@/components/custom-navbar"
 import { 
   X, 
-  FileDown, 
-  Printer, 
   BookOpen, 
-  GraduationCap
+  GraduationCap,
+  Settings
 } from "lucide-react"
 import { ClassBrowserPanel } from "@/components/class-browser-panel"
 import { ClassDetailDialog } from "@/components/class-detail-dialog"
@@ -600,8 +601,11 @@ export default function SchedulerPage() {
         {/* Left Sidebar - Expanded for Date Picker and Course Ledger */}
         <div className="w-[350px] bg-background flex flex-col overflow-y-auto">
           {/* Semester Picker */}
-          <div className="flex justify-center pt-6 px-4 pb-4 flex-shrink-0">
-            <SemesterPicker />
+          <div className="pt-6 px-4 pb-2 flex-shrink-0">
+            <div className="flex justify-center mb-3">
+              <SemesterPicker />
+            </div>
+            
           </div>
 
           {/* Enrolled Classes Ledger */}
@@ -660,16 +664,6 @@ export default function SchedulerPage() {
                     Browse & Add Classes
                   </Button>
                   
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <FileDown className="h-4 w-4 mr-1" />
-                      Export
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Printer className="h-4 w-4 mr-1" />
-                      Print
-                    </Button>
-                  </div>
                 </>
               ) : (
                 // Past semester: Show read-only message and export only
@@ -681,16 +675,6 @@ export default function SchedulerPage() {
                     </p>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <FileDown className="h-4 w-4 mr-1" />
-                      Export
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Printer className="h-4 w-4 mr-1" />
-                      Print
-                    </Button>
-                  </div>
                 </>
               )}
             </div>

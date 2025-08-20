@@ -46,7 +46,11 @@ interface ScheduleContextType {
   isAuthenticated: boolean;
   currentSemester: string;
   availableSemesters: Semester[];
+  includeSummerSemesters: boolean;
+  includeHistoricalSemesters: boolean;
   setCurrentSemester: (semester: string) => void;
+  setIncludeSummerSemesters: (include: boolean) => void;
+  setIncludeHistoricalSemesters: (include: boolean) => void;
   addClass: (classData: ScheduledClass) => void;
   removeClass: (classId: string) => void;
   updateClass: (classId: string, updates: Partial<ScheduledClass>) => void;
@@ -87,6 +91,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   
   const [currentSemester, setCurrentSemesterState] = useState<string>(getCurrentSemester());
   const [availableSemesters, setAvailableSemesters] = useState<Semester[]>([]);
+  const [includeSummerSemesters, setIncludeSummerSemesters] = useState<boolean>(false);
+  const [includeHistoricalSemesters, setIncludeHistoricalSemesters] = useState<boolean>(false);
   
   // Debounce the class list to avoid too many API calls
   const debouncedClasses = useDebounce(localClasses, 1000);
@@ -94,7 +100,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   // Load available semesters
   const loadSemesters = useCallback(async () => {
     try {
-      const response = await fetch('/api/semesters');
+      const url = `/api/semesters?include_summers=${includeSummerSemesters}&include_historical=${includeHistoricalSemesters}`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setAvailableSemesters(data);
@@ -102,7 +109,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Failed to load semesters:', err);
     }
-  }, []);
+  }, [includeSummerSemesters, includeHistoricalSemesters]);
 
   // Load user's schedule for a specific semester
   const loadSchedule = useCallback(async (semester?: string) => {
@@ -178,6 +185,11 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [loadSemesters, session?.user?.githubId, status]);
+
+  // Reload semesters when filter settings change
+  useEffect(() => {
+    loadSemesters();
+  }, [includeSummerSemesters, includeHistoricalSemesters, loadSemesters]);
 
   // Load schedule when semester changes or auth changes
   useEffect(() => {
@@ -331,7 +343,11 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     isAuthenticated,
     currentSemester,
     availableSemesters,
+    includeSummerSemesters,
+    includeHistoricalSemesters,
     setCurrentSemester,
+    setIncludeSummerSemesters,
+    setIncludeHistoricalSemesters,
     addClass,
     removeClass,
     updateClass,

@@ -10,30 +10,22 @@ import {
 } from "lucide-react";
 import { AdvisorContactModal } from "./advisor-contact-modal";
 import { GPACalculatorModal } from "./gpa-calculator-modal";
+import { AcademicCalendarModal } from "./academic-calendar-modal";
+import { FinalsScheduleModal } from "./finals-schedule-modal";
 
 export function QuickActionsPanel() {
   const [advisorModalOpen, setAdvisorModalOpen] = useState(false);
   const [gpaCalculatorOpen, setGpaCalculatorOpen] = useState(false);
-  
-  const openAcademicCalendar = () => {
-    // Open OU's Fall 2025 academic calendar
-    window.open('https://www.ou.edu/registrar/academic-records/academic-calendars/fall-2025-academic-calendar0', '_blank');
-  };
-
-  const openFinalsSchedule = () => {
-    // Open OU's final exam schedule
-    window.open('https://www.ou.edu/registrar/academic-records/academic-calendars/fall-final-exam-schedule', '_blank');
-  };
+  const [academicCalendarOpen, setAcademicCalendarOpen] = useState(false);
+  const [finalsScheduleOpen, setFinalsScheduleOpen] = useState(false);
 
   return (
     <>
-      <div>
-        <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-        <div className="space-y-2">
+      <div className="space-y-2">
           <Button 
             variant="ghost" 
             className="w-full justify-start h-10 hover:bg-accent"
-            onClick={openAcademicCalendar}
+            onClick={() => setAcademicCalendarOpen(true)}
           >
             <Calendar className="h-4 w-4 mr-3" />
             Academic Calendar
@@ -42,7 +34,7 @@ export function QuickActionsPanel() {
           <Button 
             variant="ghost" 
             className="w-full justify-start h-10 hover:bg-accent"
-            onClick={openFinalsSchedule}
+            onClick={() => setFinalsScheduleOpen(true)}
           >
             <Clock className="h-4 w-4 mr-3" />
             Finals Exam Schedule
@@ -65,7 +57,6 @@ export function QuickActionsPanel() {
             <Calculator className="h-4 w-4 mr-3" />
             GPA Calculator
           </Button>
-        </div>
       </div>
       
       <AdvisorContactModal 
@@ -76,6 +67,16 @@ export function QuickActionsPanel() {
       <GPACalculatorModal
         isOpen={gpaCalculatorOpen}
         onClose={() => setGpaCalculatorOpen(false)}
+      />
+      
+      <AcademicCalendarModal
+        isOpen={academicCalendarOpen}
+        onClose={() => setAcademicCalendarOpen(false)}
+      />
+      
+      <FinalsScheduleModal
+        isOpen={finalsScheduleOpen}
+        onClose={() => setFinalsScheduleOpen(false)}
       />
     </>
   );

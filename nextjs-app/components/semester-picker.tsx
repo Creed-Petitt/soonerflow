@@ -89,9 +89,6 @@ export function SemesterPicker() {
                 </Badge>
               )}
             </div>
-            <span className="text-xs text-muted-foreground">
-              {semester.class_count.toLocaleString()}
-            </span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

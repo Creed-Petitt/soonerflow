@@ -8,6 +8,8 @@ import { GPACard } from "@/components/dashboard/gpa-card";
 import { TodaysScheduleWidget } from "@/components/dashboard/todays-schedule-widget";
 import { CompactSemesterTimeline } from "@/components/dashboard/compact-semester-timeline";
 import { QuickActionsPanel } from "@/components/dashboard/quick-actions-panel";
+import { DegreeRequirementsWidget } from "@/components/dashboard/degree-requirements-widget";
+import { ProfileSetupModal } from "@/components/profile-setup-modal";
 import { useSchedule } from "@/hooks/use-schedule";
 import type { CalendarEvent } from "@/components/event-calendar/types";
 
@@ -24,6 +26,7 @@ export default function DashboardPage() {
   const [graduationYear, setGraduationYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
   
   // State for courses
   interface Course {
@@ -297,6 +300,11 @@ export default function DashboardPage() {
         setGraduationYear(data.graduationYear || null);
         setUserName(session.user.name || null);
         console.log('✅ Dashboard data loaded:', data);
+        
+        // Check if profile is incomplete
+        if (!data.majorName || !data.graduationYear) {
+          setShowProfileSetup(true);
+        }
       } else {
         console.error('Failed to fetch dashboard data:', response.status);
         // Set fallback values
@@ -307,6 +315,8 @@ export default function DashboardPage() {
         setEnrollmentYear(null);
         setGraduationYear(null);
         setUserName(session.user?.name || null);
+        // Show profile setup for new users
+        setShowProfileSetup(true);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -691,10 +701,16 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <CustomNavbar />
       
-      <main className="max-w-7xl mx-auto px-6 py-6">
+      {/* Profile Setup Modal for new users */}
+      <ProfileSetupModal 
+        isOpen={showProfileSetup}
+        onComplete={() => setShowProfileSetup(false)}
+      />
+      
+      <main className="flex-1 flex flex-col justify-start lg:justify-center max-w-7xl mx-auto px-6 py-6 w-full">
         {!loading && (
           <>
             {/* Professional Two-Column Grid Layout */}
@@ -729,9 +745,12 @@ export default function DashboardPage() {
               </div>
 
               {/* ACTION COLUMN (30% - Right Side) */}
-              <div>
-                {/* Quick Actions Only */}
+              <div className="space-y-6">
+                {/* Quick Actions without title */}
                 <QuickActionsPanel />
+                
+                {/* Degree Requirements Table */}
+                <DegreeRequirementsWidget />
               </div>
             </div>
           </>

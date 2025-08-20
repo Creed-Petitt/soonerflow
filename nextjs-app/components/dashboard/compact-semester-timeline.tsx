@@ -499,7 +499,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
       </div>
 
       {/* Navigation controls and summer checkbox below cards */}
-      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+      <div className="flex items-center gap-4 mt-2">
         <div className="flex items-center space-x-2">
           <Checkbox 
             id="include-summers"
@@ -511,7 +511,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
           </Label>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
