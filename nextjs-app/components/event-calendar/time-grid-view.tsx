@@ -54,19 +54,6 @@ export function TimeGridView({
   onEventCreate,
   days = 5, // Default to weekdays only
 }: TimeGridViewProps) {
-  // Debug events in TimeGridView
-  console.log('⏰ TimeGridView received:', {
-    eventsCount: events.length,
-    events: events.slice(0, 3), // Show first 3 events
-    currentDate: currentDate,
-    days: days
-  })
-  
-  // Debug each event's day of week
-  events.forEach((event, i) => {
-    const eventStart = new Date(event.start)
-    console.log(`⏰ Event ${i}: ${event.title} on day ${eventStart.getDay()} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][eventStart.getDay()]}) at ${eventStart.toDateString()}`)
-  })
   const daysToDisplay = useMemo(() => {
     // Always show a static Monday-Friday template regardless of actual dates
     // This creates a template week for class schedule display
@@ -119,7 +106,6 @@ export function TimeGridView({
       const templateDayOfWeek = dayIndex + 1 // Convert to 1=Monday, 2=Tuesday, etc.
       const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
       
-      console.log(`⏰ Processing column ${dayIndex} (${dayNames[dayIndex]}) looking for events on day ${templateDayOfWeek}`)
       
       const dayEvents = events.filter((event) => {
         // Skip all-day events and multi-day events
@@ -129,13 +115,11 @@ export function TimeGridView({
         const eventDayOfWeek = eventStart.getDay() // 0=Sunday, 1=Monday, etc.
         
         const matches = eventDayOfWeek === templateDayOfWeek
-        console.log(`⏰   Event ${event.title}: day ${eventDayOfWeek} ${matches ? 'MATCHES' : 'NO MATCH'} template day ${templateDayOfWeek}`)
         
         // Match by day-of-week: Monday events go to Monday column, etc.
         return matches
       })
       
-      console.log(`⏰ Column ${dayNames[dayIndex]} has ${dayEvents.length} events:`, dayEvents.map(e => e.title))
 
       // Sort events by start time and duration
       const sortedEvents = [...dayEvents].sort((a, b) => {

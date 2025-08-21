@@ -33,7 +33,6 @@ export default function FlowchartPage() {
   useEffect(() => {
     if (status === "authenticated" && session?.user?.githubId) {
       loadFromDatabase(session.user.githubId).then(() => {
-        console.log("Flowchart loaded from database");
       });
     }
   }, [status, session?.user?.githubId]);
@@ -42,7 +41,6 @@ export default function FlowchartPage() {
   useEffect(() => {
     if (status === "authenticated" && session?.user?.githubId && debouncedNodes.length > 0) {
       saveToDatabase(session.user.githubId).then(() => {
-        console.log("Flowchart auto-saved");
       });
     }
   }, [debouncedNodes, debouncedEdges, session?.user?.githubId, status]);

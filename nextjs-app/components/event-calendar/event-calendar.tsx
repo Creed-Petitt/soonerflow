@@ -77,13 +77,6 @@ export function EventCalendar({
 }: EventCalendarProps) {
   const { currentSemester, availableSemesters } = useSchedule()
   
-  // Debug events received
-  console.log('📅 EventCalendar received:', {
-    eventsCount: events.length,
-    events: events,
-    scheduledClassesCount: scheduledClasses.length,
-    currentSemester
-  })
   const [internalDate, setInternalDate] = useState(new Date())
   const currentDate = externalDate || internalDate
   const setCurrentDate = (date: Date) => {
@@ -117,7 +110,6 @@ export function EventCalendar({
 
 
   const handleEventSelect = (event: CalendarEvent) => {
-    console.log("Event selected:", event) // Debug log
     
     // Use custom event handler if provided, otherwise fallback to default dialog
     if (onEventSelect) {
@@ -129,7 +121,6 @@ export function EventCalendar({
   }
 
   const handleEventCreate = (startTime: Date) => {
-    console.log("Creating new event at:", startTime) // Debug log
 
     // Snap to 15-minute intervals
     const minutes = startTime.getMinutes()

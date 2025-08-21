@@ -150,8 +150,6 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       });
       const uniqueClasses = Array.from(classMap.values());
       
-      console.log(`📚 Loaded ${uniqueClasses.length} unique classes for semester ${targetSemester}`);
-      console.log('📚 Unique classes data:', uniqueClasses);
       
       setSchedule({ ...data, classes: uniqueClasses });
       setLocalClasses(uniqueClasses);
@@ -178,7 +176,6 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       }).then(response => {
         if (response.ok) {
           response.json().then(result => {
-            console.log('📚 Migration result:', result);
           });
         }
       }).catch(error => {
@@ -255,11 +252,9 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     const savedClassIds = (schedule.classes || []).map(c => c.id).sort().join(',');
     
     if (currentClassIds !== savedClassIds) {
-      console.log('💾 Auto-saving schedule changes...');
       
       // Update local classes to remove duplicates before saving
       if (uniqueLocalClasses.length !== debouncedClasses.length) {
-        console.log('🧹 Cleaning up duplicates before save');
         setLocalClasses(uniqueLocalClasses);
       } else {
         saveSchedule();
@@ -273,13 +268,11 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       // Check if class already exists
       const existingIndex = prev.findIndex(c => c.id === classData.id);
       if (existingIndex !== -1) {
-        console.log('⚠️ Class already exists, updating instead:', classData.id);
         // Update existing class instead of adding duplicate
         const updated = [...prev];
         updated[existingIndex] = { ...updated[existingIndex], ...classData };
         return updated;
       }
-      console.log('✅ Adding new class:', classData.id);
       return [...prev, classData];
     });
   }, []);
@@ -306,7 +299,6 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
   // Semester setter that triggers reload (with validation)
   const setCurrentSemester = useCallback(async (semester: string) => {
-    console.log('🔄 Switching to semester:', semester);
     
     // Get the actual current semester code
     const actualCurrentSemester = getCurrentSemester();

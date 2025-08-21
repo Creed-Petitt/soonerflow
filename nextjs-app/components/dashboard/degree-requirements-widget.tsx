@@ -49,20 +49,16 @@ export function DegreeRequirementsWidget() {
         // Get user's major (with authentication)
         const userResponse = await fetchWithAuth(`/api/users/${session.user.githubId}`)
         if (!userResponse.ok) {
-          console.log('User API failed:', userResponse.status)
           return
         }
         
         const userData = await userResponse.json()
-        console.log('User data:', userData)
         if (!userData.major) {
-          console.log('No major found for user')
           return
         }
 
         // Get major courses using the major-courses endpoint (this endpoint doesn't need auth)
         const reqResponse = await fetch(`/api/major-courses?major_name=${encodeURIComponent(userData.major)}`)
-        console.log('Major API response status:', reqResponse.status)
         if (reqResponse.ok) {
           const allCourses = await reqResponse.json()
           
@@ -117,10 +113,6 @@ export function DegreeRequirementsWidget() {
             }
           }
           
-          console.log('All courses from API:', allCourses.length)
-          console.log('Filtered core courses:', coreCourses.length) 
-          console.log('Final unique courses:', uniqueCourses.length)
-          console.log('Final courses:', uniqueCourses)
           setRequirements(uniqueCourses)
         }
       } catch (error) {

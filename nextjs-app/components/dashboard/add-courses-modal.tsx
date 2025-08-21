@@ -159,7 +159,6 @@ export function AddCoursesModal({
               }
             })
             setSearchResults(Array.from(uniqueCourses.values()))
-            console.log(`Found ${uniqueCourses.size} courses matching "${deferredSearchQuery}"`)
           } else {
             setSearchResults([])
           }
@@ -202,7 +201,6 @@ export function AddCoursesModal({
 
   const loadMajorCourses = async () => {
     if (!userMajor) {
-      console.log('No user major available')
       setDepartmentCourses([])
       return
     }
@@ -230,10 +228,8 @@ export function AddCoursesModal({
         
         const courses = Array.from(uniqueCourses.values())
         setDepartmentCourses(courses)
-        console.log(`Loaded ${courses.length} unique major requirement courses (from ${data.length} total entries)`)
       } else {
         setDepartmentCourses([])
-        console.log('No major courses found')
       }
     } catch (error) {
       console.error('Failed to fetch major courses:', error)
@@ -275,7 +271,6 @@ export function AddCoursesModal({
         // Cache the department data
         setDepartmentCache(prev => ({ ...prev, [dept]: courses }))
         setDepartmentCourses(courses)
-        console.log(`Loaded ${courses.length} courses for ${dept}`)
       } else {
         setDepartmentCourses([])
       }

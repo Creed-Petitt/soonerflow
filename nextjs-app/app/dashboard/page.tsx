@@ -157,7 +157,6 @@ export default function DashboardPage() {
   // Real-time sync with scheduler: Update dashboard when scheduledClasses change
   useEffect(() => {
     if (scheduledClasses && scheduledClasses.length > 0) {
-      console.log('🔄 Dashboard syncing with scheduler changes:', scheduledClasses.length, 'classes');
       
       // Transform scheduler classes to course format
       const scheduleCourses = scheduledClasses.map((cls: any) => ({
@@ -192,7 +191,6 @@ export default function DashboardPage() {
           newScheduledCourses.set(key, course);
         });
         
-        console.log('✅ Dashboard synced with scheduler:', scheduleCourses.length, 'courses');
         return newScheduledCourses;
       });
       
@@ -205,11 +203,9 @@ export default function DashboardPage() {
     const loadActiveSchedule = async () => {
       if (session?.user?.githubId && (!scheduledClasses || scheduledClasses.length === 0)) {
         try {
-          console.log('📡 Loading initial active schedule from backend...');
           const response = await fetchWithAuth(`/api/users/${session.user.githubId}/active-schedule`);
           if (response.ok) {
             const data = await response.json();
-            console.log('📡 Loaded initial schedule:', data.classes?.length || 0, 'classes');
           }
         } catch (error) {
           console.error('Error loading active schedule:', error);
@@ -291,7 +287,6 @@ export default function DashboardPage() {
                 semester: semester.name
               }));
               schedules.set(semester.name, courses);
-              console.log(`📚 Loaded ${courses.length} classes for ${semester.name}`);
             }
           }
         } catch (error) {
@@ -300,7 +295,6 @@ export default function DashboardPage() {
       }
       
       setAllSemesterSchedules(schedules);
-      console.log('✅ Loaded all semester schedules:', schedules.size, 'semesters');
     };
     
     loadAllSemesterSchedules();
@@ -332,7 +326,6 @@ export default function DashboardPage() {
     
     // Wait for session to be loaded
     if (!session?.user?.email) {
-      console.log('Waiting for session...');
       setLoading(false);
       return;
     }
@@ -340,7 +333,6 @@ export default function DashboardPage() {
     try {
       // Use API route to avoid CORS issues
       const url = `/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`;
-      console.log('Fetching dashboard for:', session.user.email);
         
       const response = await fetch(url);
       if (response.ok) {
@@ -352,7 +344,6 @@ export default function DashboardPage() {
         setEnrollmentYear(data.enrollmentYear || null);
         setGraduationYear(data.graduationYear || null);
         setUserName(session.user.name || null);
-        console.log('✅ Dashboard data loaded:', data);
         
         // Check if profile is incomplete
         if (!data.majorName || !data.graduationYear) {
@@ -444,7 +435,6 @@ export default function DashboardPage() {
     if (!hasLoadedDashboard) return
     
     const handleCourseCompletion = () => {
-      console.log('🔄 Course completed event received, refreshing dashboard...');
       setHasLoadedDashboard(false) // Allow reload on completion
     };
     
@@ -631,7 +621,6 @@ export default function DashboardPage() {
         for (const [key, course] of newCompletedCourses.entries()) {
           if (course.code === courseCode && course.semester === semester) {
             newCompletedCourses.delete(key);
-            console.log(`Deleted key: ${key}`);
           }
         }
         
@@ -660,7 +649,6 @@ export default function DashboardPage() {
           window.dispatchEvent(new CustomEvent('coursesCompleted'));
         }
 
-        console.log(`Removed ${courseCode} from ${semester}`);
       } else {
         console.error('Failed to remove course');
       }
@@ -732,7 +720,6 @@ export default function DashboardPage() {
             
             if (migrationResponse.ok) {
               const result = await migrationResponse.json();
-              console.log('Migration result:', result);
             }
           } catch (error) {
             console.error('Failed to sync with scheduler:', error);
@@ -762,7 +749,6 @@ export default function DashboardPage() {
           window.dispatchEvent(new CustomEvent('coursesCompleted'));
         }
 
-        console.log(`Added ${courses.length} courses to ${semester}`);
       } else {
         const errorData = await response.text();
         console.error('Failed to save courses:', response.status, errorData);

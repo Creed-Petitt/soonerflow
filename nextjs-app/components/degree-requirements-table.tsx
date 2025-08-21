@@ -476,7 +476,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
       setModalLoading(true);
       setShowClassModal(true);
       
-      console.log(`Fetching classes for ${codeParts[0]} ${codeParts[1]}`);
       
       // Fetch class data - using search parameter to get all classes
       const response = await fetch(`/api/classes?subject=${codeParts[0]}&search=${codeParts[1]}&limit=50`);
@@ -489,7 +488,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           c.subject === codeParts[0] && c.number === codeParts[1]
         );
         
-        console.log(`Found ${classes.length} sections for ${codeParts[0]} ${codeParts[1]}`);
         
         if (classes.length > 0) {
           // Group sections by course
@@ -508,7 +506,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           });
           setModalLoading(false);
         } else {
-          console.log('No classes found for course:', course.code);
           setShowClassModal(false);
           setModalLoading(false);
         }
@@ -540,12 +537,10 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
     const fetchMajorData = async () => {
       // Only fetch if we have a session with a GitHub ID
       if (!session?.user?.githubId) {
-        console.log("No session or GitHub ID available")
         return
       }
 
       setLoading(true)
-      console.log("Fetching data for GitHub ID:", session.user.githubId)
 
       try {
         // Step 1: Fetch user data from backend
@@ -555,10 +550,8 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           return
         }
         const userData = await userResponse.json()
-        console.log("User data:", userData)
 
         if (!userData.major) {
-          console.log("User has no major selected")
           setLoading(false)
           return
         }
@@ -571,7 +564,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           return
         }
         const majorCourses = await majorCoursesResponse.json()
-        console.log(`Fetched ${majorCourses.length} courses for ${userData.major}`)
 
         // Step 3: Deduplicate courses (same course might appear in multiple requirement categories)
         const courseMap = new Map<string, any>()
@@ -583,7 +575,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           }
         })
         const uniqueCourses = Array.from(courseMap.values())
-        console.log(`Deduplicated to ${uniqueCourses.length} unique courses`)
 
         // Step 4: Filter out honors courses and specific unwanted courses
         const filteredCourses = uniqueCourses.filter((course: any) => {
@@ -631,7 +622,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           }
         })
 
-        console.log("Transformed courses:", transformedCourses.slice(0, 5))
         setData(transformedCourses)
         setHasLoadedData(true)
         setLoading(false)
@@ -715,7 +705,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
   // Listen for course removal events
   useEffect(() => {
     const handleCourseRemoved = () => {
-      console.log('Course removed, reloading completed courses...')
       if (session?.user?.email) {
         loadCompletedCourses(session.user.email)
       }

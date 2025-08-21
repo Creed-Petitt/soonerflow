@@ -224,12 +224,6 @@ export default function SchedulerPage() {
   const [classDetailData, setClassDetailData] = useState<any>(null)
   const [originalScheduledClass, setOriginalScheduledClass] = useState<any>(null)
   
-  // Debug logging
-  console.log('🔍 Scheduler Debug:')
-  console.log('  Current semester:', currentSemester)
-  console.log('  Persisted classes:', persistedClasses?.length || 0)
-  console.log('  Schedule loading:', scheduleLoading)
-  console.log('  Is authenticated:', isAuthenticated)
   
   // Map persisted classes with colors for display
   const scheduledClasses = useMemo(() => {
@@ -247,35 +241,17 @@ export default function SchedulerPage() {
   
   // Generate calendar events from scheduled classes
   useEffect(() => {
-    console.log('='.repeat(60))
-    console.log('🔄 CALENDAR EVENTS GENERATION TRIGGERED')
-    console.log('  Current semester:', currentSemester)
-    console.log('  Scheduled classes count:', scheduledClasses?.length || 0)
-    console.log('  Scheduled classes data:', scheduledClasses)
-    
     const allEvents: CalendarEvent[] = []
     
     if (scheduledClasses && scheduledClasses.length > 0) {
       scheduledClasses.forEach((cls, index) => {
-        console.log(`\n--- Processing class ${index + 1}/${scheduledClasses.length}: ${cls.subject} ${cls.number} (${cls.id}) ---`)
         const events = parseTimeToEvents(cls)
-        console.log(`    ✅ Generated ${events.length} events for ${cls.subject} ${cls.number}`)
         allEvents.push(...events)
       })
     } else {
-      console.log('  ⚠️ No scheduled classes to process')
     }
     
-    console.log('\n📅 FINAL SUMMARY:')
-    console.log('📅 Total calendar events created:', allEvents.length)
-    console.log('📅 Events by class:', allEvents.reduce((acc, event) => {
-      const classKey = event.title
-      acc[classKey] = (acc[classKey] || 0) + 1
-      return acc
-    }, {} as Record<string, number>))
-    
     setCalendarEvents(allEvents)
-    console.log('='.repeat(60))
   }, [scheduledClasses])
   
 
@@ -324,7 +300,6 @@ export default function SchedulerPage() {
   }, [subjects]) // Only re-run when subjects actually change
 
   const parseTimeToEvents = (classData: ScheduledClass) => {
-    console.log('🕐 Creating template events for:', classData.subject, classData.number, 'Time:', classData.time)
     
     // Handle classes with no time data
     if (!classData.time || classData.time === 'TBA' || classData.time.trim() === '') {
@@ -401,7 +376,6 @@ export default function SchedulerPage() {
       }
     }
     
-    console.log(`🕐 Template days for ${classData.subject} ${classData.number}:`, classDays)
     
     // Create one template event per day
     const events = classDays.map(dayLetter => {
@@ -429,7 +403,6 @@ export default function SchedulerPage() {
       }
     })
     
-    console.log(`✅ Created ${events.length} template events for ${classData.subject} ${classData.number}`)
     return events
   }
 
@@ -506,47 +479,34 @@ export default function SchedulerPage() {
 
   // Calendar event handlers
   const handleEventSelect = async (event: CalendarEvent) => {
-    console.log('🎯 handleEventSelect called with:', event)
-    console.log('🎯 Event ID:', event.id)
-    console.log('🎯 Available scheduled classes:', scheduledClasses.map(c => ({ id: c.id, subject: c.subject, number: c.number })))
     
     // Find the scheduled class that corresponds to this calendar event
     const classId = event.id.split('-')[0] // Extract class ID from event ID
-    console.log('🎯 Extracted class ID:', classId)
     
     const scheduledClass = scheduledClasses.find(cls => cls.id === classId)
-    console.log('🎯 Found scheduled class:', scheduledClass)
     
     if (!scheduledClass) {
-      console.log('❌ No scheduled class found for event:', event.id)
-      console.log('❌ Available class IDs:', scheduledClasses.map(c => c.id))
       return
     }
     
-    console.log('✅ Opening ClassDetailModal for:', scheduledClass.subject, scheduledClass.number)
     // Open ClassDetailDialog for this scheduled class
     await openClassDetailModal(scheduledClass)
   }
   
   const openClassDetailModal = async (scheduledClass: ScheduledClass) => {
     try {
-      console.log('🚀 openClassDetailModal called with:', scheduledClass)
       setOriginalScheduledClass(scheduledClass)
       setShowClassDetailModal(true)
       setClassDetailData(null) // Start with loading state
       
-      console.log(`📡 Fetching sections for ${scheduledClass.subject} ${scheduledClass.number}`)
       
       // Fetch all available sections for this course
       const apiUrl = `/api/classes?subject=${scheduledClass.subject}&search=${scheduledClass.number}&semester=${currentSemester}&limit=50`
-      console.log('📡 API URL:', apiUrl)
       
       const response = await fetch(apiUrl)
-      console.log('📡 API Response status:', response.status)
       
       if (response.ok) {
         const data = await response.json()
-        console.log('📡 API Response data:', data)
         const allClasses = data.classes || []
         
         // Filter to get exact course sections
@@ -554,7 +514,6 @@ export default function SchedulerPage() {
           c.subject === scheduledClass.subject && c.number === scheduledClass.number
         )
         
-        console.log('📡 Filtered classes:', classes.length)
         
         if (classes.length > 0) {
           // Group sections by course
@@ -569,20 +528,16 @@ export default function SchedulerPage() {
           
           // Find the currently scheduled section
           const currentSection = classes.find((c: any) => c.id === scheduledClass.id) || classes[0]
-          console.log('📡 Current section found:', currentSection?.id)
           
           setClassDetailData({
             groupedClass,
             selectedSection: currentSection,
             isChangeMode: true // This indicates we're changing, not adding
           })
-          console.log('✅ Modal data set successfully')
         } else {
-          console.log('❌ No sections found for course:', `${scheduledClass.subject} ${scheduledClass.number}`)
           setShowClassDetailModal(false)
         }
       } else {
-        console.log('❌ API request failed:', response.status)
         setShowClassDetailModal(false)
       }
     } catch (error) {
@@ -735,7 +690,6 @@ export default function SchedulerPage() {
               }
             } else {
               // Add mode - add new class (shouldn't happen from calendar)
-              console.log('Add mode not supported from calendar')
             }
             
             setShowClassDetailModal(false)

@@ -311,7 +311,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
                 }
               }
             }
-            console.log('User major:', userData.major, '-> Depts:', majorDepts);
           }
         }
       }
