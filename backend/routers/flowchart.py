@@ -30,14 +30,16 @@ class FlowchartData(BaseModel):
     edges: list
 
 
-@router.get("/{github_id}/load")
+@router.get("/{provider_id}/load")
 async def load_flowchart(
-    github_id: str,
+    provider_id: str,
     db: Session = Depends(get_db)
 ):
     """Load user's saved flowchart."""
-    # Find user
-    user = db.query(User).filter(User.github_id == github_id).first()
+    # Find user by either GitHub or Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -63,15 +65,17 @@ async def load_flowchart(
     }
 
 
-@router.post("/{github_id}/save")
+@router.post("/{provider_id}/save")
 async def save_flowchart(
-    github_id: str,
+    provider_id: str,
     data: FlowchartData,
     db: Session = Depends(get_db)
 ):
     """Save or update user's flowchart."""
-    # Find user
-    user = db.query(User).filter(User.github_id == github_id).first()
+    # Find user by either GitHub or Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -96,14 +100,16 @@ async def save_flowchart(
     }
 
 
-@router.delete("/{github_id}/clear")
+@router.delete("/{provider_id}/clear")
 async def clear_flowchart(
-    github_id: str,
+    provider_id: str,
     db: Session = Depends(get_db)
 ):
     """Clear user's saved flowchart."""
-    # Find user
-    user = db.query(User).filter(User.github_id == github_id).first()
+    # Find user by either GitHub or Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

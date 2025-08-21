@@ -52,8 +52,9 @@ class User(Base):
     __tablename__ = 'users'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(String, unique=True, nullable=False, index=True)  # GitHub user ID
-    email = Column(String, unique=True, nullable=False)
+    github_id = Column(String, unique=True, nullable=True, index=True)  # GitHub user ID
+    google_id = Column(String, unique=True, nullable=True, index=True)  # Google user ID
+    email = Column(String, nullable=False, index=True)  # Removed unique constraint - same email can exist for different providers
     name = Column(String)
     avatar_url = Column(String)
     major = Column(String)  # Selected major (e.g., "Computer Science")

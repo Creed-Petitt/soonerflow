@@ -69,14 +69,16 @@ async def get_bulk_prerequisites(
     return prerequisites_map
 
 
-@router.get("/flowchart/semester-courses/{github_id}/{semester}")
+@router.get("/flowchart/semester-courses/{provider_id}/{semester}")
 async def get_semester_courses(
-    github_id: str,
+    provider_id: str,
     semester: str,
     db: Session = Depends(get_db)
 ):
     """Get all courses from a specific semester for flowchart."""
-    user = db.query(User).filter(User.github_id == github_id).first()
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -130,13 +132,15 @@ async def get_semester_courses(
     return {"courses": courses}
 
 
-@router.get("/flowchart/completed-courses/{github_id}")
+@router.get("/flowchart/completed-courses/{provider_id}")
 async def get_completed_courses(
-    github_id: str,
+    provider_id: str,
     db: Session = Depends(get_db)
 ):
     """Get all completed courses for flowchart."""
-    user = db.query(User).filter(User.github_id == github_id).first()
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -158,13 +162,15 @@ async def get_completed_courses(
     return {"courses": courses}
 
 
-@router.get("/flowchart/major-courses/{github_id}")
+@router.get("/flowchart/major-courses/{provider_id}")
 async def get_major_courses(
-    github_id: str,
+    provider_id: str,
     db: Session = Depends(get_db)
 ):
     """Get all major requirement courses for flowchart."""
-    user = db.query(User).filter(User.github_id == github_id).first()
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

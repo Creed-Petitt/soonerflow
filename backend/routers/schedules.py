@@ -113,9 +113,9 @@ async def get_available_semesters(
     return semesters
 
 
-@router.get("/users/{github_id}/schedule/{semester}")
+@router.get("/users/{provider_id}/schedule/{semester}")
 async def get_or_create_semester_schedule(
-    github_id: str, 
+    provider_id: str, 
     semester: str,
     api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
@@ -123,7 +123,9 @@ async def get_or_create_semester_schedule(
     """Get or create user's schedule for a specific semester."""
     from database.models import CompletedCourse
     
-    user = db.query(User).filter(User.github_id == github_id).first()
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -282,10 +284,12 @@ async def get_or_create_semester_schedule(
     }
 
 
-@router.get("/users/{github_id}/active-schedule")
-async def get_active_schedule(github_id: str, db: Session = Depends(get_db)):
+@router.get("/users/{provider_id}/active-schedule")
+async def get_active_schedule(provider_id: str, db: Session = Depends(get_db)):
     """Get user's active schedule with full class details."""
-    user = db.query(User).filter(User.github_id == github_id).first()
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -513,13 +517,15 @@ async def clean_duplicate_scheduled_classes(
     }
 
 
-@router.post("/users/{github_id}/migrate-completed-courses")
+@router.post("/users/{provider_id}/migrate-completed-courses")
 async def migrate_completed_courses_to_schedules(
-    github_id: str,
+    provider_id: str,
     db: Session = Depends(get_db)
 ):
     """Migrate all completed courses to scheduled classes for a user."""
-    user = db.query(User).filter(User.github_id == github_id).first()
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

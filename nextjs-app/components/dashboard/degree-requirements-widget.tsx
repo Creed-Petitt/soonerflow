@@ -62,50 +62,12 @@ export function DegreeRequirementsWidget() {
         if (reqResponse.ok) {
           const allCourses = await reqResponse.json()
           
-          // Filter to show only the core required courses, not all gen ed options
-          const coreCourses = allCourses.filter(course => {
-            const code = `${course.subject} ${course.courseNumber}`
-            
-            // Core ECE major courses
-            const eceCourses = ['ECE 2214', 'ECE 2523', 'ECE 2713', 'ECE 2723', 'ECE 3223', 'ECE 3723', 'ECE 3773', 'ECE 3793', 'ECE 3813', 'ECE 3873', 'ECE 4273', 'ECE 4613', 'ECE 4773']
-            
-            // Core math and science
-            const mathScienceCourses = ['MATH 1914', 'MATH 2924', 'MATH 2934', 'MATH 3113', 'MATH 3333', 'PHYS 2514', 'PHYS 2524', 'CHEM 1315', 'CHEM 1335']
-            
-            // Core CS courses  
-            const csCourses = ['CS 1323', 'CS 2334', 'CS 2813', 'CS 2414']
-            
-            // Engineering courses
-            const engrCourses = ['ENGR 1413', 'ENGR 2002']
-            
-            // Core English/Communication (just show one option)
-            if (course.subject === 'ENGL' && (course.courseNumber === '1113' || course.courseNumber === '1213')) {
-              return !course.title.includes('HONORS') && !course.title.includes('SERV')
-            }
-            
-            // Show one representative history course
-            if (course.subject === 'HIST' && course.courseNumber === '1493') {
-              return !course.title.includes('HONORS')
-            }
-            
-            // Political Science
-            if (code === 'P SC 1113' || code === 'SC 1113') {
-              return true
-            }
-            
-            // Wildcard requirements - show as placeholders
-            if (course.subject === 'CS' && (course.courseNumber === '3000' || course.courseNumber === '4000')) {
-              return true
-            }
-            
-            return eceCourses.includes(code) || mathScienceCourses.includes(code) || csCourses.includes(code) || engrCourses.includes(code)
-          })
-          
-          // Deduplicate by course code, keeping the first (non-honors) version
+          // Show ALL required courses for the major (no hardcoded filtering)
+          // Deduplicate by course code, keeping the first version
           const uniqueCourses = []
           const seen = new Set()
           
-          for (const course of coreCourses) {
+          for (const course of allCourses) {
             const key = `${course.subject}-${course.courseNumber}`
             if (!seen.has(key)) {
               seen.add(key)

@@ -18,7 +18,8 @@ router = APIRouter(prefix="/api", tags=["users"])
 
 # Pydantic models
 class UserCreate(BaseModel):
-    github_id: str
+    provider: str  # "github" or "google"
+    provider_id: str  # The ID from the provider
     email: str
     name: str
     avatar_url: Optional[str] = None
@@ -26,7 +27,8 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    github_id: str
+    github_id: Optional[str]
+    google_id: Optional[str]
     email: str
     name: str
     avatar_url: Optional[str]
@@ -77,10 +79,15 @@ def get_db():
 
 
 @router.post("/auth/user", response_model=UserResponse)
-async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Create or update user from GitHub OAuth."""
-    # Check if user exists
-    user = db.query(User).filter(User.github_id == user_data.github_id).first()
+async def create_or_update_user(user_data: UserCreate, api_key_valid: bool = Depends(verify_api_key), db: Session = Depends(get_db)):
+    """Create or update user from OAuth (GitHub or Google)."""
+    # Check if user exists based on provider
+    if user_data.provider == "github":
+        user = db.query(User).filter(User.github_id == user_data.provider_id).first()
+    elif user_data.provider == "google":
+        user = db.query(User).filter(User.google_id == user_data.provider_id).first()
+    else:
+        raise HTTPException(status_code=400, detail="Invalid provider")
     
     if user:
         # Update existing user
@@ -88,13 +95,19 @@ async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get
         user.name = user_data.name
         user.avatar_url = user_data.avatar_url
     else:
-        # Create new user
-        user = User(
-            github_id=user_data.github_id,
-            email=user_data.email,
-            name=user_data.name,
-            avatar_url=user_data.avatar_url
-        )
+        # Create new user with appropriate provider ID
+        user_kwargs = {
+            "email": user_data.email,
+            "name": user_data.name,
+            "avatar_url": user_data.avatar_url
+        }
+        
+        if user_data.provider == "github":
+            user_kwargs["github_id"] = user_data.provider_id
+        else:  # google
+            user_kwargs["google_id"] = user_data.provider_id
+            
+        user = User(**user_kwargs)
         db.add(user)
         db.flush()
         
@@ -113,6 +126,7 @@ async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get
     return UserResponse(
         id=user.id,
         github_id=user.github_id,
+        google_id=user.google_id,
         email=user.email,
         name=user.name,
         avatar_url=user.avatar_url,
@@ -121,22 +135,25 @@ async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get
     )
 
 
-@router.get("/users/{github_id}", response_model=UserResponse)
+@router.get("/users/{provider_id}", response_model=UserResponse)
 async def get_user(
-    github_id: str, 
+    provider_id: str, 
     api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
-    """Get user by GitHub ID."""
-    # With API key auth, we trust the frontend to send correct github_id
+    """Get user by provider ID (GitHub or Google)."""
+    # Try to find user by GitHub ID first, then Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     
-    user = db.query(User).filter(User.github_id == github_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     return UserResponse(
         id=user.id,
         github_id=user.github_id,
+        google_id=user.google_id,
         email=user.email,
         name=user.name,
         avatar_url=user.avatar_url,
@@ -145,17 +162,18 @@ async def get_user(
     )
 
 
-@router.put("/users/{github_id}/major")
+@router.put("/users/{provider_id}/major")
 async def update_user_major(
-    github_id: str, 
+    provider_id: str, 
     major_data: MajorUpdate, 
     api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Update user's selected major."""
-    # With API key auth, we trust the frontend
-    
-    user = db.query(User).filter(User.github_id == github_id).first()
+    # Find user by either GitHub or Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -166,17 +184,18 @@ async def update_user_major(
     return {"message": "Major updated successfully", "major": major_data.major}
 
 
-@router.put("/users/{github_id}/profile")
+@router.put("/users/{provider_id}/profile")
 async def update_user_profile(
-    github_id: str, 
+    provider_id: str, 
     profile_data: ProfileUpdate, 
     api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Update user's profile including major and graduation years."""
-    # With API key auth, we trust the frontend
-    
-    user = db.query(User).filter(User.github_id == github_id).first()
+    # Find user by either GitHub or Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -207,16 +226,17 @@ async def update_user_profile(
 
 
 
-@router.get("/users/{github_id}/completed-courses")
+@router.get("/users/{provider_id}/completed-courses")
 async def get_user_completed_courses(
-    github_id: str,
+    provider_id: str,
     api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Get user's completed courses."""
-    # With API key auth, we trust the frontend
-    
-    user = db.query(User).filter(User.github_id == github_id).first()
+    # Find user by either GitHub or Google ID
+    user = db.query(User).filter(
+        (User.github_id == provider_id) | (User.google_id == provider_id)
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
