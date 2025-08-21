@@ -11,7 +11,6 @@ import {
   BookOpen,
 } from "lucide-react"
 
-import ThemeToggle from "@/components/navbar-components/theme-toggle"
 import UserMenu from "@/components/navbar-components/user-menu"
 import { Button } from "@/components/ui/button"
 import {
@@ -187,8 +186,6 @@ export default function CustomNavbar() {
         </div>
         {/* Right side */}
         <div className="flex items-center gap-1">
-          {/* Theme toggle */}
-          <ThemeToggle />
           {/* User menu */}
           <UserMenu />
         </div>

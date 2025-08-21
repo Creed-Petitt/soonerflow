@@ -282,10 +282,19 @@ export function DegreeRequirementsWidget() {
             ←
           </button>
           
-          {[...Array(Math.min(3, totalPages))].map((_, i) => {
-            const pageNum = currentPage <= 2 ? i + 1 : 
-                           currentPage >= totalPages - 1 ? totalPages - 2 + i : 
-                           currentPage - 1 + i
+          {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+            let pageNum;
+            if (totalPages <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage <= 2) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 1) {
+              pageNum = Math.max(1, totalPages - 2) + i;
+            } else {
+              pageNum = currentPage - 1 + i;
+            }
+            
+            // Ensure pageNum is within valid range
             if (pageNum < 1 || pageNum > totalPages) return null
             return (
               <button

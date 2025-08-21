@@ -140,15 +140,15 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
           <div className="grid gap-2">
             <Label htmlFor="major">Your Major *</Label>
             <Select value={selectedMajor} onValueChange={setSelectedMajor} disabled={isLoading}>
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-zinc-100">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select your major..." />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800">
+              <SelectContent>
                 {majors.map((major) => (
                   <SelectItem 
                     key={major.id} 
                     value={major.id}
-                    className="text-zinc-100 hover:bg-zinc-800 focus:bg-zinc-800"
+                    className=""
                   >
                     {major.name}
                   </SelectItem>
@@ -167,15 +167,15 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
                 setGraduationYear("") // Reset graduation when enrollment changes
               }}
             >
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-zinc-100">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select start semester..." />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800">
+              <SelectContent>
                 {generateEnrollmentYears().map((year) => (
                   <SelectItem 
                     key={year} 
                     value={year}
-                    className="text-zinc-100 hover:bg-zinc-800 focus:bg-zinc-800"
+                    className=""
                   >
                     {year}
                   </SelectItem>
@@ -192,15 +192,15 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
               onValueChange={setGraduationYear}
               disabled={!enrollmentYear}
             >
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-zinc-100">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder={enrollmentYear ? "Select graduation semester..." : "Select enrollment year first"} />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800">
+              <SelectContent>
                 {generateGraduationYears().map((year) => (
                   <SelectItem 
                     key={year} 
                     value={year}
-                    className="text-zinc-100 hover:bg-zinc-800 focus:bg-zinc-800"
+                    className=""
                   >
                     {year}
                   </SelectItem>

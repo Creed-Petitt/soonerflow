@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Clock,
   MapPin,
   User,
@@ -218,25 +225,29 @@ export function ClassDetailDialog({
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium sans-serif -mt-2">Section</h4>
                   {groupedClass.sections.length > 1 ? (
-                    <select
+                    <Select
                       value={currentSection?.id || ''}
-                      onChange={(e) => {
-                        const section = groupedClass.sections.find((s: any) => s.id === e.target.value);
+                      onValueChange={(value) => {
+                        const section = groupedClass.sections.find((s: any) => s.id === value);
                         if (section) setCurrentSection(section);
                       }}
-                      className="w-full h-9 px-3 text-sm border rounded-md bg-background"
                     >
-                      {groupedClass.sections.map((section: any) => {
-                        const time = section.meetingTimes?.[0] ? 
-                          `${section.meetingTimes[0].days || ''} ${section.meetingTimes[0].startTime || ''}-${section.meetingTimes[0].endTime || ''}`.trim() || 'TBA' 
-                          : section.time || 'TBA';
-                        return (
-                          <option key={section.id} value={section.id}>
-                            {time} - {section.instructor || 'TBA'}
-                          </option>
-                        );
-                      })}
-                    </select>
+                      <SelectTrigger className="w-full h-9">
+                        <SelectValue placeholder="Select a section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groupedClass.sections.map((section: any) => {
+                          const time = section.meetingTimes?.[0] ? 
+                            `${section.meetingTimes[0].days || ''} ${section.meetingTimes[0].startTime || ''}-${section.meetingTimes[0].endTime || ''}`.trim() || 'TBA' 
+                            : section.time || 'TBA';
+                          return (
+                            <SelectItem key={section.id} value={section.id}>
+                              {time} - {section.instructor || 'TBA'}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   ) : currentSection ? (
                     <div className="h-9 px-3 flex items-center text-sm border rounded-md bg-muted/50">
                       {currentSection.meetingTimes?.[0] ? 
@@ -251,27 +262,34 @@ export function ClassDetailDialog({
               {groupedClass.labSections && groupedClass.labSections.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <h4 className="text-sm font-medium sans-serif">Lab Section (Required)</h4>
-                  <select
+                  <Select
                     value={currentLabSection?.id || ''}
-                    onChange={(e) => {
-                      const lab = groupedClass.labSections.find((l: any) => l.id === e.target.value);
-                      if (lab) setCurrentLabSection(lab);
+                    onValueChange={(value) => {
+                      if (value) {
+                        const lab = groupedClass.labSections.find((l: any) => l.id === value);
+                        if (lab) setCurrentLabSection(lab);
+                      } else {
+                        setCurrentLabSection(null);
+                      }
                     }}
-                    className="w-full h-9 px-3 text-sm border rounded-md bg-background"
                   >
-                    <option value="">Select a lab section...</option>
-                    {groupedClass.labSections.map((lab: any) => {
-                      const time = lab.meetingTimes?.[0] ? 
-                        `${lab.meetingTimes[0].days || ''} ${lab.meetingTimes[0].startTime || ''}-${lab.meetingTimes[0].endTime || ''}`.trim() || 'TBA' 
-                        : lab.time || 'TBA';
-                      const location = lab.meetingTimes?.[0]?.location || lab.location || 'TBA';
-                      return (
-                        <option key={lab.id} value={lab.id}>
-                          {time} - {location}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Select a lab section..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groupedClass.labSections.map((lab: any) => {
+                        const time = lab.meetingTimes?.[0] ? 
+                          `${lab.meetingTimes[0].days || ''} ${lab.meetingTimes[0].startTime || ''}-${lab.meetingTimes[0].endTime || ''}`.trim() || 'TBA' 
+                          : lab.time || 'TBA';
+                        const location = lab.meetingTimes?.[0]?.location || lab.location || 'TBA';
+                        return (
+                          <SelectItem key={lab.id} value={lab.id}>
+                            {time} - {location}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

@@ -73,40 +73,9 @@
 
 :root {
    --radius: 0.65rem;
-   --background: oklch(1 0 0);
-   --foreground: oklch(0.141 0.005 285.823);
-   --card: oklch(1 0 0);
-   --card-foreground: oklch(0.141 0.005 285.823);
-   --popover: oklch(1 0 0);
-   --popover-foreground: oklch(0.141 0.005 285.823);
-   --primary: oklch(0.637 0.237 25.331);
-   --primary-foreground: oklch(0.971 0.013 17.38);
-   --secondary: oklch(0.967 0.001 286.375);
-   --secondary-foreground: oklch(0.21 0.006 285.885);
-   --muted: oklch(0.967 0.001 286.375);
-   --muted-foreground: oklch(0.552 0.016 285.938);
-   --accent: oklch(0.967 0.001 286.375);
-   --accent-foreground: oklch(0.21 0.006 285.885);
-   --destructive: oklch(0.577 0.245 27.325);
-   --border: oklch(0.92 0.004 286.32);
-   --input: oklch(0.92 0.004 286.32);
-   --ring: rgb(75 85 99);
-   --chart-1: oklch(0.646 0.222 41.116);
-   --chart-2: oklch(0.6 0.118 184.704);
-   --chart-3: oklch(0.398 0.07 227.392);
-   --chart-4: oklch(0.828 0.189 84.429);
-   --chart-5: oklch(0.769 0.188 70.08);
-   --sidebar: oklch(0.985 0 0);
-   --sidebar-foreground: oklch(0.141 0.005 285.823);
-   --sidebar-primary: oklch(0.637 0.237 25.331);
-   --sidebar-primary-foreground: oklch(0.971 0.013 17.38);
-   --sidebar-accent: oklch(0.967 0.001 286.375);
-   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-   --sidebar-border: oklch(0.92 0.004 286.32);
-   --sidebar-ring: oklch(0.637 0.237 25.331);
- }
+}
  
- .dark {
+:root {
    --background: oklch(0.141 0 0);
    --foreground: oklch(0.985 0 0);
    --card: oklch(0.21 0 0);
@@ -140,106 +109,106 @@
    --sidebar-ring: oklch(0.274 0 0);
  }
 
-/* React Big Calendar Dark Mode Overrides */
-.dark .rbc-calendar {
+/* React Big Calendar Overrides */
+.rbc-calendar {
   background: var(--background);
   color: var(--foreground);
 }
 
-.dark .rbc-header {
+.rbc-header {
   background: var(--muted);
   color: var(--foreground);
   border-bottom: 1px solid var(--border);
 }
 
-.dark .rbc-time-view {
+.rbc-time-view {
   background: var(--background);
   border: 1px solid var(--border);
 }
 
-.dark .rbc-time-header {
+.rbc-time-header {
   background: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
-.dark .rbc-time-content {
+.rbc-time-content {
   background: var(--background);
   border-top: 1px solid var(--border);
 }
 
-.dark .rbc-time-slot {
+.rbc-time-slot {
   border-top: 1px solid var(--border);
 }
 
-.dark .rbc-day-slot .rbc-time-slot {
+.rbc-day-slot .rbc-time-slot {
   border-top: 1px solid var(--border);
 }
 
-.dark .rbc-timeslot-group {
+.rbc-timeslot-group {
   border-bottom: 1px solid var(--border);
 }
 
-.dark .rbc-time-header-content {
+.rbc-time-header-content {
   border-left: 1px solid var(--border);
 }
 
-.dark .rbc-time-header-gutter {
+.rbc-time-header-gutter {
   background: var(--muted);
 }
 
-.dark .rbc-label {
+.rbc-label {
   color: var(--muted-foreground);
 }
 
-.dark .rbc-time-header-cell {
+.rbc-time-header-cell {
   color: var(--foreground);
 }
 
-.dark .rbc-today {
+.rbc-today {
   background: var(--accent);
 }
 
-.dark .rbc-off-range-bg {
+.rbc-off-range-bg {
   background: hsl(var(--muted) / 0.2);
 }
 
-.dark .rbc-event {
+.rbc-event {
   background: var(--primary);
   color: var(--primary-foreground);
   border: none;
 }
 
-.dark .rbc-event.rbc-selected {
+.rbc-event.rbc-selected {
   background: var(--primary);
   opacity: 0.9;
 }
 
-.dark .rbc-toolbar {
+.rbc-toolbar {
   color: var(--foreground);
 }
 
-.dark .rbc-toolbar button {
+.rbc-toolbar button {
   color: var(--foreground);
   background: var(--secondary);
   border: 1px solid var(--border);
 }
 
-.dark .rbc-toolbar button:hover {
+.rbc-toolbar button:hover {
   background: var(--accent);
 }
 
-.dark .rbc-toolbar button.rbc-active {
+.rbc-toolbar button.rbc-active {
   background: var(--primary);
   color: var(--primary-foreground);
 }
 
 /* Improve calendar grid appearance */  
-.dark .rbc-time-view .rbc-time-gutter,
-.dark .rbc-time-view .rbc-time-content {
+.rbc-time-view .rbc-time-gutter,
+.rbc-time-view .rbc-time-content {
   border-color: var(--border);
 }
 
-.dark .rbc-current-time-indicator {
+.rbc-current-time-indicator {
   background-color: var(--primary);
 }
 
@@ -253,104 +222,104 @@
 }
 
 /* Remove ALL blue tints and focus states globally */
-.dark * {
+* {
   --tw-ring-color: transparent !important;
 }
 
-.dark *:focus {
+*:focus {
   outline: none !important;
   box-shadow: none !important;
   --tw-ring-color: transparent !important;
 }
 
-.dark *:focus-visible {
+*:focus-visible {
   outline: none !important;
   box-shadow: none !important;
   --tw-ring-color: transparent !important;
 }
 
 /* Fix Radix UI Select components */
-.dark [role="combobox"],
-.dark [data-state],
-.dark [data-radix-collection-item] {
+[role="combobox"],
+[data-state],
+[data-radix-collection-item] {
   outline: none !important;
   box-shadow: none !important;
 }
 
-.dark [data-state="open"],
-.dark [data-state="closed"] {
+[data-state="open"],
+[data-state="closed"] {
   --tw-ring-color: transparent !important;
   outline: none !important;
 }
 
 /* Fix Select trigger and content */
-.dark [data-slot="select-trigger"]:focus-visible {
+[data-slot="select-trigger"]:focus-visible {
   --tw-ring-color: transparent !important;
   border-color: rgb(75 85 99) !important;
   outline: none !important;
   box-shadow: none !important;
 }
 
-.dark [data-slot="select-item"]:focus {
+[data-slot="select-item"]:focus {
   background-color: rgba(255, 255, 255, 0.05) !important;
   outline: none !important;
 }
 
 /* Fix Command/cmdk components - REMOVE ALL BLUE */
-.dark [cmdk-root] {
+[cmdk-root] {
   background-color: rgb(17 24 39) !important;
 }
 
-.dark [cmdk-item] {
+[cmdk-item] {
   outline: none !important;
   background-color: transparent !important;
 }
 
-.dark [cmdk-item][aria-selected="true"],
-.dark [cmdk-item][data-selected="true"] {
+[cmdk-item][aria-selected="true"],
+[cmdk-item][data-selected="true"] {
   background-color: rgba(255, 255, 255, 0.05) !important;
   color: white !important;
 }
 
-.dark [cmdk-input]:focus {
+[cmdk-input]:focus {
   outline: none !important;
   box-shadow: none !important;
   border-color: rgb(55 65 81) !important;
 }
 
-.dark [cmdk-input-wrapper] {
+[cmdk-input-wrapper] {
   border-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-.dark [cmdk-input] {
+[cmdk-input] {
   caret-color: white !important;
   background: transparent !important;
 }
 
 /* Override Popover content backgrounds */
-.dark [data-radix-popper-content-wrapper] {
+[data-radix-popper-content-wrapper] {
   --popover: rgb(17 24 39) !important;
   --popover-foreground: white !important;
 }
 
-.dark [role="presentation"] [cmdk-root] {
+[role="presentation"] [cmdk-root] {
   background-color: rgb(17 24 39) !important;
 }
 
 /* Force dark backgrounds on all dropdown content */
-.dark .bg-popover {
+.bg-popover {
   background-color: rgb(17 24 39) !important;
 }
 
-/* Aggressively override ALL accent colors in dark mode */
-.dark [data-selected="true"],
-.dark [data-highlighted="true"],
-.dark [aria-selected="true"] {
+/* Aggressively override ALL accent colors */
+[data-selected="true"],
+[data-highlighted="true"],
+[aria-selected="true"] {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* Override the data-highlighted state that causes blue */
-.dark [cmdk-item][data-highlighted] {
+[cmdk-item][data-highlighted] {
   background-color: rgba(255, 255, 255, 0.05) !important;
   color: white !important;
 }
@@ -379,7 +348,7 @@
   color: white !important;
 }
 
-/* GLOBAL OVERRIDES - NO DARK CLASS NEEDED */
+/* GLOBAL OVERRIDES FOR DARK MODE */
 [cmdk-root],
 [data-radix-popper-content-wrapper] > div,
 [role="combobox"],
@@ -448,23 +417,23 @@ button:active {
 
 
 /* Remove all traces of accent color */
-.dark .bg-accent,
-.dark .hover\:bg-accent:hover,
-.dark .focus\:bg-accent:focus,
-.dark .data-\[selected\=true\]\:bg-accent[data-selected="true"] {
+.bg-accent,
+.hover\:bg-accent:hover,
+.focus\:bg-accent:focus,
+.data-\[selected\=true\]\:bg-accent[data-selected="true"] {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Override Tailwind accent color variable in dark mode */
-.dark .data-\[selected\=true\]\:bg-gray-800[data-selected="true"] {
+/* Override Tailwind accent color variable */
+.data-\[selected\=true\]\:bg-gray-800[data-selected="true"] {
   background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* Override focus-visible rings globally */
-.dark .focus-visible\:ring-\[3px\]:focus-visible,
-.dark .focus-visible\:ring-ring\/50:focus-visible,
-.dark .focus\:ring-1:focus,
-.dark .focus\:ring-gray-500:focus {
+.focus-visible\:ring-\[3px\]:focus-visible,
+.focus-visible\:ring-ring\/50:focus-visible,
+.focus\:ring-1:focus,
+.focus\:ring-gray-500:focus {
   --tw-ring-color: transparent !important;
   box-shadow: none !important;
 }

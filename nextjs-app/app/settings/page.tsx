@@ -152,7 +152,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-black">
       <div className="container max-w-4xl mx-auto py-8 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

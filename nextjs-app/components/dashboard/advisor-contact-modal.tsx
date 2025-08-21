@@ -139,12 +139,21 @@ export function AdvisorContactModal({ isOpen, onClose }: AdvisorContactModalProp
                   </div>
                   
                   <div className="space-y-2">
-                    <Button onClick={handleEmail} className="w-full">
+                    <Button 
+                      onClick={handleEmail} 
+                      className="w-full"
+                      disabled={!advisorEmail}
+                    >
                       <Mail className="mr-2 h-4 w-4" />
                       Send Email (Default Client)
                     </Button>
                     
-                    <Button onClick={handleOutlook} variant="outline" className="w-full">
+                    <Button 
+                      onClick={handleOutlook} 
+                      variant="outline" 
+                      className="w-full"
+                      disabled={!advisorEmail}
+                    >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Open in Outlook Web
                     </Button>
