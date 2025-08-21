@@ -74,10 +74,7 @@ export default function FlowchartPage() {
         {/* Simplified Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold">Prerequisite Flowchart</h1>
-            <p className="text-sm text-muted-foreground">
-              Visualize course prerequisites and plan your academic path
-            </p>
+            <h1 className="text-xl font-medium text-muted-foreground">Visualize your degree progress</h1>
           </div>
           
           <div className="flex items-center gap-3">

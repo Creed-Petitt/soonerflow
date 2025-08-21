@@ -72,12 +72,12 @@ export function AddCoursesModal({
     }
   }, [isOpen, session?.user?.email, userMajor])
 
-  // Set default to major once userMajor is loaded
+  // Set default to major once userMajor is loaded and departments are loaded
   useEffect(() => {
-    if (userMajor && !selectedDepartment) {
+    if (userMajor && departments.length > 0 && !selectedDepartment) {
       setSelectedDepartment("major")
     }
-  }, [userMajor, selectedDepartment])
+  }, [userMajor, selectedDepartment, departments.length])
 
   // Load departments when modal opens
   useEffect(() => {
@@ -184,15 +184,6 @@ export function AddCoursesModal({
       const data = await response.json()
       if (data.departments) {
         setDepartments(data.departments)
-        // Only set default if nothing is selected
-        if (!selectedDepartment) {
-          // Default to major requirements if user has a major, otherwise first department
-          if (userMajor) {
-            setSelectedDepartment("major")
-          } else if (data.departments.length > 0) {
-            setSelectedDepartment(data.departments[0].code)
-          }
-        }
       }
     } catch (error) {
       console.error('Failed to load departments:', error)

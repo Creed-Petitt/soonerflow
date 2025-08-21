@@ -189,44 +189,47 @@ export function DegreeRequirementsWidget() {
   return (
     <div>
       <h2 className="text-xl font-bold mb-4">Degree Requirements</h2>
-      <div className="space-y-1">
-        <div className="text-xs text-muted-foreground mb-2 flex justify-between px-1">
-          <span className="font-medium">Course</span>
-          <div className="flex gap-12">
-            <span className="font-medium ml-2">Credits</span>
-            <span className="font-medium">Status</span>
-          </div>
-        </div>
-        {sortedAndPaginatedCourses.map((course) => {
-          const status = getCourseStatus(course.subject, course.courseNumber)
-          return (
-            <div
-              key={`${course.subject}-${course.courseNumber}`}
-              className="flex justify-between items-center py-2 px-1 hover:bg-accent/50 rounded transition-colors"
-            >
-              <span className="font-medium text-sm">
-                {course.subject === 'CS' && course.courseNumber === '3000' ? 'ECE/CS 3000-4000 Level' :
-                 course.subject === 'CS' && course.courseNumber === '4000' ? 'ECE/CS 4000+ Level' :
-                 `${course.subject} ${course.courseNumber}`}
-              </span>
-              <div className="flex items-center gap-12">
-                <span className="text-sm text-center w-8">
-                  {course.subject === 'CS' && course.courseNumber === '3000' ? '6' :
-                   course.subject === 'CS' && course.courseNumber === '4000' ? '6' :
-                   course.credits}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {status === "completed" ? "Completed" : 
-                   status === "in_progress" ? "In Progress" : 
-                   "Not Started"}
-                </span>
+      <div className="flex flex-col max-h-[350px]">
+        <div className="flex-1 overflow-y-auto min-h-[280px]">
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground mb-2 flex justify-between px-1">
+              <span className="font-medium">Course</span>
+              <div className="flex gap-12">
+                <span className="font-medium ml-2">Credits</span>
+                <span className="font-medium">Status</span>
               </div>
             </div>
-          )
-        })}
-      </div>
-      
-      {totalPages > 1 && (
+            {sortedAndPaginatedCourses.map((course) => {
+              const status = getCourseStatus(course.subject, course.courseNumber)
+              return (
+                <div
+                  key={`${course.subject}-${course.courseNumber}`}
+                  className="flex justify-between items-center py-2 px-1 hover:bg-accent/50 rounded transition-colors"
+                >
+                  <span className="font-medium text-sm">
+                    {course.subject === 'CS' && course.courseNumber === '3000' ? 'ECE/CS 3000-4000 Level' :
+                     course.subject === 'CS' && course.courseNumber === '4000' ? 'ECE/CS 4000+ Level' :
+                     `${course.subject} ${course.courseNumber}`}
+                  </span>
+                  <div className="flex items-center gap-12">
+                    <span className="text-sm text-center w-8">
+                      {course.subject === 'CS' && course.courseNumber === '3000' ? '6' :
+                       course.subject === 'CS' && course.courseNumber === '4000' ? '6' :
+                       course.credits}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {status === "completed" ? "Completed" : 
+                       status === "in_progress" ? "In Progress" : 
+                       "Not Started"}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+        
+        {totalPages > 1 && (
         <div className="flex justify-center gap-1 mt-2">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -271,7 +274,8 @@ export function DegreeRequirementsWidget() {
             →
           </button>
         </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

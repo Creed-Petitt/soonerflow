@@ -55,8 +55,8 @@ export default function Hero({ className, children }: HeroProps) {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed"
           >
-            The intelligent degree planner for OU students. Drag-and-drop scheduling meets 
-            AI-powered recommendations. See your entire academic journey in one beautiful flow.
+            The comprehensive degree planner for OU students. Track requirements, plan schedules, 
+            and visualize prerequisites. See your entire academic journey in one beautiful flow.
           </motion.p>
 
           <motion.div
