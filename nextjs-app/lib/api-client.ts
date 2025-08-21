@@ -6,9 +6,6 @@
 // Get the API key from environment variable
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY
 
-// Debug logging
-console.log('API Key being used:', API_KEY)
-
 /**
  * Make an authenticated fetch request to the backend API
  * Automatically adds the X-API-Key header
@@ -20,8 +17,6 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
     ...options.headers,
     'X-API-Key': API_KEY,
   }
-  
-  console.log('Fetching with headers:', headers)
   
   // Make the request with the API key
   const response = await fetch(url, {

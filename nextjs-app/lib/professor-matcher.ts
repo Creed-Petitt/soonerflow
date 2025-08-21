@@ -32,11 +32,9 @@ async function fetchProfessorFromAPI(professorName: string): Promise<ProfessorRa
     
     // Try each variation until we find a match
     for (const nameVariation of nameVariations) {
-      const url = `http://127.0.0.1:8000/api/professors/search?name=${encodeURIComponent(nameVariation)}`;
-      console.log('Fetching from URL:', url);
+      const url = `/api/professors/search?name=${encodeURIComponent(nameVariation)}`;
       
       const response = await fetch(url);
-      console.log('Response status:', response.status, response.statusText);
       
       if (!response.ok) {
         console.log('Response not OK, trying next variation');

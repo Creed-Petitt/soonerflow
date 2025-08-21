@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import CustomNavbar from "@/components/custom-navbar";
 import { StudentProfileCard } from "@/components/dashboard/student-profile-card";
 import { GPACard } from "@/components/dashboard/gpa-card";
-import { TodaysScheduleWidget } from "@/components/dashboard/todays-schedule-widget";
 import { CompactSemesterTimeline } from "@/components/dashboard/compact-semester-timeline";
 import { QuickActionsPanel } from "@/components/dashboard/quick-actions-panel";
 import { DegreeRequirementsWidget } from "@/components/dashboard/degree-requirements-widget";
@@ -43,10 +42,9 @@ export default function DashboardPage() {
     status?: 'completed' | 'scheduled';
   }
   
-  const [currentSemesterCourses, setCurrentSemesterCourses] = useState<Course[]>([]);
   const [completedCourses, setCompletedCourses] = useState<Map<string, Course>>(new Map());
   const [scheduledCourses, setScheduledCourses] = useState<Map<string, Course>>(new Map());
-  const [allSemesterSchedules, setAllSemesterSchedules] = useState<Map<string, any[]>>(new Map());
+  const [allSemesterSchedules, setAllSemesterSchedules] = useState<Map<string, Course[]>>(new Map());
   const [loadingCourses, setLoadingCourses] = useState(true);
   
   // Function to parse class time string into calendar events
@@ -142,17 +140,6 @@ export default function DashboardPage() {
     return events
   }
 
-  // Convert scheduled classes to calendar events for the dashboard widget
-  const calendarEvents = useMemo(() => {
-    const allEvents: CalendarEvent[] = []
-    
-    scheduledClasses.forEach(cls => {
-      const events = parseTimeToEvents(cls)
-      allEvents.push(...events)
-    })
-    
-    return allEvents
-  }, [scheduledClasses])
   
   // Real-time sync with scheduler: Update dashboard when scheduledClasses change
   useEffect(() => {
@@ -171,7 +158,7 @@ export default function DashboardPage() {
         semester: currentSemesterName // Use the schedule context's selected semester
       }));
       
-      setCurrentSemesterCourses(scheduleCourses);
+      // Set current semester courses (no longer needed)
       
       // Update scheduled courses map
       setScheduledCourses(prevScheduled => {
@@ -411,7 +398,7 @@ export default function DashboardPage() {
         }
       });
       
-      setCurrentSemesterCourses(coursesForCurrentSemester);
+      // Current semester courses are now tracked differently
     }
   }, [completedCourses, scheduledCourses, currentSemesterName, loadingCourses]);
 
