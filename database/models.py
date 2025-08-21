@@ -67,6 +67,7 @@ class User(Base):
     schedules = relationship("Schedule", back_populates="user", cascade="all, delete-orphan")
     major_info = relationship("Major", foreign_keys=[major_id])
     completed_courses = relationship("CompletedCourse", back_populates="user", cascade="all, delete-orphan")
+    flowchart = relationship("UserFlowchart", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 class CompletedCourse(Base):
     __tablename__ = 'completed_courses'
@@ -238,6 +239,19 @@ class MajorCourse(Base):
     
     # Relationships
     requirement = relationship("Requirement", back_populates="courses")
+
+# Flowchart Persistence Model
+class UserFlowchart(Base):
+    __tablename__ = 'user_flowcharts'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True)
+    nodes = Column(Text)  # JSON array of nodes
+    edges = Column(Text)  # JSON array of edges
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="flowchart")
 
 def get_database_url():
     """Get the database URL - matches the original Prisma schema"""

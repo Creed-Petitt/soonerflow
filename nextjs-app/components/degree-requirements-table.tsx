@@ -7,6 +7,7 @@ import { Node } from '@xyflow/react'
 import { CourseNodeData } from '@/components/prerequisite-flow/course-node'
 import { useSchedule } from "@/hooks/use-schedule"
 import { ClassDetailDialog } from "@/components/class-detail-dialog"
+import { fetchWithAuth } from "@/lib/api-client"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -548,7 +549,7 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
 
       try {
         // Step 1: Fetch user data from backend
-        const userResponse = await fetch(`/api/users/${session.user.githubId}`)
+        const userResponse = await fetchWithAuth(`/api/users/${session.user.githubId}`)
         if (!userResponse.ok) {
           console.error("Failed to fetch user data")
           return

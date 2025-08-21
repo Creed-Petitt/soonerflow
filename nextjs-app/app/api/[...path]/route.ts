@@ -15,11 +15,23 @@ export async function GET(
     const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': request.headers.get('x-api-key') || '',
       },
     })
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json()
+      return NextResponse.json(data, { status: response.status })
+    } else {
+      // Handle non-JSON response (likely error text)
+      const text = await response.text()
+      return NextResponse.json(
+        { error: text || 'Backend error' },
+        { status: response.status }
+      )
+    }
   } catch (error) {
     console.error('Backend proxy error:', error)
     return NextResponse.json(
@@ -58,12 +70,24 @@ export async function POST(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': request.headers.get('x-api-key') || '',
       },
       body: body ? JSON.stringify(body) : undefined,
     })
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json()
+      return NextResponse.json(data, { status: response.status })
+    } else {
+      // Handle non-JSON response (likely error text)
+      const text = await response.text()
+      return NextResponse.json(
+        { error: text || 'Backend error' },
+        { status: response.status }
+      )
+    }
   } catch (error) {
     console.error('Backend proxy error:', error)
     return NextResponse.json(
@@ -100,12 +124,24 @@ export async function PUT(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': request.headers.get('x-api-key') || '',
       },
       body: body ? JSON.stringify(body) : undefined,
     })
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json()
+      return NextResponse.json(data, { status: response.status })
+    } else {
+      // Handle non-JSON response (likely error text)
+      const text = await response.text()
+      return NextResponse.json(
+        { error: text || 'Backend error' },
+        { status: response.status }
+      )
+    }
   } catch (error) {
     console.error('Backend proxy error:', error)
     return NextResponse.json(
@@ -129,14 +165,26 @@ export async function DELETE(
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': request.headers.get('x-api-key') || '',
       },
     })
 
     if (response.ok) {
       return NextResponse.json({ success: true }, { status: response.status })
     } else {
-      const data = await response.json()
-      return NextResponse.json(data, { status: response.status })
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        return NextResponse.json(data, { status: response.status })
+      } else {
+        // Handle non-JSON response (likely error text)
+        const text = await response.text()
+        return NextResponse.json(
+          { error: text || 'Backend error' },
+          { status: response.status }
+        )
+      }
     }
   } catch (error) {
     console.error('Backend proxy error:', error)

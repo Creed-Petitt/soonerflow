@@ -10,6 +10,7 @@ from datetime import datetime
 import sys
 sys.path.append('/home/highs/ou-class-manager')
 from database.models import User, CompletedCourse, Schedule, Major, ScheduledClass, Class as ClassModel, create_engine_and_session
+from backend.auth import verify_api_key, verify_user_access
 
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -35,6 +36,11 @@ class UserResponse(BaseModel):
 
 class MajorUpdate(BaseModel):
     major: str
+
+class ProfileUpdate(BaseModel):
+    major: Optional[str] = None
+    enrollment_year: Optional[int] = None
+    graduation_year: Optional[int] = None
 
 
 class DashboardData(BaseModel):
@@ -116,8 +122,14 @@ async def create_or_update_user(user_data: UserCreate, db: Session = Depends(get
 
 
 @router.get("/users/{github_id}", response_model=UserResponse)
-async def get_user(github_id: str, db: Session = Depends(get_db)):
+async def get_user(
+    github_id: str, 
+    api_key_valid: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
     """Get user by GitHub ID."""
+    # With API key auth, we trust the frontend to send correct github_id
+    
     user = db.query(User).filter(User.github_id == github_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -134,8 +146,15 @@ async def get_user(github_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/users/{github_id}/major")
-async def update_user_major(github_id: str, major_data: MajorUpdate, db: Session = Depends(get_db)):
+async def update_user_major(
+    github_id: str, 
+    major_data: MajorUpdate, 
+    api_key_valid: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
     """Update user's selected major."""
+    # With API key auth, we trust the frontend
+    
     user = db.query(User).filter(User.github_id == github_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -147,44 +166,94 @@ async def update_user_major(github_id: str, major_data: MajorUpdate, db: Session
     return {"message": "Major updated successfully", "major": major_data.major}
 
 
-@router.post("/user/onboarding")
-async def save_onboarding_data(data: dict, db: Session = Depends(get_db)):
-    """Save user onboarding selections."""
-    from database.models import Major
+@router.put("/users/{github_id}/profile")
+async def update_user_profile(
+    github_id: str, 
+    profile_data: ProfileUpdate, 
+    api_key_valid: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Update user's profile including major and graduation years."""
+    # With API key auth, we trust the frontend
     
-    email = data.get('email')
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-    
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.github_id == github_id).first()
     if not user:
-        # Create new user during onboarding
-        user = User(
-            email=email,
-            name=data.get('name', ''),
-            github_id=data.get('github_id', ''),
-        )
-        db.add(user)
-        db.flush()  # Get the user ID
+        raise HTTPException(status_code=404, detail="User not found")
     
-    # Update user with onboarding data
-    if 'major' in data:
-        user.major = data['major']
+    # Update fields if provided
+    if profile_data.major is not None:
+        user.major = profile_data.major
         # Try to find major ID from name
-        major = db.query(Major).filter(Major.name == data['major']).first()
+        major = db.query(Major).filter(Major.name == profile_data.major).first()
         if major:
             user.major_id = major.id
     
-    if 'enrollmentYear' in data:
-        user.enrollment_year = data['enrollmentYear']
+    if profile_data.enrollment_year is not None:
+        user.enrollment_year = profile_data.enrollment_year
     
-    if 'graduationYear' in data:
-        user.graduation_year = data['graduationYear']
+    if profile_data.graduation_year is not None:
+        user.graduation_year = profile_data.graduation_year
     
+    user.updated_at = datetime.utcnow()
     db.commit()
+    db.refresh(user)
     
-    return {"success": True, "message": "Onboarding data saved"}
+    return {
+        "message": "Profile updated successfully",
+        "major": user.major,
+        "enrollment_year": user.enrollment_year,
+        "graduation_year": user.graduation_year
+    }
 
+
+
+@router.get("/users/{github_id}/completed-courses")
+async def get_user_completed_courses(
+    github_id: str,
+    api_key_valid: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """Get user's completed courses."""
+    # With API key auth, we trust the frontend
+    
+    user = db.query(User).filter(User.github_id == github_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    completed_courses = db.query(CompletedCourse).filter(
+        CompletedCourse.user_id == user.id
+    ).all()
+    
+    courses_list = []
+    for course in completed_courses:
+        # Parse course_code - handle multi-word subjects like "C S"
+        if course.course_code:
+            parts = course.course_code.split()
+            if len(parts) >= 2:
+                # Last part is course number if it contains digits
+                if any(char.isdigit() for char in parts[-1]):
+                    subject = ' '.join(parts[:-1])
+                    course_number = parts[-1]
+                else:
+                    subject = course.course_code
+                    course_number = ""
+            else:
+                subject = course.course_code
+                course_number = ""
+        else:
+            subject = ""
+            course_number = ""
+            
+        courses_list.append({
+            "subject": subject,
+            "courseNumber": course_number,
+            "name": course.course_name or "",
+            "credits": course.credits,
+            "grade": course.grade,
+            "semester": course.semester_completed
+        })
+    
+    return {"courses": courses_list}
 
 @router.get("/user/courses/completed")
 async def get_completed_courses(

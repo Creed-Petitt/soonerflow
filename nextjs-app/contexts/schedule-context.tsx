@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
 import { useDebounce } from '@/hooks/use-debounce';
+import { fetchWithAuth } from '@/lib/api-client';
 
 // Types
 interface ScheduledClass {
@@ -132,7 +133,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/users/${session.user.githubId}/schedule/${targetSemester}`);
+      const response = await fetchWithAuth(`/api/users/${session.user.githubId}/schedule/${targetSemester}`);
       
       if (!response.ok) {
         throw new Error('Failed to load schedule');

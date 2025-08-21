@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
+import { fetchWithAuth } from "@/lib/api-client"
 import {
   Dialog,
   DialogContent,
@@ -101,7 +102,7 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
       const enrollYear = parseInt(enrollmentYear.split(' ')[1])
       const gradYear = parseInt(graduationYear.split(' ')[1])
 
-      const response = await fetch(`/api/users/${session.user.githubId}/profile`, {
+      const response = await fetchWithAuth(`/api/users/${session.user.githubId}/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { fetchWithAuth } from "@/lib/api-client"
 
 interface Major {
   id: string
@@ -59,7 +60,7 @@ export default function SettingsPage() {
       
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/users/${session.user.githubId}`)
+        const response = await fetchWithAuth(`/api/users/${session.user.githubId}`)
         if (response.ok) {
           const data = await response.json()
           setUserProfile(data)
@@ -110,7 +111,7 @@ export default function SettingsPage() {
     setIsSaving(true)
     try {
       // Update user's major
-      const response = await fetch(`/api/users/${session.user.githubId}/major`, {
+      const response = await fetchWithAuth(`/api/users/${session.user.githubId}/major`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ major: selectedMajor.name }),

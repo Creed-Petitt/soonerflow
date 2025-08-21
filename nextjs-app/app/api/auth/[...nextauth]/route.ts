@@ -41,6 +41,8 @@ const handler = NextAuth({
         session.user.id = token.sub!
         session.user.githubId = token.sub! // Add GitHub ID for API calls
       }
+      // Add the raw JWT token to the session so we can use it for API auth
+      ;(session as any).accessToken = token
       return session
     },
     async jwt({ token, user, account, trigger }) {

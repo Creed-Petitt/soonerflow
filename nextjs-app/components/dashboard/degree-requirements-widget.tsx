@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
 import { useSchedule } from "@/hooks/use-schedule"
+import { fetchWithAuth } from "@/lib/api-client"
 
 interface MajorCourse {
   subject: string
@@ -45,8 +46,8 @@ export function DegreeRequirementsWidget() {
       if (!session?.user?.githubId) return
 
       try {
-        // Get user's major
-        const userResponse = await fetch(`/api/users/${session.user.githubId}`)
+        // Get user's major (with authentication)
+        const userResponse = await fetchWithAuth(`/api/users/${session.user.githubId}`)
         if (!userResponse.ok) {
           console.log('User API failed:', userResponse.status)
           return
@@ -59,7 +60,7 @@ export function DegreeRequirementsWidget() {
           return
         }
 
-        // Get major courses using the major-courses endpoint
+        // Get major courses using the major-courses endpoint (this endpoint doesn't need auth)
         const reqResponse = await fetch(`/api/major-courses?major_name=${encodeURIComponent(userData.major)}`)
         console.log('Major API response status:', reqResponse.status)
         if (reqResponse.ok) {
@@ -138,7 +139,7 @@ export function DegreeRequirementsWidget() {
       if (!session?.user?.githubId) return
 
       try {
-        const response = await fetch(`/api/users/${session.user.githubId}/completed-courses`)
+        const response = await fetchWithAuth(`/api/users/${session.user.githubId}/completed-courses`)
         if (response.ok) {
           const data = await response.json()
           const completed = new Set<string>()

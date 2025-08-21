@@ -11,6 +11,7 @@ import { QuickActionsPanel } from "@/components/dashboard/quick-actions-panel";
 import { DegreeRequirementsWidget } from "@/components/dashboard/degree-requirements-widget";
 import { ProfileSetupModal } from "@/components/profile-setup-modal";
 import { useSchedule } from "@/hooks/use-schedule";
+import { fetchWithAuth } from "@/lib/api-client";
 import type { CalendarEvent } from "@/components/event-calendar/types";
 
 export default function DashboardPage() {
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   const [currentSemesterCourses, setCurrentSemesterCourses] = useState<Course[]>([]);
   const [completedCourses, setCompletedCourses] = useState<Map<string, Course>>(new Map());
   const [scheduledCourses, setScheduledCourses] = useState<Map<string, Course>>(new Map());
+  const [allSemesterSchedules, setAllSemesterSchedules] = useState<Map<string, any[]>>(new Map());
   const [loadingCourses, setLoadingCourses] = useState(true);
   
   // Function to parse class time string into calendar events
@@ -167,7 +169,7 @@ export default function DashboardPage() {
         location: cls.location,
         instructor: cls.instructor,
         status: 'scheduled' as const,
-        semester: getCurrentSemester() // Use current semester
+        semester: currentSemesterName // Use the schedule context's selected semester
       }));
       
       setCurrentSemesterCourses(scheduleCourses);
@@ -175,7 +177,7 @@ export default function DashboardPage() {
       // Update scheduled courses map
       setScheduledCourses(prevScheduled => {
         const newScheduledCourses = new Map(prevScheduled);
-        const currentSem = getCurrentSemester();
+        const currentSem = currentSemesterName; // Use the schedule context's selected semester
         
         // Remove existing scheduled courses for current semester
         Array.from(newScheduledCourses.keys()).forEach(key => {
@@ -204,7 +206,7 @@ export default function DashboardPage() {
       if (session?.user?.githubId && (!scheduledClasses || scheduledClasses.length === 0)) {
         try {
           console.log('📡 Loading initial active schedule from backend...');
-          const response = await fetch(`/api/users/${session.user.githubId}/active-schedule`);
+          const response = await fetchWithAuth(`/api/users/${session.user.githubId}/active-schedule`);
           if (response.ok) {
             const data = await response.json();
             console.log('📡 Loaded initial schedule:', data.classes?.length || 0, 'classes');
@@ -252,6 +254,57 @@ export default function DashboardPage() {
     
     loadCompletedCourses();
   }, [session?.user?.email]);
+  
+  // Load all semester schedules (for all semesters, not just current)
+  useEffect(() => {
+    const loadAllSemesterSchedules = async () => {
+      if (!session?.user?.githubId) return;
+      
+      // Define semesters to load (you can expand this based on enrollmentYear and graduationYear)
+      const semestersToLoad = [
+        { code: '202510', name: 'Fall 2025' },
+        { code: '202520', name: 'Spring 2026' },
+        { code: '202530', name: 'Summer 2026' },
+        { code: '202610', name: 'Fall 2026' },
+        { code: '202620', name: 'Spring 2027' }
+      ];
+      
+      const schedules = new Map<string, any[]>();
+      
+      for (const semester of semestersToLoad) {
+        try {
+          const response = await fetchWithAuth(`/api/users/${session.user.githubId}/schedule/${semester.code}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.classes && data.classes.length > 0) {
+              // Transform classes to Course format
+              const courses = data.classes.map((cls: any) => ({
+                id: cls.id,
+                code: `${cls.subject} ${cls.number}`,
+                name: cls.title,
+                title: cls.title,
+                credits: cls.credits || 3,
+                time: cls.time,
+                location: cls.location,
+                instructor: cls.instructor,
+                status: 'scheduled' as const,
+                semester: semester.name
+              }));
+              schedules.set(semester.name, courses);
+              console.log(`📚 Loaded ${courses.length} classes for ${semester.name}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error loading schedule for ${semester.name}:`, error);
+        }
+      }
+      
+      setAllSemesterSchedules(schedules);
+      console.log('✅ Loaded all semester schedules:', schedules.size, 'semesters');
+    };
+    
+    loadAllSemesterSchedules();
+  }, [session?.user?.githubId]);
   
   // Use semester from schedule context instead of calculating locally
   const currentSemesterName = useMemo(() => {
@@ -497,6 +550,7 @@ export default function DashboardPage() {
         }
       });
       
+      // Add scheduled courses from the current scheduler view
       scheduledCourses.forEach((course) => {
         if (course.semester === semester.label) {
           // Only add if not already in completed courses
@@ -512,6 +566,24 @@ export default function DashboardPage() {
           }
         }
       });
+      
+      // Add scheduled courses from ALL semester schedules (loaded from backend)
+      const semesterSchedule = allSemesterSchedules.get(semester.label);
+      if (semesterSchedule) {
+        semesterSchedule.forEach(course => {
+          // Only add if not already in map
+          if (!semesterCoursesMap.has(course.code)) {
+            semester.courseCount++;
+            semester.credits += course.credits || 3;
+            semesterCoursesMap.set(course.code, {
+              code: course.code,
+              name: course.name || course.title,
+              credits: course.credits || 3,
+              grade: undefined // No grade for scheduled courses
+            });
+          }
+        });
+      }
       
       // Convert Map to array for semester data
       semester.courses = Array.from(semesterCoursesMap.values());
@@ -536,7 +608,7 @@ export default function DashboardPage() {
     });
     
     return semesters;
-  }, [completedCourses, scheduledCourses, enrollmentYear, graduationYear]);
+  }, [completedCourses, scheduledCourses, allSemesterSchedules, enrollmentYear, graduationYear]);
 
   // Handle removing a completed course
   const handleRemoveCourse = async (semester: string, courseCode: string) => {
@@ -651,7 +723,7 @@ export default function DashboardPage() {
         // Sync with scheduler - trigger migration for this user
         if (session?.user?.githubId) {
           try {
-            const migrationResponse = await fetch(`/api/users/${session.user.githubId}/migrate-completed-courses`, {
+            const migrationResponse = await fetchWithAuth(`/api/users/${session.user.githubId}/migrate-completed-courses`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

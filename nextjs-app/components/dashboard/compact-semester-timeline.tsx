@@ -8,6 +8,7 @@ import { AddCoursesModal } from "./add-courses-modal";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useSchedule } from "@/contexts/schedule-context";
+import { fetchWithAuth } from "@/lib/api-client";
 
 interface SemesterData {
   label: string;
@@ -367,7 +368,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
     if (semesterCode) {
       try {
         // Create or get schedule for this semester
-        const response = await fetch(`/api/users/${session.user.githubId}/schedule/${semesterCode}`);
+        const response = await fetchWithAuth(`/api/users/${session.user.githubId}/schedule/${semesterCode}`);
         
         if (response.ok) {
           // Update the schedule context to this semester

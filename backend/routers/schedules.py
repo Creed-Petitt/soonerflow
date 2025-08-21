@@ -13,6 +13,7 @@ from database.models import (
     User, Schedule, ScheduledClass, Class as ClassModel, 
     CompletedCourse, create_engine_and_session
 )
+from backend.auth import verify_api_key
 from backend.services import ClassService, ProfessorService
 from pydantic import BaseModel
 
@@ -53,18 +54,34 @@ def get_db():
 
 
 @router.get("/semesters")
-async def get_available_semesters(db: Session = Depends(get_db)):
-    """Get available semesters with metadata - current (Fall 2025) and future only."""
+async def get_available_semesters(
+    include_summers: bool = False, 
+    include_historical: bool = False,
+    db: Session = Depends(get_db)
+):
+    """Get available semesters with metadata."""
     from sqlalchemy import func
     
-    # Define semester names
+    # Define semester names (extended for historical data)
     semester_names = {
+        "202110": "Fall 2021",
+        "202120": "Spring 2022", 
+        "202130": "Summer 2022",
+        "202210": "Fall 2022",
+        "202220": "Spring 2023",
+        "202230": "Summer 2023", 
+        "202310": "Fall 2023",
+        "202320": "Spring 2024",
+        "202330": "Summer 2024",
         "202410": "Fall 2024",
         "202420": "Spring 2025",
+        "202430": "Summer 2025",
         "202510": "Fall 2025",
         "202520": "Spring 2026",
-        "202530": "Summer 2025",
-        "202630": "Summer 2026"
+        "202530": "Summer 2026",
+        "202610": "Fall 2026",
+        "202620": "Spring 2027",
+        "202630": "Summer 2027"
     }
     
     # Get class counts per semester
@@ -75,14 +92,20 @@ async def get_available_semesters(db: Session = Depends(get_db)):
     
     semesters = []
     for sem, count in semester_data:
-        # Only include current semester (Fall 2025) and future semesters
-        if sem >= "202510":
-            semesters.append({
-                "code": sem,
-                "name": semester_names.get(sem, sem),
-                "class_count": count,
-                "is_summer": sem.endswith("30")
-            })
+        is_summer = sem.endswith("30")
+        
+        # Apply filtering
+        if not include_historical and sem < "202510":
+            continue
+        if not include_summers and is_summer:
+            continue
+            
+        semesters.append({
+            "code": sem,
+            "name": semester_names.get(sem, sem),
+            "class_count": count,
+            "is_summer": is_summer
+        })
     
     # Sort by semester code
     semesters.sort(key=lambda x: x["code"])
@@ -94,6 +117,7 @@ async def get_available_semesters(db: Session = Depends(get_db)):
 async def get_or_create_semester_schedule(
     github_id: str, 
     semester: str,
+    api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Get or create user's schedule for a specific semester."""

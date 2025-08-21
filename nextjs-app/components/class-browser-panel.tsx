@@ -26,6 +26,7 @@ import { useSchedule } from "@/hooks/use-schedule";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { ScheduleErrorDialog, type ScheduleErrorType } from "@/components/schedule-error-dialog";
+import { fetchWithAuth } from "@/lib/api-client";
 
 // Major to Department mapping - comprehensive based on actual OU majors
 const MAJOR_TO_DEPT: Record<string, string[]> = {
@@ -285,7 +286,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       // Get user's major departments
       let majorDepts: string[] = [];
       if (session?.user?.githubId) {
-        const userResponse = await fetch(`/api/users/${session.user.githubId}`);
+        const userResponse = await fetchWithAuth(`/api/users/${session.user.githubId}`);
         if (userResponse.ok) {
           const userData = await userResponse.json();
           if (userData.major) {
@@ -547,7 +548,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     // First validate the class before adding
     try {
       // Get the current schedule ID
-      const scheduleResponse = await fetch(`/api/users/${session?.user?.githubId}/schedule/${currentSemester}`);
+      const scheduleResponse = await fetchWithAuth(`/api/users/${session?.user?.githubId}/schedule/${currentSemester}`);
       if (!scheduleResponse.ok) {
         toast.error("Could not validate class - schedule not found");
         return;
