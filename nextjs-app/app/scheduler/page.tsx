@@ -297,7 +297,7 @@ export default function SchedulerPage() {
         for (const subject of subjects) {
           if (cancelled) return
           
-          const response = await fetch(`/api/classes?subject=${subject}&semester=${currentSemester}&limit=500`)
+          const response = await fetch(`/api/classes?subject=${subject}&semester=${currentSemester}&limit=100&skip_ratings=true`)
           if (response.ok && !cancelled) {
             const data = await response.json()
             allClasses.push(...(data.classes || []))

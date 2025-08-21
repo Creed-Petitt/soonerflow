@@ -56,10 +56,10 @@ def get_db():
 
 
 @router.get("/departments")
-async def get_departments(db: Session = Depends(get_db)):
-    """Get all unique departments/subjects."""
+async def get_departments(semester: Optional[str] = "202510", db: Session = Depends(get_db)):
+    """Get all unique departments/subjects for a semester."""
     class_service = ClassService(db)
-    departments = class_service.get_all_departments_with_counts()
+    departments = class_service.get_all_departments_with_counts(semester)
     return {"departments": departments}
 
 
@@ -70,6 +70,7 @@ async def get_classes(
     semester: Optional[str] = None,
     limit: Optional[int] = 500,
     page: Optional[int] = 1,
+    skip_ratings: Optional[bool] = False,
     db: Session = Depends(get_db)
 ):
     """Get all classes with optional filtering."""
@@ -88,11 +89,11 @@ async def get_classes(
         semester=semester,
         limit=limit,
         page=page,
-        skip_ratings=limit > settings.skip_ratings_threshold
+        skip_ratings=skip_ratings or limit > settings.skip_ratings_threshold
     )
     
     # Add professor ratings if not skipped
-    if limit <= settings.skip_ratings_threshold:
+    if not skip_ratings and limit <= settings.skip_ratings_threshold:
         for cls_data in result["classes"]:
             ratings = professor_service.get_rating(cls_data["id"], cls_data["instructor"])
             cls_data.update(ratings)

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Search, Filter, Plus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,7 +223,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([]);
-  const [filteredGroupedClasses, setFilteredGroupedClasses] = useState<GroupedClass[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
@@ -277,7 +276,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       setLoading(true);
       
       // Load departments list
-      const deptResponse = await fetch('/api/classes/departments');
+      const deptResponse = await fetch(`/api/classes/departments?semester=${currentSemester}`);
       if (!deptResponse.ok) throw new Error('Failed to fetch departments');
       
       const deptData = await deptResponse.json();
@@ -345,7 +344,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=1000`);
+      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=100&skip_ratings=true`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       
       const data = await response.json();
@@ -369,21 +368,25 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       
       const allMajorClasses: ClassData[] = [];
       
-      // Load classes for each major department
-      for (const dept of userMajorDepts) {
+      // Load classes for each major department in parallel
+      const deptPromises = userMajorDepts.map(async (dept) => {
         if (departmentCache[dept]) {
-          allMajorClasses.push(...departmentCache[dept]);
+          return departmentCache[dept];
         } else {
-          const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=1000`);
+          const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=100&skip_ratings=true`);
           if (response.ok) {
             const data = await response.json();
             const deptClasses = data.classes || [];
-            allMajorClasses.push(...deptClasses);
             // Cache the department data
             setDepartmentCache(prev => ({ ...prev, [dept]: deptClasses }));
+            return deptClasses;
           }
+          return [];
         }
-      }
+      });
+      
+      const results = await Promise.all(deptPromises);
+      results.forEach(deptClasses => allMajorClasses.push(...deptClasses));
       
       processClasses(allMajorClasses);
     } catch (error) {
@@ -399,7 +402,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       setLoading(true);
       
       // Load classes without department filter to search across all
-      const response = await fetch(`/api/classes?semester=${currentSemester}&limit=2000`);
+      const response = await fetch(`/api/classes?semester=${currentSemester}&limit=200&skip_ratings=true`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       
       const data = await response.json();
@@ -449,16 +452,12 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       g.sections.length > 0 || g.labSections.length > 0
     );
     setGroupedClasses(groupedArray);
-    setFilteredGroupedClasses(groupedArray);
   };
   
 
-  // Filter grouped classes
-  useEffect(() => {
+  // Memoized filtering for performance
+  const filteredGroupedClasses = useMemo(() => {
     let filtered = [...groupedClasses];
-
-    // Note: Department filtering is now done at load time
-    // This only handles search and hide full
 
     // Filter by class level
     if (selectedLevel && selectedLevel !== "all") {
@@ -488,7 +487,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       );
     }
 
-    setFilteredGroupedClasses(filtered);
+    return filtered;
   }, [groupedClasses, searchTerm, selectedLevel]);
 
   const checkTimeConflict = (classToCheck: ClassData) => {

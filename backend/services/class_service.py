@@ -129,10 +129,13 @@ class ClassService:
         subjects = self.db.query(ClassModel.subject).distinct().all()
         return sorted([s[0] for s in subjects if s[0]])
     
-    def get_all_departments_with_counts(self) -> List[Dict[str, Any]]:
+    def get_all_departments_with_counts(self, semester: str = "202510") -> List[Dict[str, Any]]:
         """
-        Get all departments with their class counts.
+        Get all departments with their class counts for a specific semester.
         
+        Args:
+            semester: Semester code to filter by
+            
         Returns:
             List of departments with counts
         """
@@ -141,7 +144,7 @@ class ClassService:
         departments = self.db.query(
             ClassModel.subject,
             func.count(ClassModel.id).label('count')
-        ).group_by(ClassModel.subject).order_by(ClassModel.subject).all()
+        ).filter(ClassModel.semester == semester).group_by(ClassModel.subject).order_by(ClassModel.subject).all()
         
         return [
             {"code": dept, "count": count}
@@ -258,7 +261,8 @@ class ClassService:
         # Get prerequisites
         prerequisites = self.get_prerequisites(cls.id) if not skip_ratings else []
         
-        return {
+        # Build base response
+        response = {
             "id": cls.id,
             "subject": cls.subject,
             "number": cls.courseNumber,
@@ -270,11 +274,8 @@ class ClassService:
             "days": days,
             "available_seats": cls.availableSeats or 0,
             "total_seats": cls.totalSeats or 0,
-            "description": cls.description or "",
-            "prerequisites": prerequisites,
             "genEd": cls.genEd or "",
             "type": cls.type or "",
-            "sections": sections,
             # Ratings will be added by the controller if needed
             "rating": 0.0,
             "difficulty": 0.0,
@@ -282,6 +283,23 @@ class ClassService:
             "ratingDistribution": [0, 0, 0, 0, 0],
             "tags": []
         }
+        
+        # Add expensive fields only when not skipping
+        if not skip_ratings:
+            response.update({
+                "description": cls.description or "",
+                "prerequisites": prerequisites,
+                "sections": sections
+            })
+        else:
+            # Lightweight response for lists
+            response.update({
+                "description": "",
+                "prerequisites": [],
+                "sections": []
+            })
+        
+        return response
     
     def format_meeting_times(self, meeting_times: List[MeetingTime]) -> str:
         """
