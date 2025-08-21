@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useDeferredValue } from "react"
+import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,6 +48,36 @@ export function AddCoursesModal({
   const [searchLoading, setSearchLoading] = useState(false)
   const [departments, setDepartments] = useState<{code: string, name: string, count: number}[]>([])
   const [departmentCache, setDepartmentCache] = useState<Record<string, Course[]>>({})
+  const [userMajor, setUserMajor] = useState<string | null>(null)
+  const { data: session } = useSession()
+
+  // Load user's major when modal opens
+  useEffect(() => {
+    const fetchUserMajor = async () => {
+      if (session?.user?.email && !userMajor) {
+        try {
+          const response = await fetch(`/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`)
+          if (response.ok) {
+            const data = await response.json()
+            setUserMajor(data.majorName)
+          }
+        } catch (error) {
+          console.error('Failed to fetch user major:', error)
+        }
+      }
+    }
+    
+    if (isOpen) {
+      fetchUserMajor()
+    }
+  }, [isOpen, session?.user?.email, userMajor])
+
+  // Set default to major once userMajor is loaded
+  useEffect(() => {
+    if (userMajor && !selectedDepartment) {
+      setSelectedDepartment("major")
+    }
+  }, [userMajor, selectedDepartment])
 
   // Load departments when modal opens
   useEffect(() => {
@@ -96,13 +127,12 @@ export function AddCoursesModal({
 
   // Load courses when department changes
   useEffect(() => {
-    if (selectedDepartment && selectedDepartment !== "all") {
+    if (selectedDepartment === "major") {
+      loadMajorCourses()
+    } else if (selectedDepartment && selectedDepartment !== "all") {
       loadCoursesForDepartment(selectedDepartment)
-    } else if (selectedDepartment === "all") {
-      // Load first 500 courses for "all" option
-      loadAllCourses()
     }
-  }, [selectedDepartment])
+  }, [selectedDepartment, userMajor])
 
   // Perform global search when search query changes
   useEffect(() => {
@@ -155,13 +185,61 @@ export function AddCoursesModal({
       const data = await response.json()
       if (data.departments) {
         setDepartments(data.departments)
-        // Select first department by default
-        if (data.departments.length > 0) {
-          setSelectedDepartment(data.departments[0].code)
+        // Only set default if nothing is selected
+        if (!selectedDepartment) {
+          // Default to major requirements if user has a major, otherwise first department
+          if (userMajor) {
+            setSelectedDepartment("major")
+          } else if (data.departments.length > 0) {
+            setSelectedDepartment(data.departments[0].code)
+          }
         }
       }
     } catch (error) {
       console.error('Failed to load departments:', error)
+    }
+  }
+
+  const loadMajorCourses = async () => {
+    if (!userMajor) {
+      console.log('No user major available')
+      setDepartmentCourses([])
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/major-courses?major_name=${encodeURIComponent(userMajor)}`)
+      const data = await response.json()
+      
+      if (data && data.length > 0) {
+        // Transform major courses to the expected format and deduplicate
+        const uniqueCourses = new Map()
+        data.forEach((course: any) => {
+          const courseKey = `${course.subject}-${course.courseNumber}`
+          if (!uniqueCourses.has(courseKey)) {
+            uniqueCourses.set(courseKey, {
+              id: courseKey,
+              code: `${course.subject} ${course.courseNumber}`,
+              name: course.title,
+              credits: course.credits || 3,
+              category: course.category || course.subject
+            })
+          }
+        })
+        
+        const courses = Array.from(uniqueCourses.values())
+        setDepartmentCourses(courses)
+        console.log(`Loaded ${courses.length} unique major requirement courses (from ${data.length} total entries)`)
+      } else {
+        setDepartmentCourses([])
+        console.log('No major courses found')
+      }
+    } catch (error) {
+      console.error('Failed to fetch major courses:', error)
+      setDepartmentCourses([])
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -203,42 +281,12 @@ export function AddCoursesModal({
       }
     } catch (error) {
       console.error('Failed to fetch courses:', error)
-      setAvailableCourses([])
+      setDepartmentCourses([])
     } finally {
       setLoading(false)
     }
   }
 
-  const loadAllCourses = async () => {
-    // For "all" option, just load first 500 courses
-    try {
-      setLoading(true)
-      const response = await fetch('/api/classes?limit=500')
-      const data = await response.json()
-      
-      if (data.classes && data.classes.length > 0) {
-        // Transform to unique courses
-        const uniqueCourses = new Map()
-        data.classes.forEach((cls: any) => {
-          const courseKey = `${cls.subject}-${cls.number || cls.courseNumber}`
-          if (!uniqueCourses.has(courseKey)) {
-            uniqueCourses.set(courseKey, {
-              id: courseKey,
-              code: `${cls.subject} ${cls.number || cls.courseNumber}`,
-              name: cls.title,
-              credits: cls.credits || 3,
-              category: cls.subject
-            })
-          }
-        })
-        setDepartmentCourses(Array.from(uniqueCourses.values()))
-      }
-    } catch (error) {
-      console.error('Failed to fetch courses:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleCourseToggle = (course: Course) => {
     const newSelected = new Map(selectedCourses)
@@ -339,7 +387,7 @@ export function AddCoursesModal({
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    <SelectItem value="all">All Departments (First 500)</SelectItem>
+                    <SelectItem value="major">My Major Requirements</SelectItem>
                     {departments.map(dept => (
                       <SelectItem key={dept.code} value={dept.code}>
                         {dept.code} ({dept.count} classes)
