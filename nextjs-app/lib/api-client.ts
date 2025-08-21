@@ -4,7 +4,7 @@
  */
 
 // Get the API key from environment variable
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'afweFuM7Qekzgpxbml1DNBJlYDb6ODyL5nkpMhwBN44'
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY
 
 // Debug logging
 console.log('API Key being used:', API_KEY)

@@ -13,10 +13,11 @@ const handler = NextAuth({
       // Save user to backend on sign in
       if (account?.provider === "github") {
         try {
-          const response = await fetch("http://127.0.0.1:8000/api/auth/user", {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/user`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "X-API-Key": process.env.NEXT_PUBLIC_API_KEY!,
             },
             body: JSON.stringify({
               github_id: user.id,

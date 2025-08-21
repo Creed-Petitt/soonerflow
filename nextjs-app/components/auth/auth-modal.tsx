@@ -30,7 +30,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setIsLoading(true);
     try {
       await signIn("github", {
-        callbackUrl: "/",
+        callbackUrl: "/dashboard",
       });
     } catch (error) {
       console.error("Login error:", error);

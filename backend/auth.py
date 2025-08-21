@@ -7,6 +7,10 @@ from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 sys.path.append('/home/highs/ou-class-manager')
 from database.models import User, create_engine_and_session
