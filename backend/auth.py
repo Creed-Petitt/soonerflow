@@ -11,8 +11,10 @@ import sys
 sys.path.append('/home/highs/ou-class-manager')
 from database.models import User, create_engine_and_session
 
-# API Key from environment
-API_KEY = os.getenv("API_KEY", "afweFuM7Qekzgpxbml1DNBJlYDb6ODyL5nkpMhwBN44")
+# API Key from environment (required)
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    raise ValueError("API_KEY environment variable is required")
 
 # Database session
 engine, SessionLocal = create_engine_and_session()
