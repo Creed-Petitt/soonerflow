@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useDeferredValue } from "react"
+import { useState, useEffect, useMemo, useDeferredValue, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,33 @@ interface Course {
   name: string
   credits: number
   category?: string
+}
+
+// Add ClassData interface from ClassBrowserPanel
+interface ClassData {
+  id: string;
+  subject: string;
+  courseNumber: string;
+  number?: string; // API returns "number" not "courseNumber"
+  title: string;
+  credits: number;
+  instructor?: string;
+  time?: string;
+  meetingTimes?: any[];
+  available_seats?: number; // API uses underscore
+  total_seats?: number; // API uses underscore
+  type?: string;
+  labs?: any[];
+}
+
+// Add GroupedClass interface from ClassBrowserPanel
+interface GroupedClass {
+  subject: string;
+  number: string;
+  title: string;
+  credits?: number;
+  sections: ClassData[];
+  labSections: ClassData[];
 }
 
 interface SelectedCourse extends Course {
@@ -44,31 +71,73 @@ export function AddCoursesModal({
   const [selectedCourses, setSelectedCourses] = useState<Map<string, SelectedCourse>>(new Map())
   const [departmentCourses, setDepartmentCourses] = useState<Course[]>([])
   const [searchResults, setSearchResults] = useState<Course[]>([])
+  // Add new state for raw classes and grouped classes
+  const [rawClasses, setRawClasses] = useState<ClassData[]>([])
+  const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
   const [loading, setLoading] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [coursePage, setCoursePage] = useState(1)
+  const [hasMoreCourses, setHasMoreCourses] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [totalCoursesCount, setTotalCoursesCount] = useState(0)
   const [departments, setDepartments] = useState<{code: string, name: string, count: number}[]>([])
-  const [departmentCache, setDepartmentCache] = useState<Record<string, Course[]>>({})
+  const [departmentCache, setDepartmentCache] = useState<Record<string, {courses: Course[], totalCount: number}>>({})
   const [userMajor, setUserMajor] = useState<string | null>(null)
+  const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set())
   const { data: session } = useSession()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  // Add current semester state like ClassBrowserPanel
+  const [currentSemester] = useState("202510") // Fall 2025 - should match the current semester
 
-  // Load user's major when modal opens
+  // Load user's major and completed courses when modal opens
   useEffect(() => {
-    const fetchUserMajor = async () => {
-      if (session?.user?.email && !userMajor) {
+    const fetchUserData = async () => {
+      if (session?.user?.email) {
         try {
-          const response = await fetch(`/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`)
-          if (response.ok) {
-            const data = await response.json()
-            setUserMajor(data.majorName)
+          // Fetch user major
+          if (!userMajor) {
+            const response = await fetch(`/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`)
+            if (response.ok) {
+              const data = await response.json()
+              setUserMajor(data.majorName)
+            }
+          }
+          
+          // Fetch completed courses
+          const completedResponse = await fetch(`/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`)
+          if (completedResponse.ok) {
+            const dashboardData = await completedResponse.json()
+            const completed = new Set<string>()
+            
+            // Go through all semesters and collect completed courses
+            if (dashboardData.semesters) {
+              dashboardData.semesters.forEach((sem: any) => {
+                if (sem.courses && sem.courses.length > 0) {
+                  sem.courses.forEach((course: any) => {
+                    // Create course ID format to match our course list
+                    if (course.code) {
+                      const parts = course.code.trim().split(/\s+/)
+                      if (parts.length >= 2) {
+                        const subject = parts.slice(0, -1).join(' ')
+                        const number = parts[parts.length - 1]
+                        const courseId = `${subject}-${number}`
+                        completed.add(courseId)
+                      }
+                    }
+                  })
+                }
+              })
+            }
+            setCompletedCourses(completed)
           }
         } catch (error) {
-          console.error('Failed to fetch user major:', error)
+          console.error('Failed to fetch user data:', error)
         }
       }
     }
     
     if (isOpen) {
-      fetchUserMajor()
+      fetchUserData()
     }
   }, [isOpen, session?.user?.email, userMajor])
 
@@ -122,6 +191,10 @@ export function AddCoursesModal({
       setSelectedCourses(new Map())
       setSearchQuery("")
       setSelectedDepartment("")
+      setCoursePage(1)
+      setHasMoreCourses(false)
+      setTotalCoursesCount(0)
+      setIsLoadingMore(false)
     }
   }, [isOpen, existingCourses])
 
@@ -130,35 +203,66 @@ export function AddCoursesModal({
     if (selectedDepartment === "major") {
       loadMajorCourses()
     } else if (selectedDepartment && selectedDepartment !== "all") {
-      loadCoursesForDepartment(selectedDepartment)
+      // Reset pagination when changing departments
+      setCoursePage(1)
+      setDepartmentCourses([])
+      setHasMoreCourses(false)
+      setTotalCoursesCount(0)
+      loadCoursesForDepartment(selectedDepartment, 1, true)
     }
   }, [selectedDepartment, userMajor])
 
   // Perform global search when search query changes
   useEffect(() => {
     const searchGlobally = async () => {
-      if (deferredSearchQuery.length >= 2) {
+      if (deferredSearchQuery.length >= 1) {
         try {
           setSearchLoading(true)
-          const response = await fetch(`/api/classes?search=${encodeURIComponent(deferredSearchQuery)}&limit=100`)
+          const response = await fetch(`/api/classes?search=${encodeURIComponent(deferredSearchQuery)}&semester=${currentSemester}&limit=500&skip_ratings=true`)
           const data = await response.json()
           
           if (data.classes && data.classes.length > 0) {
-            // Transform to unique courses
-            const uniqueCourses = new Map()
+            // Use the same grouping logic for search results
+            const grouped: Record<string, GroupedClass> = {}
             data.classes.forEach((cls: any) => {
-              const courseKey = `${cls.subject}-${cls.number || cls.courseNumber}`
-              if (!uniqueCourses.has(courseKey)) {
-                uniqueCourses.set(courseKey, {
-                  id: courseKey,
-                  code: `${cls.subject} ${cls.number || cls.courseNumber}`,
-                  name: cls.title,
-                  credits: cls.credits || 3,
-                  category: cls.subject
-                })
+              // Skip invalid classes
+              if (!cls.subject || (!cls.number && !cls.courseNumber)) return
+              
+              const key = `${cls.subject} ${cls.number || cls.courseNumber}`
+              
+              if (!grouped[key]) {
+                grouped[key] = {
+                  subject: cls.subject,
+                  number: cls.number || cls.courseNumber,
+                  title: cls.title,
+                  credits: cls.credits,
+                  sections: [],
+                  labSections: []
+                }
+              }
+              
+              // Separate labs from lectures
+              if (cls.type === "Lab" || cls.type === "Lab with No Credit") {
+                grouped[key].labSections.push(cls)
+              } else {
+                grouped[key].sections.push(cls)
               }
             })
-            setSearchResults(Array.from(uniqueCourses.values()))
+            
+            // Filter out groups with no sections and convert to Course format
+            const groupedArray = Object.values(grouped).filter(g => 
+              g.sections.length > 0 || g.labSections.length > 0
+            )
+            
+            const searchCourses: Course[] = groupedArray.map(group => ({
+              id: `${group.subject}-${group.number}`,
+              code: `${group.subject} ${group.number}`,
+              name: group.title,
+              credits: group.credits || 3,
+              category: group.subject
+            }))
+            
+            setSearchResults(searchCourses)
           } else {
             setSearchResults([])
           }
@@ -169,7 +273,7 @@ export function AddCoursesModal({
           setSearchLoading(false)
         }
       } else {
-        // Clear search results when query is too short
+        // Clear search results when query is empty
         setSearchResults([])
         setSearchLoading(false)
       }
@@ -180,7 +284,7 @@ export function AddCoursesModal({
 
   const loadDepartments = async () => {
     try {
-      const response = await fetch('/api/classes/departments')
+      const response = await fetch(`/api/classes/departments?semester=${currentSemester}`)
       const data = await response.json()
       if (data.departments) {
         setDepartments(data.departments)
@@ -202,7 +306,8 @@ export function AddCoursesModal({
       const data = await response.json()
       
       if (data && data.length > 0) {
-        // Transform major courses to the expected format and deduplicate
+        // For major courses, we can keep the existing logic since they're already unique
+        // But we format them consistently
         const uniqueCourses = new Map()
         data.forEach((course: any) => {
           const courseKey = `${course.subject}-${course.courseNumber}`
@@ -230,51 +335,163 @@ export function AddCoursesModal({
     }
   }
 
-  const loadCoursesForDepartment = async (dept: string) => {
-    // Check cache first
-    if (departmentCache[dept]) {
-      setDepartmentCourses(departmentCache[dept])
+  const loadCoursesForDepartment = async (dept: string, page: number = 1, resetCourses: boolean = false) => {
+    // Check cache first (only for first page)
+    if (page === 1 && departmentCache[dept] && !resetCourses) {
+      const cachedClasses = departmentCache[dept].courses
+      setRawClasses(cachedClasses)
+      processClassesToCourses(cachedClasses)
+      setTotalCoursesCount(departmentCache[dept].totalCount)
+      setHasMoreCourses(cachedClasses.length < departmentCache[dept].totalCount)
       return
     }
     
     try {
-      setLoading(true)
-      const response = await fetch(`/api/classes?subject=${dept}&limit=1000`)
+      if (page === 1) {
+        setLoading(true)
+      } else {
+        setIsLoadingMore(true)
+      }
+      
+      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=100&page=${page}&skip_ratings=true`)
       const data = await response.json()
       
       if (data.classes && data.classes.length > 0) {
-        // Transform to unique courses
-        const uniqueCourses = new Map()
-        data.classes.forEach((cls: any) => {
-          const courseKey = `${cls.subject}-${cls.number || cls.courseNumber}`
-          if (!uniqueCourses.has(courseKey)) {
-            uniqueCourses.set(courseKey, {
-              id: courseKey,
-              code: `${cls.subject} ${cls.number || cls.courseNumber}`,
-              name: cls.title,
-              credits: cls.credits || 3,
-              category: cls.subject
-            })
-          }
-        })
-        const courses = Array.from(uniqueCourses.values())
+        const newClasses = data.classes
         
-        // Cache the department data
-        setDepartmentCache(prev => ({ ...prev, [dept]: courses }))
-        setDepartmentCourses(courses)
+        if (page === 1 || resetCourses) {
+          // First page or reset - replace all classes
+          setRawClasses(newClasses)
+          processClassesToCourses(newClasses)
+          
+          // Cache first page data
+          if (page === 1) {
+            setDepartmentCache(prev => ({ 
+              ...prev, 
+              [dept]: { 
+                courses: newClasses, 
+                totalCount: data.pagination?.total || newClasses.length 
+              } 
+            }))
+          }
+        } else {
+          // Additional pages - append to existing classes
+          const allClasses = [...rawClasses, ...newClasses]
+          setRawClasses(allClasses)
+          processClassesToCourses(allClasses)
+        }
+        
+        // Set pagination info
+        setTotalCoursesCount(data.pagination?.total || newClasses.length)
+        setHasMoreCourses(data.pagination?.hasNext || false)
+        setCoursePage(page)
       } else {
-        setDepartmentCourses([])
+        if (page === 1 || resetCourses) {
+          setRawClasses([])
+          setDepartmentCourses([])
+          setTotalCoursesCount(0)
+        }
+        setHasMoreCourses(false)
       }
     } catch (error) {
       console.error('Failed to fetch courses:', error)
-      setDepartmentCourses([])
+      if (page === 1 || resetCourses) {
+        setRawClasses([])
+        setDepartmentCourses([])
+        setTotalCoursesCount(0)
+      }
+      setHasMoreCourses(false)
     } finally {
       setLoading(false)
+      setIsLoadingMore(false)
     }
   }
 
+  // Add the processClassesToCourses function - converts raw classes to grouped courses like ClassBrowserPanel
+  const processClassesToCourses = (allClasses: ClassData[]) => {
+    // Group classes by subject + number (like ClassBrowserPanel)
+    const grouped: Record<string, GroupedClass> = {}
+    allClasses.forEach((cls: ClassData) => {
+      // Skip invalid classes
+      if (!cls.subject || (!cls.number && !cls.courseNumber)) return
+      
+      const key = `${cls.subject} ${cls.number || cls.courseNumber}`
+      
+      if (!grouped[key]) {
+        grouped[key] = {
+          subject: cls.subject,
+          number: cls.number || cls.courseNumber,
+          title: cls.title,
+          credits: cls.credits,
+          sections: [],
+          labSections: []
+        }
+      }
+      
+      // Separate labs from lectures
+      if (cls.type === "Lab" || cls.type === "Lab with No Credit") {
+        grouped[key].labSections.push(cls)
+      } else {
+        grouped[key].sections.push(cls)
+      }
+    })
+    
+    // Filter out groups with no sections
+    const groupedArray = Object.values(grouped).filter(g => 
+      g.sections.length > 0 || g.labSections.length > 0
+    )
+    setGroupedClasses(groupedArray)
+    
+    // Convert grouped classes to Course format for existing UI
+    const courses: Course[] = groupedArray.map(group => ({
+      id: `${group.subject}-${group.number}`,
+      code: `${group.subject} ${group.number}`,
+      name: group.title,
+      credits: group.credits || 3,
+      category: group.subject
+    }))
+    
+    setDepartmentCourses(courses)
+  }
+
+  const loadMoreCourses = async () => {
+    if (!selectedDepartment || selectedDepartment === "major" || selectedDepartment === "all" || !hasMoreCourses || isLoadingMore) {
+      return
+    }
+    
+    const nextPage = coursePage + 1
+    await loadCoursesForDepartment(selectedDepartment, nextPage, false)
+  }
+
+  // Add scroll event listener for infinite scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!scrollAreaRef.current) return
+      
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (!scrollContainer) return
+      
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer
+      
+      // Load more when within 100px of bottom
+      if (scrollHeight - scrollTop - clientHeight < 100 && hasMoreCourses && !isLoadingMore) {
+        loadMoreCourses()
+      }
+    }
+
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll)
+      return () => scrollContainer.removeEventListener('scroll', handleScroll)
+    }
+  }, [hasMoreCourses, isLoadingMore, selectedDepartment])
 
   const handleCourseToggle = (course: Course) => {
+    // Don't allow selecting courses that are already completed in other semesters
+    if (completedCourses.has(course.id)) {
+      return
+    }
+    
     const newSelected = new Map(selectedCourses)
     if (newSelected.has(course.id)) {
       newSelected.delete(course.id)
@@ -302,19 +519,11 @@ export function AddCoursesModal({
 
   // Determine which courses to display: search results or department courses
   const displayedCourses = useMemo(() => {
-    // If searching globally (2+ chars), show search results
-    if (deferredSearchQuery.length >= 2) {
+    // If searching globally (1+ chars), show search results
+    if (deferredSearchQuery.length >= 1) {
       return searchResults
     }
-    // Otherwise show department courses (with optional local filtering)
-    if (deferredSearchQuery.length === 1) {
-      // Local filter for single character
-      const search = deferredSearchQuery.toLowerCase()
-      return departmentCourses.filter(course => 
-        course.code.toLowerCase().includes(search) ||
-        course.name.toLowerCase().includes(search)
-      )
-    }
+    // Otherwise show department courses
     return departmentCourses
   }, [departmentCourses, searchResults, deferredSearchQuery])
 
@@ -386,15 +595,18 @@ export function AddCoursesModal({
 
             {/* Course List */}
             <div className="flex-1 p-6 overflow-hidden">
-              <ScrollArea className="h-full" style={{ maxHeight: 'calc(60vh + 220px)' }}>
-                <div className="space-y-2 pr-4" style={{ paddingBottom: '0 !important', marginBottom: '0 !important' }}>
+              <ScrollArea 
+                ref={scrollAreaRef}
+                className="h-full"
+              >
+                <div className="space-y-2 pr-4">
                   {loading || searchLoading ? (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">
                         {searchLoading ? `Searching all courses for "${deferredSearchQuery}"...` : 'Loading courses...'}
                       </p>
                     </div>
-                  ) : deferredSearchQuery.length >= 2 && searchResults.length === 0 ? (
+                  ) : deferredSearchQuery.length >= 1 && searchResults.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">No courses found matching "{deferredSearchQuery}"</p>
                     </div>
@@ -406,39 +618,69 @@ export function AddCoursesModal({
                     </div>
                   ) : (
                     <>
-                      {deferredSearchQuery.length >= 2 && (
+                      {deferredSearchQuery.length >= 1 && (
                         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
                           <p className="text-sm text-blue-700 dark:text-blue-300">
                             Showing {searchResults.length} results from all courses
                           </p>
                         </div>
                       )}
-                      {displayedCourses.map((course, index) => (
-                        <div
-                          key={course.id}
-                          className={`flex items-center space-x-4 p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors ${
-                            index < displayedCourses.length - 1 ? 'mb-2' : ''
-                          }`}
-                        onClick={() => handleCourseToggle(course)}
-                      >
-                        <Checkbox
-                          checked={selectedCourses.has(course.id)}
-                          onCheckedChange={() => handleCourseToggle(course)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="font-semibold text-base">{course.code}</span>
-                            <span className="text-sm text-muted-foreground truncate">{course.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{course.credits} credits</Badge>
-                            {course.category && (
-                              <Badge variant="outline">{course.category}</Badge>
-                            )}
-                          </div>
+                      {deferredSearchQuery.length === 0 && totalCoursesCount > 0 && (
+                        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-950 rounded-lg">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            Showing {displayedCourses.length} of {totalCoursesCount} courses
+                            {hasMoreCourses && " (scroll down to load more)"}
+                          </p>
                         </div>
+                      )}
+                      {displayedCourses.map((course, index) => {
+                        const isCompleted = completedCourses.has(course.id)
+                        return (
+                          <div
+                            key={course.id}
+                            className={`flex items-center space-x-4 p-4 rounded-lg border transition-colors ${
+                              index < displayedCourses.length - 1 ? 'mb-2' : ''
+                            } ${
+                              isCompleted 
+                                ? 'opacity-50 bg-muted cursor-not-allowed' 
+                                : 'hover:bg-accent cursor-pointer'
+                            }`}
+                            onClick={() => handleCourseToggle(course)}
+                          >
+                            <Checkbox
+                              checked={selectedCourses.has(course.id)}
+                              disabled={isCompleted}
+                              onCheckedChange={() => handleCourseToggle(course)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className={`font-semibold text-base ${isCompleted ? 'line-through' : ''}`}>
+                                  {course.code}
+                                </span>
+                                <span className={`text-sm text-muted-foreground truncate ${isCompleted ? 'line-through' : ''}`}>
+                                  {course.name}
+                                </span>
+                                {isCompleted && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Already Completed
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">{course.credits} credits</Badge>
+                                {course.category && (
+                                  <Badge variant="outline">{course.category}</Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {isLoadingMore && (
+                        <div className="text-center py-4">
+                          <p className="text-muted-foreground text-sm">Loading more courses...</p>
                         </div>
-                      ))}
+                      )}
                     </>
                   )}
                 </div>
@@ -461,8 +703,8 @@ export function AddCoursesModal({
 
             {/* Selected Courses */}
             <div className="flex-1 p-6 overflow-hidden">
-              <ScrollArea className="h-full max-h-[50vh]">
-                <div className="space-y-2 pr-2 pb-0">
+              <ScrollArea className="h-full">
+                <div className="space-y-2 pr-2">
                   {Array.from(selectedCourses.values()).map(course => (
                     <div key={course.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex-1">

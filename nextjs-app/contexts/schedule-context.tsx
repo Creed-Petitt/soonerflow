@@ -133,7 +133,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/users/${session.user.githubId}/schedule/${targetSemester}`);
+      const response = await fetchWithAuth(`/api/users/${session.user.githubId}/active-schedule`);
       
       if (!response.ok) {
         throw new Error('Failed to load schedule');
@@ -299,6 +299,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
   // Semester setter that triggers reload (with validation)
   const setCurrentSemester = useCallback(async (semester: string) => {
+    if (!session?.user?.githubId && !session?.user?.googleId) return;
     
     // Get the actual current semester code
     const actualCurrentSemester = getCurrentSemester();
@@ -310,22 +311,39 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       // This is for backward compatibility - can be made stricter later
     }
     
-    // Clear current state before switching to prevent duplicates
-    setLocalClasses([]);
-    setSchedule(null);
-    setError(null);
-    setLoading(true);
-    setIsSaving(false); // Cancel any pending saves
-    
-    // Update semester and trigger reload
-    setCurrentSemesterState(semester);
-    setHasLoadedSchedule(false); // Reset to trigger reload
-    
-    // Force immediate reload of the new semester
-    setTimeout(() => {
-      loadSchedule(semester);
-    }, 100);
-  }, [loadSchedule]);
+    try {
+      // Clear current state before switching to prevent duplicates
+      setLocalClasses([]);
+      setSchedule(null);
+      setError(null);
+      setLoading(true);
+      setIsSaving(false); // Cancel any pending saves
+      
+      // Update semester state
+      setCurrentSemesterState(semester);
+      setHasLoadedSchedule(false); // Reset to trigger reload
+      
+      // Activate the target semester's schedule on the backend
+      const providerId = session.user.githubId || session.user.googleId;
+      const activateResponse = await fetchWithAuth(`/api/users/${providerId}/activate-semester/${semester}`, {
+        method: 'POST'
+      });
+      
+      if (!activateResponse.ok) {
+        throw new Error('Failed to activate semester schedule');
+      }
+      
+      // Now load the newly activated schedule
+      setTimeout(() => {
+        loadSchedule();
+      }, 100);
+      
+    } catch (err) {
+      console.error('Failed to switch semester:', err);
+      setError('Failed to switch semester');
+      setLoading(false);
+    }
+  }, [loadSchedule, session]);
 
   const value: ScheduleContextType = {
     scheduledClasses: localClasses,

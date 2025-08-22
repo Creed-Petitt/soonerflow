@@ -278,9 +278,24 @@ def create_engine_and_session():
     
     # Configure engine based on database type
     if database_url.startswith('postgresql://'):
-        engine = create_engine(database_url, echo=False, pool_pre_ping=True)
+        engine = create_engine(
+            database_url, 
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=3600,  # Recycle connections every hour
+            pool_size=10,       # Connection pool size
+            max_overflow=20,    # Max overflow connections
+            pool_timeout=30,    # Connection timeout
+            # Remove problematic connection args for now
+            # connect_args={"options": "-c default_transaction_isolation='read committed'"}
+        )
     else:
         engine = create_engine(database_url, echo=False)
     
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    SessionLocal = sessionmaker(
+        autocommit=False, 
+        autoflush=False, 
+        bind=engine,
+        expire_on_commit=False  # Prevent expired objects after transaction
+    )
     return engine, SessionLocal 

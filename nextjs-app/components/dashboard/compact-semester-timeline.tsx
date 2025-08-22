@@ -356,7 +356,9 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
   };
 
   const handlePlanCourses = async (semesterLabel: string) => {
-    if (!session?.user?.githubId) {
+    const providerId = session?.user?.githubId || session?.user?.googleId;
+    
+    if (!providerId) {
       // If not logged in, just navigate to scheduler
       router.push('/scheduler');
       return;
@@ -368,7 +370,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
     if (semesterCode) {
       try {
         // Create or get schedule for this semester
-        const response = await fetchWithAuth(`/api/users/${session.user.githubId}/schedule/${semesterCode}`);
+        const response = await fetchWithAuth(`/api/users/${providerId}/schedule/${semesterCode}`);
         
         if (response.ok) {
           // Update the schedule context to this semester
@@ -448,14 +450,6 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
                       <span className="font-medium">{course.code}</span>
                       <span className="ml-2">{course.grade}</span>
                     </div>
-                    {onRemoveCourse && (
-                      <button
-                        onClick={() => handleRemoveCourse(semester.label, course.code)}
-                        className="text-muted-foreground hover:text-red-500 transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
@@ -479,9 +473,14 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
                 </Button>
               )}
               {semester.status === "current" && (
-                <div className="text-sm text-muted-foreground text-center">
-                  <p>In Progress</p>
-                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => router.push('/scheduler')}
+                >
+                  View Schedule
+                </Button>
               )}
               {semester.status === "upcoming" && (
                 <Button 

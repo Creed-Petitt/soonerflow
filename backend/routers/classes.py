@@ -51,8 +51,18 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        # Rollback failed transaction to prevent poisoning subsequent queries
+        try:
+            db.rollback()
+        except:
+            pass
+        raise e
     finally:
-        db.close()
+        try:
+            db.close()
+        except:
+            pass
 
 
 @router.get("/departments")
@@ -76,7 +86,6 @@ async def get_classes(
     """Get all classes with optional filtering."""
     # Use ClassService for data retrieval
     class_service = ClassService(db)
-    professor_service = ProfessorService(db)
     
     # Enforce max limit from settings
     if limit > settings.max_classes_per_request:
@@ -94,9 +103,21 @@ async def get_classes(
     
     # Add professor ratings if not skipped
     if not skip_ratings and limit <= settings.skip_ratings_threshold:
-        for cls_data in result["classes"]:
-            ratings = professor_service.get_rating(cls_data["id"], cls_data["instructor"])
-            cls_data.update(ratings)
+        # Use a separate database session for professor service to prevent session poisoning
+        professor_db = SessionLocal()
+        try:
+            isolated_professor_service = ProfessorService(professor_db)
+            for cls_data in result["classes"]:
+                ratings = isolated_professor_service.get_rating(cls_data["id"], cls_data["instructor"])
+                cls_data.update(ratings)
+        except Exception as e:
+            print(f"Warning: Professor service failed, continuing without ratings: {e}")
+            # Continue without ratings rather than failing the entire request
+        finally:
+            try:
+                professor_db.close()
+            except:
+                pass
     
     # Convert to response objects
     response_classes = [ClassResponse(**cls_data) for cls_data in result["classes"]]
@@ -158,16 +179,26 @@ async def get_all_courses(db: Session = Depends(get_db)):
 async def get_class(class_id: str, db: Session = Depends(get_db)):
     """Get a single class by ID."""
     class_service = ClassService(db)
-    professor_service = ProfessorService(db)
     
     cls_data = class_service.get_class_by_id(class_id)
     if not cls_data:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Class not found")
     
-    # Add professor ratings
-    ratings = professor_service.get_rating(cls_data["id"], cls_data["instructor"])
-    cls_data.update(ratings)
+    # Add professor ratings with isolated session
+    professor_db = SessionLocal()
+    try:
+        professor_service = ProfessorService(professor_db)
+        ratings = professor_service.get_rating(cls_data["id"], cls_data["instructor"])
+        cls_data.update(ratings)
+    except Exception as e:
+        print(f"Warning: Professor ratings failed for class {class_id}: {e}")
+        # Continue without ratings
+    finally:
+        try:
+            professor_db.close()
+        except:
+            pass
     
     return ClassResponse(**cls_data)
 

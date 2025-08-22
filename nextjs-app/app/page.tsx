@@ -1,23 +1,31 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Hero from "@/components/sections/hero";
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [showLoadingTimeout, setShowLoadingTimeout] = useState(false);
 
   useEffect(() => {
     // If user is authenticated, redirect to dashboard
     if (status === "authenticated" && session) {
       router.push("/dashboard");
     }
+    
+    // Add timeout for loading state
+    const timer = setTimeout(() => {
+      setShowLoadingTimeout(true);
+    }, 3000);
+    
+    return () => clearTimeout(timer);
   }, [status, session, router]);
 
-  // Show loading state while checking authentication
-  if (status === "loading") {
+  // Show loading state while checking authentication (add timeout)
+  if (status === "loading" && !showLoadingTimeout) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">

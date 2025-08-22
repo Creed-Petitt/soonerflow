@@ -41,6 +41,19 @@ class ProfessorService:
         Returns:
             Dictionary containing rating information
         """
+        try:
+            return self._get_rating_internal(class_id, instructor_name)
+        except Exception as e:
+            # If professor rating fails, rollback and return empty ratings
+            print(f"Warning: Professor rating failed for {instructor_name}: {e}")
+            try:
+                self.db.rollback()
+            except:
+                pass
+            return self._empty_rating()
+    
+    def _get_rating_internal(self, class_id: str, instructor_name: str) -> dict:
+        """Internal rating method with full error propagation."""
         # Return empty ratings for TBA or empty instructors
         if not instructor_name or instructor_name.upper() == "TBA":
             return self._empty_rating()
@@ -146,9 +159,16 @@ class ProfessorService:
             """), {"class_id": class_id}).first()
             
             if mapping:
-                return self.db.query(Professor).filter(
-                    Professor.id == mapping[0]
-                ).first()
+                try:
+                    return self.db.query(Professor).filter(
+                        Professor.id == mapping[0]
+                    ).first()
+                except Exception as e:
+                    print(f"Warning: Failed to query professor by ID: {e}")
+                    try:
+                        self.db.rollback()
+                    except:
+                        pass
         except Exception:
             pass
         
@@ -240,10 +260,18 @@ class ProfessorService:
         significant_words = [w for w in words if len(w) > 2]
         
         for word in significant_words:
-            professors = self.db.query(Professor).filter(
-                (Professor.lastName.ilike(f"%{word}%")) |
-                (Professor.firstName.ilike(f"%{word}%"))
-            ).filter(Professor.avgRating > 0).all()
+            try:
+                professors = self.db.query(Professor).filter(
+                    (Professor.lastName.ilike(f"%{word}%")) |
+                    (Professor.firstName.ilike(f"%{word}%"))
+                ).filter(Professor.avgRating > 0).all()
+            except Exception as e:
+                print(f"Warning: Failed to query professors by name: {e}")
+                try:
+                    self.db.rollback()
+                except:
+                    pass
+                continue
             
             if professors:
                 # Return the professor with the highest number of ratings
@@ -253,14 +281,24 @@ class ProfessorService:
     
     def _build_professor_name_cache(self):
         """Build cache of professor names for fuzzy matching."""
-        professors = self.db.query(Professor).filter(
-            Professor.avgRating > 0
-        ).all()
-        
-        self._professor_name_cache = []
-        for prof in professors:
-            full_name = f"{prof.firstName} {prof.lastName}".strip()
-            self._professor_name_cache.append((prof, full_name))
+        try:
+            professors = self.db.query(Professor).filter(
+                Professor.avgRating > 0
+            ).all()
+            
+            self._professor_name_cache = []
+            for prof in professors:
+                full_name = f"{prof.firstName} {prof.lastName}".strip()
+                self._professor_name_cache.append((prof, full_name))
+        except Exception as e:
+            # If database query fails, initialize empty cache to prevent repeated failures
+            print(f"Warning: Failed to build professor name cache: {e}")
+            self._professor_name_cache = []
+            # Rollback any failed transaction
+            try:
+                self.db.rollback()
+            except:
+                pass
     
     def _format_professor_rating(self, professor: Professor) -> dict:
         """
