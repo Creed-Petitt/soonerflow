@@ -3,6 +3,7 @@ Refactored main FastAPI application using routers and services.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import sys
 
 # Add the parent directory to the path
@@ -18,9 +19,24 @@ from backend.routers import (
     prerequisites_router,
     flowchart_router
 )
+from database.models import create_engine_and_session
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        engine, SessionLocal = create_engine_and_session()
+        db = SessionLocal()
+        try:
+            from database.models import Class as ClassModel
+            db.query(ClassModel).first()
+        finally:
+            db.close()
+    except Exception:
+        pass
+    yield
 
 # Create FastAPI app with settings
-app = FastAPI(title=settings.api_title, version=settings.api_version)
+app = FastAPI(title=settings.api_title, version=settings.api_version, lifespan=lifespan)
 
 # Enable CORS using settings
 app.add_middleware(

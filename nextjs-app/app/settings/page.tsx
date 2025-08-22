@@ -3,13 +3,9 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Loader2, GraduationCap, User, Calendar } from "lucide-react"
+import { ArrowLeft, Save, Loader2, Search, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Select,
@@ -40,64 +36,70 @@ interface UserProfile {
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [showMajorSearch, setShowMajorSearch] = useState(false)
   
   // User data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null)
-  const [enrollmentYear, setEnrollmentYear] = useState<string>("")
   const [graduationYear, setGraduationYear] = useState<string>("")
   
   // Data from API
   const [majors, setMajors] = useState<Major[]>([])
+  const [dataLoaded, setDataLoaded] = useState(false)
 
-  // Fetch user profile
+  // Get auth provider type
+  const getAuthProvider = () => {
+    if (session?.user?.githubId) return "GitHub"
+    if (session?.user?.googleId) return "Google"
+    return "Account"
+  }
+
+  // Fetch user profile and majors simultaneously
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!session?.user?.githubId) return
+    const fetchData = async () => {
+      if (!session?.user) return
       
-      setIsLoading(true)
       try {
-        const response = await fetchWithAuth(`/api/users/${session.user.githubId}`)
-        if (response.ok) {
-          const data = await response.json()
-          setUserProfile(data)
+        // Fetch both majors and user profile in parallel
+        const [majorsResponse, userResponse] = await Promise.all([
+          fetch("/api/majors"),
+          session.user.githubId 
+            ? fetchWithAuth(`/api/users/${session.user.githubId}`)
+            : null
+        ])
+        
+        // Handle majors
+        if (majorsResponse.ok) {
+          const majorsData = await majorsResponse.json()
+          setMajors(majorsData)
           
-          // If user has a major, find it in the majors list
-          if (data.major && majors.length > 0) {
-            const currentMajor = majors.find(m => m.name === data.major)
-            if (currentMajor) {
-              setSelectedMajor(currentMajor)
+          // Handle user profile if available
+          if (userResponse?.ok) {
+            const userData = await userResponse.json()
+            setUserProfile(userData)
+            
+            // Find current major
+            if (userData.major) {
+              const currentMajor = majorsData.find((m: Major) => m.name === userData.major)
+              if (currentMajor) {
+                setSelectedMajor(currentMajor)
+              }
             }
           }
         }
       } catch (error) {
-        console.error("Error fetching user profile:", error)
+        console.error("Error fetching data:", error)
       } finally {
-        setIsLoading(false)
+        setDataLoaded(true)
       }
     }
     
-    fetchUserProfile()
-  }, [session, majors])
-
-  // Fetch majors
-  useEffect(() => {
-    const fetchMajors = async () => {
-      try {
-        const response = await fetch("/api/majors")
-        if (response.ok) {
-          const data = await response.json()
-          setMajors(data)
-        }
-      } catch (error) {
-        console.error("Error fetching majors:", error)
-      }
+    if (status === "authenticated") {
+      fetchData()
     }
-    fetchMajors()
-  }, [])
+  }, [session, status])
 
   // Filter majors based on search
   const filteredMajors = majors.filter(major =>
@@ -110,7 +112,6 @@ export default function SettingsPage() {
 
     setIsSaving(true)
     try {
-      // Update user's major
       const response = await fetchWithAuth(`/api/users/${session.user.githubId}/major`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -121,16 +122,12 @@ export default function SettingsPage() {
         throw new Error("Failed to update major")
       }
 
-      // Update local state
       if (userProfile) {
         setUserProfile({ ...userProfile, major: selectedMajor.name })
       }
 
-      // Force session update
       await update()
-
-      // Show success (could add a toast here)
-      console.log("Settings saved successfully")
+      setShowMajorSearch(false)
     } catch (error) {
       console.error("Error saving settings:", error)
     } finally {
@@ -138,10 +135,10 @@ export default function SettingsPage() {
     }
   }
 
-  if (status === "loading" || isLoading) {
+  if (status === "loading" || !dataLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -152,122 +149,153 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-2xl mx-auto py-8 px-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Settings</h1>
-              <p className="text-muted-foreground">Manage your profile and preferences</p>
-            </div>
+        <div className="flex items-center gap-4 mb-12">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            className="h-10 w-10"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold">Settings</h1>
+            <p className="text-muted-foreground text-sm">Manage your profile and academic information</p>
           </div>
         </div>
 
-        <div className="grid gap-6">
+        <div className="space-y-12">
           {/* Profile Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Profile Information
-              </CardTitle>
-              <CardDescription>
-                Your GitHub account information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={session.user.image || ""} />
-                  <AvatarFallback>
-                    <User className="h-8 w-8" />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-lg font-medium">{session.user.name}</p>
-                  <p className="text-sm text-muted-foreground">{session.user.email}</p>
+          <div>
+            <h2 className="text-lg font-medium mb-6">Account</h2>
+            <div className="flex items-center gap-4 mb-8">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={session.user.image || ""} />
+                <AvatarFallback className="text-lg">
+                  {session.user.name?.charAt(0) || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium text-lg">{session.user.name}</p>
+                <p className="text-muted-foreground">{session.user.email}</p>
+                {userProfile && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    GitHub ID: {session.user.githubId}
+                    Member since {new Date(userProfile.created_at).toLocaleDateString()}
                   </p>
-                </div>
+                )}
               </div>
-              {userProfile && (
-                <div className="text-sm text-muted-foreground">
-                  Member since {new Date(userProfile.created_at).toLocaleDateString()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Academic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5" />
-                Academic Information
-              </CardTitle>
-              <CardDescription>
-                Update your major and graduation timeline
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Current Major Display */}
-              {userProfile?.major && (
-                <div className="bg-muted rounded-lg p-4">
-                  <p className="text-sm font-medium mb-1">Current Major</p>
-                  <p className="text-lg">{userProfile.major}</p>
+          <div>
+            <h2 className="text-lg font-medium mb-6">Academic Information</h2>
+            
+            {/* Current Major */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Current Major</label>
+                <div className="mt-1">
+                  {userProfile?.major ? (
+                    <div className="flex items-center justify-between py-3 px-4 rounded-md border bg-muted/30">
+                      <span className="font-medium">{userProfile.major}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowMajorSearch(!showMajorSearch)}
+                        className="text-xs h-8"
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowMajorSearch(true)}
+                      className="w-full justify-center h-12"
+                    >
+                      Select your major
+                    </Button>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {/* Major Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="major-search">Change Major</Label>
-                <Input
-                  id="major-search"
-                  placeholder="Search for a major..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <ScrollArea className="h-[200px] rounded-md border p-4">
-                  <div className="space-y-2">
-                    {filteredMajors.map((major) => (
+              {/* Major Search */}
+              {showMajorSearch && (
+                <div className="space-y-3 p-4 border rounded-lg bg-background">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search for a major..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {filteredMajors.slice(0, 50).map((major) => (
                       <div
                         key={major.id}
                         className={cn(
-                          "p-3 rounded-lg border cursor-pointer transition-colors",
+                          "flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors",
                           selectedMajor?.id === major.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-muted"
+                            ? "bg-primary/10 border border-primary/20"
+                            : "hover:bg-muted/50"
                         )}
                         onClick={() => setSelectedMajor(major)}
                       >
-                        <div className="font-medium">{major.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {major.department} • {major.college}
+                        <div>
+                          <div className="font-medium text-sm">{major.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {major.department}
+                          </div>
                         </div>
+                        {selectedMajor?.id === major.id && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
-              </div>
+                  
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowMajorSearch(false)
+                        setSearchQuery("")
+                        setSelectedMajor(userProfile?.major ? majors.find(m => m.name === userProfile.major) || null : null)
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={isSaving || !selectedMajor}
+                      className="flex-1"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Save"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Graduation Year */}
-              <div className="space-y-2">
-                <Label htmlFor="graduation-year" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Expected Graduation Year
-                </Label>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Expected Graduation Year</label>
                 <Select value={graduationYear} onValueChange={setGraduationYear}>
-                  <SelectTrigger id="graduation-year">
-                    <SelectValue placeholder="Select year" />
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select graduation year" />
                   </SelectTrigger>
                   <SelectContent>
                     {[2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
@@ -278,51 +306,8 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              <Separator />
-
-              {/* Save Button */}
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving || !selectedMajor || selectedMajor.name === userProfile?.major}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Additional Settings (Placeholder) */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Preferences</CardTitle>
-              <CardDescription>
-                Additional settings and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                More settings will be available here in the future, including:
-              </p>
-              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li>• Email notifications preferences</li>
-                <li>• Course recommendation settings</li>
-                <li>• Schedule visibility options</li>
-                <li>• Data export and backup</li>
-              </ul>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>

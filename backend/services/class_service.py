@@ -12,6 +12,9 @@ from database.models import Class as ClassModel, MeetingTime, Prerequisite, Sche
 from backend.config import settings
 from datetime import datetime, time
 
+_department_cache: Dict[str, Dict[str, Any]] = {}
+_CACHE_TTL_SECONDS = 1800
+
 
 class ClassService:
     """Service for managing class data and operations."""
@@ -148,15 +151,16 @@ class ClassService:
         return sorted([s[0] for s in subjects if s[0]])
     
     def get_all_departments_with_counts(self, semester: str = "202510") -> List[Dict[str, Any]]:
-        """
-        Get all departments with their class counts for a specific semester.
+        global _department_cache
         
-        Args:
-            semester: Semester code to filter by
-            
-        Returns:
-            List of departments with counts
-        """
+        cache_key = f"departments_{semester}"
+        now = datetime.now().timestamp()
+        
+        if cache_key in _department_cache:
+            cached_data = _department_cache[cache_key]
+            if now - cached_data["timestamp"] < _CACHE_TTL_SECONDS:
+                return cached_data["data"]
+        
         from sqlalchemy import func
         
         departments = self.db.query(
@@ -164,10 +168,17 @@ class ClassService:
             func.count(ClassModel.id).label('count')
         ).filter(ClassModel.semester == semester).group_by(ClassModel.subject).order_by(ClassModel.subject).all()
         
-        return [
+        result = [
             {"code": dept, "count": count}
             for dept, count in departments if dept
         ]
+        
+        _department_cache[cache_key] = {
+            "data": result,
+            "timestamp": now
+        }
+        
+        return result
     
     def get_classes_by_department(
         self,
