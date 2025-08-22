@@ -16,20 +16,12 @@ from scrapers.clients.database_client import SQLAlchemyDatabaseClient
 
 def setup_logging():
     """Set up logging for the class loader"""
-    # Create logs directory if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    
-    # Create class loader specific log file
-    log_filename = f'logs/class_loader_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
-    
-    # Configure logging
+    # Configure logging to stdout only (cloud providers will capture this)
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler(log_filename),
-            logging.StreamHandler()  # Also print to console
+            logging.StreamHandler()  # Only print to console/stdout
         ]
     )
     

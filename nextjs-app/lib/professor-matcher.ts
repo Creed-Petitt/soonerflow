@@ -37,23 +37,18 @@ async function fetchProfessorFromAPI(professorName: string): Promise<ProfessorRa
       const response = await fetch(url);
       
       if (!response.ok) {
-        console.log('Response not OK, trying next variation');
         continue; // Try next name variation
       }
       
       const data = await response.json();
-      console.log('Raw response data:', data);
       
       // Handle API error response
       if (data.error) {
-        console.log('API returned error:', data.error);
         continue; // Try next name variation
       }
       
       // If we found valid data, return it
       if (data.avgRating || data.name) {
-        console.log('Raw API data:', data);
-        
         // Transform API response to our interface
         const result = {
           name: data.name || professorName,
@@ -66,13 +61,11 @@ async function fetchProfessorFromAPI(professorName: string): Promise<ProfessorRa
           totalRatings: data.numRatings || 0
         };
         
-        console.log('Transformed result:', result);
         return result;
       }
     }
     
     // If no variations worked, return null
-    console.log('No professor found for any name variation');
     return null;
     
   } catch (error) {

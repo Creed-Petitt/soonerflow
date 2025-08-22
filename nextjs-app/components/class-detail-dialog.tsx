@@ -115,7 +115,7 @@ export function ClassDetailDialog({
       // Store original selections for change mode
       if (isChangeMode) {
         setOriginalSection(initialSection);
-        setOriginalLabSection(null); // TODO: Could detect original lab if needed
+        setOriginalLabSection(null);
       } else {
         setOriginalSection(null);
         setOriginalLabSection(null);
@@ -458,11 +458,6 @@ export function ClassDetailDialog({
             <Button
               className="w-full"
               onClick={() => {
-                console.log('Action button clicked!');
-                console.log('Current section:', currentSection);
-                console.log('Current lab section:', currentLabSection);
-                console.log('Action:', buttonText);
-                
                 // Pass both section and lab (if selected) to the handler
                 onAddToSchedule(currentSection, currentLabSection);
                 

@@ -166,11 +166,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             
             data = response.json()
             
-            # Debug: Print the response structure
-            print(f"DEBUG: Response keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
-            if 'data' in data:
-                print(f"DEBUG: Data keys: {list(data['data'].keys()) if isinstance(data['data'], dict) else 'Not a dict'}")
-            
             # Check for errors first
             if 'errors' in data and data['errors']:
                 self.logger.error(f"GraphQL errors: {data['errors']}")
@@ -179,15 +174,9 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             if 'data' in data and 'node' in data['data']:
                 professor_data = data['data']['node']
                 
-                # Debug: Print professor data structure
-                print(f"DEBUG: Professor data keys: {list(professor_data.keys()) if isinstance(professor_data, dict) else 'Not a dict'}")
-                
                 # Check if we need to paginate for more ratings
                 ratings = professor_data.get('ratings', {}).get('edges', [])
                 page_info = professor_data.get('ratings', {}).get('pageInfo', {})
-                
-                # Debug: Print ratings structure
-                print(f"DEBUG: Ratings type: {type(ratings)}, value: {ratings}")
                 
                 # Ensure ratings is a list
                 if ratings is None:

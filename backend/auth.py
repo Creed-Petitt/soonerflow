@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-sys.path.append('/home/highs/ou-class-manager')
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.models import User, create_engine_and_session
 
 # API Key from environment (required)
@@ -38,14 +39,12 @@ def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -
     # API key verification
     
     if not x_api_key:
-        pass  # No API key provided
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key required"
         )
     
     if x_api_key != API_KEY:
-        pass  # API key mismatch
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
