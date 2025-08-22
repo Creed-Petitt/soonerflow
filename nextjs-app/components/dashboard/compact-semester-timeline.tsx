@@ -82,6 +82,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
   );
   const [summersWithClasses, setSummersWithClasses] = useState<Set<string>>(new Set());
   const hasCenteredRef = useRef(false); // Track if we've already auto-centered
+  const prevSemestersLength = useRef(0); // Track previous semesters length to detect changes
   
   // Initialize summers with classes based on existing data
   useEffect(() => {
@@ -224,15 +225,38 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
     return true;
   });
   
-  // Auto-center on current semester only once on initial load
+  // Auto-center on current semester on initial load and when semesters change significantly
   useEffect(() => {
-    // Only center if we haven't already done so
-    if (!hasCenteredRef.current && filteredSemesters.length > 0) {
+    // Reset centering if the number of semesters changed significantly (e.g., user logged in)
+    if (prevSemestersLength.current > 0 && Math.abs(filteredSemesters.length - prevSemestersLength.current) > 2) {
+      hasCenteredRef.current = false;
+    }
+    prevSemestersLength.current = filteredSemesters.length;
+    
+    // Center if we haven't already done so OR if the filtered semesters have changed
+    if (filteredSemesters.length > 0) {
       // Find current semester in the FILTERED array
-      const currentIdx = filteredSemesters.findIndex(sem => sem.status === "current");
-      if (currentIdx !== -1) {
-        // Center the current semester (show previous, current, next)
-        const centerIndex = Math.max(0, currentIdx - 1);
+      let targetIdx = filteredSemesters.findIndex(sem => sem.status === "current");
+      
+      // If no current semester found, find the first upcoming semester
+      if (targetIdx === -1) {
+        targetIdx = filteredSemesters.findIndex(sem => sem.status === "upcoming");
+      }
+      
+      // If still nothing, find the last completed semester
+      if (targetIdx === -1) {
+        for (let i = filteredSemesters.length - 1; i >= 0; i--) {
+          if (filteredSemesters[i].status === "completed") {
+            targetIdx = i;
+            break;
+          }
+        }
+      }
+      
+      // If we found a target and haven't centered yet
+      if (targetIdx !== -1 && !hasCenteredRef.current) {
+        // Center the target semester (show previous, current, next)
+        const centerIndex = Math.max(0, targetIdx - 1);
         // Ensure we don't go past the end when centering
         const finalIndex = Math.min(centerIndex, Math.max(0, filteredSemesters.length - 3));
         setCurrentIndex(finalIndex);

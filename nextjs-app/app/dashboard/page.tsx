@@ -444,12 +444,14 @@ export default function DashboardPage() {
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
     
-    // Determine current semester
+    // Determine current semester (matching schedule-context logic)
     let currentSem;
     if (currentMonth >= 1 && currentMonth <= 5) {
       currentSem = `Spring ${currentYear}`;
     } else if (currentMonth >= 6 && currentMonth <= 7) {
       currentSem = `Summer ${currentYear}`;
+    } else if (currentMonth >= 8 && currentMonth <= 12) {
+      currentSem = `Fall ${currentYear}`;
     } else {
       currentSem = `Fall ${currentYear}`;
     }
@@ -466,10 +468,8 @@ export default function DashboardPage() {
         fallStatus = 'current';
       } else if (year < currentYear) {
         fallStatus = 'completed';
-      } else if (year === currentYear && currentMonth > 12) {
-        // Fall is over if we're past December (which never happens, so Fall current year is never completed unless year changes)
-        fallStatus = 'completed';
-      } else if (year > currentYear || (year === currentYear && currentMonth <= 7)) {
+      } else if (year === currentYear && currentMonth >= 1 && currentMonth <= 7) {
+        // Fall of current year is upcoming if we're in Spring/Summer
         fallStatus = 'upcoming';
       } else {
         fallStatus = 'upcoming';
