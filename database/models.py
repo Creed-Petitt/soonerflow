@@ -273,7 +273,7 @@ def get_database_url():
     return f"sqlite:///{db_path}"
 
 def create_engine_and_session():
-    """Create SQLAlchemy engine and session"""
+    """Create SQLAlchemy engine and session with connection pooling"""
     database_url = get_database_url()
     
     # Configure engine based on database type
@@ -290,7 +290,16 @@ def create_engine_and_session():
             # connect_args={"options": "-c default_transaction_isolation='read committed'"}
         )
     else:
-        engine = create_engine(database_url, echo=False)
+        # SQLite configuration with connection pooling
+        engine = create_engine(
+            database_url, 
+            echo=False,
+            connect_args={"check_same_thread": False, "timeout": 30},
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+            pool_recycle=3600
+        )
     
     SessionLocal = sessionmaker(
         autocommit=False, 

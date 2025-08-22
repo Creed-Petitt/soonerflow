@@ -111,8 +111,8 @@ async def get_classes(
                 ratings = isolated_professor_service.get_rating(cls_data["id"], cls_data["instructor"])
                 cls_data.update(ratings)
         except Exception as e:
-            print(f"Warning: Professor service failed, continuing without ratings: {e}")
             # Continue without ratings rather than failing the entire request
+            pass
         finally:
             try:
                 professor_db.close()
@@ -192,8 +192,8 @@ async def get_class(class_id: str, db: Session = Depends(get_db)):
         ratings = professor_service.get_rating(cls_data["id"], cls_data["instructor"])
         cls_data.update(ratings)
     except Exception as e:
-        print(f"Warning: Professor ratings failed for class {class_id}: {e}")
         # Continue without ratings
+        pass
     finally:
         try:
             professor_db.close()

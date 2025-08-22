@@ -35,24 +35,23 @@ def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -
     """
     Verify the API key from the X-API-Key header
     """
-    print(f"Received X-API-Key header: {x_api_key}")
-    print(f"Expected API key: {API_KEY}")
+    # API key verification
     
     if not x_api_key:
-        print("No API key provided")
+        pass  # No API key provided
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key required"
         )
     
     if x_api_key != API_KEY:
-        print(f"API key mismatch: got '{x_api_key}', expected '{API_KEY}'")
+        pass  # API key mismatch
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
         )
     
-    print("API key verified successfully")
+    # API key verified successfully
     return True
 
 

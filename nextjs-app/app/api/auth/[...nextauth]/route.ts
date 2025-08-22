@@ -16,15 +16,9 @@ const handler = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       // Save user to backend on sign in
-      console.log("=== SIGNIN CALLBACK DEBUG ===")
-      console.log("Provider:", account?.provider)
-      console.log("User data:", user)
-      console.log("Account data:", account)
-      console.log("Profile data:", profile)
       
       if (account?.provider === "github" || account?.provider === "google") {
         try {
-          console.log("Making API call to backend...")
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/user`, {
             method: "POST",
             headers: {
@@ -40,22 +34,16 @@ const handler = NextAuth({
             }),
           })
           
-          console.log("Backend response status:", response.status)
-          console.log("Backend response ok:", response.ok)
-          
           if (!response.ok) {
             const errorText = await response.text()
             console.error("Failed to save user to backend:", errorText)
           } else {
             const responseData = await response.json()
-            console.log("Backend response data:", responseData)
           }
         } catch (error) {
           console.error("Error saving user:", error)
-          console.error("Error details:", error.message, error.stack)
         }
       }
-      console.log("=== END SIGNIN CALLBACK DEBUG ===")
       return true
     },
     async session({ session, token }) {

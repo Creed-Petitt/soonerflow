@@ -11,13 +11,19 @@ export async function GET(
   const url = new URL(request.url)
   const queryString = url.search
 
+  // Create timeout controller
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': request.headers.get('x-api-key') || '',
       },
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
 
     // Check if response is JSON
     const contentType = response.headers.get('content-type')
@@ -32,8 +38,18 @@ export async function GET(
         { status: response.status }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId)
     console.error('Backend proxy error:', error)
+    
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Request timeout - operation took too long' },
+        { status: 504 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch from backend' },
       { status: 500 }
@@ -65,6 +81,10 @@ export async function POST(
     }
   }
 
+  // Create timeout controller
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       method: 'POST',
@@ -73,7 +93,9 @@ export async function POST(
         'X-API-Key': request.headers.get('x-api-key') || '',
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
 
     // Check if response is JSON
     const contentType = response.headers.get('content-type')
@@ -88,8 +110,18 @@ export async function POST(
         { status: response.status }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId)
     console.error('Backend proxy error:', error)
+    
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Request timeout - operation took too long' },
+        { status: 504 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch from backend' },
       { status: 500 }
@@ -119,6 +151,10 @@ export async function PUT(
     // Continue with null body if parsing fails
   }
 
+  // Create timeout controller
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/${path}`, {
       method: 'PUT',
@@ -127,7 +163,9 @@ export async function PUT(
         'X-API-Key': request.headers.get('x-api-key') || '',
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
 
     // Check if response is JSON
     const contentType = response.headers.get('content-type')
@@ -142,8 +180,18 @@ export async function PUT(
         { status: response.status }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId)
     console.error('Backend proxy error:', error)
+    
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Request timeout - operation took too long' },
+        { status: 504 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch from backend' },
       { status: 500 }
@@ -160,6 +208,10 @@ export async function DELETE(
   const url = new URL(request.url)
   const queryString = url.search
 
+  // Create timeout controller
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       method: 'DELETE',
@@ -167,7 +219,9 @@ export async function DELETE(
         'Content-Type': 'application/json',
         'X-API-Key': request.headers.get('x-api-key') || '',
       },
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
 
     if (response.ok) {
       return NextResponse.json({ success: true }, { status: response.status })
@@ -186,8 +240,18 @@ export async function DELETE(
         )
       }
     }
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId)
     console.error('Backend proxy error:', error)
+    
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Request timeout - operation took too long' },
+        { status: 504 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch from backend' },
       { status: 500 }

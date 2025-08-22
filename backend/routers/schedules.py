@@ -164,7 +164,7 @@ async def get_or_create_semester_schedule(
         ).all()
         
         if completed_courses:
-            print(f"Found {len(completed_courses)} completed courses for {semester_name}")
+            # Found completed courses for semester
             
             # For each completed course, create or find a synthetic class entry
             for completed_course in completed_courses:
@@ -234,7 +234,7 @@ async def get_or_create_semester_schedule(
                             color="#10b981"  # Green for completed courses
                         )
                         db.add(scheduled_class)
-                        print(f"  Added completed course {subject} {course_number} to schedule")
+                        pass  # Added completed course to schedule
             
             db.commit()
     
@@ -250,7 +250,7 @@ async def get_or_create_semester_schedule(
         try:
             ratings = professor_service.get_rating(cls.id, cls.instructor)
         except Exception as prof_error:
-            print(f"Professor service error for {cls.id}: {prof_error}")
+            pass  # Professor service error, continuing without ratings
             db.rollback()
             ratings = {"rating": None, "difficulty": None, "wouldTakeAgain": None}
         
@@ -337,7 +337,7 @@ async def get_active_schedule(provider_id: str, db: Session = Depends(get_db)):
                     try:
                         ratings = professor_service.get_rating(cls.id, cls.instructor)
                     except Exception as prof_error:
-                        print(f"Professor service error for {cls.id}: {prof_error}")
+                        pass  # Professor service error, continuing without ratings
                         # Rollback and continue with default ratings
                         db.rollback()
                         ratings = {"rating": None, "difficulty": None, "wouldTakeAgain": None}
@@ -371,12 +371,12 @@ async def get_active_schedule(provider_id: str, db: Session = Depends(get_db)):
                         "prerequisites": []  # Add empty prerequisites array for compatibility
                     })
                 except Exception as class_error:
-                    print(f"Error processing scheduled class {sc.id}: {class_error}")
+                    pass  # Error processing scheduled class
                     # Skip this class and continue
                     continue
                     
         except Exception as schedule_error:
-            print(f"Error loading scheduled classes: {schedule_error}")
+            pass  # Error loading scheduled classes
             db.rollback()
             # Return schedule with empty classes array
             scheduled_classes = []
@@ -391,7 +391,7 @@ async def get_active_schedule(provider_id: str, db: Session = Depends(get_db)):
         # Re-raise HTTP exceptions (like 404)
         raise
     except Exception as e:
-        print(f"Unexpected error in get_active_schedule: {e}")
+        pass  # Unexpected error in get_active_schedule
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to load schedule")
 
@@ -540,9 +540,9 @@ async def clean_duplicate_scheduled_classes(
                 to_keep = duplicate_classes[0]
                 to_remove = duplicate_classes[1:]
                 
-                print(f"  Keeping: {to_keep.class_.id}")
+                # Removing duplicates
                 for sc in to_remove:
-                    print(f"  Removing duplicate: {sc.class_.id}")
+                    pass  # Removing duplicate
                     db.delete(sc)
                     removed_count += 1
         
@@ -637,7 +637,7 @@ async def migrate_completed_courses_to_schedules(
             ).first()
             
             if existing_scheduled:
-                print(f"  Course {subject} {course_number} already scheduled in {completed_course.semester_completed}, skipping")
+                continue  # Course already scheduled in this semester
                 continue
             
             # Try to find the original class in the semester to preserve meeting times
@@ -651,7 +651,7 @@ async def migrate_completed_courses_to_schedules(
             if original_class:
                 # Use the original class as the scheduled class
                 class_to_schedule = original_class
-                print(f"  Using original class {original_class.id} for {subject} {course_number}")
+                pass  # Using original class
             else:
                 # Create synthetic class ID for completed courses
                 synthetic_class_id = f"COMPLETED-{subject}-{course_number}-{semester_code}"
@@ -681,7 +681,7 @@ async def migrate_completed_courses_to_schedules(
                     db.add(synthetic_class)
                     db.flush()
                     class_to_schedule = synthetic_class
-                    print(f"  Created synthetic class {synthetic_class_id} for {subject} {course_number}")
+                    pass  # Created synthetic class
             
             # Schedule the class
             scheduled_class = ScheduledClass(
@@ -691,7 +691,7 @@ async def migrate_completed_courses_to_schedules(
             )
             db.add(scheduled_class)
             migrated_count += 1
-            print(f"  Scheduled {subject} {course_number} in {completed_course.semester_completed}")
+            pass  # Scheduled course in semester
     
     db.commit()
     

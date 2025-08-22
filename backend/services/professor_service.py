@@ -45,7 +45,7 @@ class ProfessorService:
             return self._get_rating_internal(class_id, instructor_name)
         except Exception as e:
             # If professor rating fails, rollback and return empty ratings
-            print(f"Warning: Professor rating failed for {instructor_name}: {e}")
+            pass  # Professor rating failed
             try:
                 self.db.rollback()
             except:
@@ -159,7 +159,7 @@ class ProfessorService:
                         Professor.id == mapping[0]
                     ).first()
                 except Exception as e:
-                    print(f"Warning: Failed to query professor by ID: {e}")
+                    pass  # Failed to query professor by ID
                     try:
                         self.db.rollback()
                     except:
@@ -261,7 +261,7 @@ class ProfessorService:
                     (Professor.firstName.ilike(f"%{word}%"))
                 ).filter(Professor.avgRating > 0).all()
             except Exception as e:
-                print(f"Warning: Failed to query professors by name: {e}")
+                pass  # Failed to query professors by name
                 try:
                     self.db.rollback()
                 except:
@@ -287,7 +287,7 @@ class ProfessorService:
                 self._professor_name_cache.append((prof, full_name))
         except Exception as e:
             # If database query fails, initialize empty cache to prevent repeated failures
-            print(f"Warning: Failed to build professor name cache: {e}")
+            pass  # Failed to build professor name cache
             self._professor_name_cache = []
             # Rollback any failed transaction
             try:

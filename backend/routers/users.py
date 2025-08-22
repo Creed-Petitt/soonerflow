@@ -356,7 +356,7 @@ async def add_completed_courses(
                 if sync_result.get("migrated_count", 0) > 0:
                     schedule_sync_message = f" Synced {sync_result['migrated_count']} courses to schedules."
         except Exception as e:
-            print(f"Failed to auto-sync schedules: {e}")
+            pass  # Failed to auto-sync schedules
             schedule_sync_message = " (Schedule sync failed)"
     
     return {
@@ -417,7 +417,7 @@ async def remove_completed_course(
             if scheduled_classes_to_remove:
                 schedules_updated.append(schedule.name)
                 for sc in scheduled_classes_to_remove:
-                    print(f"  Removing {course_code} from schedule: {schedule.name}")
+                    pass  # Removing course from schedule
                     db.delete(sc)
         
         # Remove the completed course record

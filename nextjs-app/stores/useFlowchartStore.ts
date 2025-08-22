@@ -74,33 +74,58 @@ const useFlowchartStore = create<FlowchartStore>((set, get) => ({
     set({ nodes: [], edges: [] });
   },
   
-  // Save flowchart to database
+  // Save flowchart to database with retry logic
   saveToDatabase: async (githubId: string) => {
     const { nodes, edges } = get();
     set({ isSaving: true });
     
-    try {
-      const response = await fetch(`/api/flowchart/${githubId}/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ nodes, edges }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        set({ 
-          isSaving: false, 
-          lastSavedAt: data.updated_at ? new Date(data.updated_at) : new Date() 
+    // Retry logic with exponential backoff
+    let attempts = 0;
+    const maxAttempts = 3;
+    const baseDelay = 1000; // 1 second
+    
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`/api/flowchart/${githubId}/save`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ nodes, edges }),
         });
-      } else {
-        throw new Error('Failed to save flowchart');
+        
+        if (response.ok) {
+          const data = await response.json();
+          set({ 
+            isSaving: false, 
+            lastSavedAt: data.updated_at ? new Date(data.updated_at) : new Date() 
+          });
+          return; // Success, exit the function
+        } else if (response.status === 504) {
+          // Timeout error, retry
+          throw new Error('Request timeout');
+        } else {
+          // Other error, don't retry
+          throw new Error('Failed to save flowchart');
+        }
+      } catch (error: any) {
+        attempts++;
+        console.error(`Error saving flowchart (attempt ${attempts}/${maxAttempts}):`, error);
+        
+        if (attempts < maxAttempts && (error.message === 'Request timeout' || error.name === 'AbortError')) {
+          // Wait with exponential backoff before retrying
+          const delay = baseDelay * Math.pow(2, attempts - 1);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          // Max attempts reached or non-retryable error
+          set({ isSaving: false });
+          console.error('Failed to save flowchart after retries:', error);
+          break;
+        }
       }
-    } catch (error) {
-      console.error('Error saving flowchart:', error);
-      set({ isSaving: false });
     }
+    
+    set({ isSaving: false });
   },
   
   // Load flowchart from database
