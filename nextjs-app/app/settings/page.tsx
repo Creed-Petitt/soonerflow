@@ -52,7 +52,7 @@ export default function SettingsPage() {
   // Get auth provider type
   const getAuthProvider = () => {
     if (session?.user?.githubId) return "GitHub"
-    if (session?.user?.googleId) return "Google"
+    if ((session?.user as any)?.googleId) return "Google"
     return "Account"
   }
 

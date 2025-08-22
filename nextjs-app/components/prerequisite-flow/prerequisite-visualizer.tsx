@@ -222,7 +222,7 @@ function PrerequisiteVisualizerInner() {
         onConnect={handleConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        connectionMode="loose"
+        connectionMode={"loose" as any}
         fitView
         minZoom={0.3}
         maxZoom={2}

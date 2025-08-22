@@ -232,7 +232,6 @@ export function LabSwitchingDropdown({
         align="start" 
         side="bottom" 
         sideOffset={8}
-        container={typeof document !== 'undefined' ? document.querySelector('[data-scroll-container="class-list"]') : undefined}
       >
         <div className="p-3 border-b">
           <div className="font-medium text-sm">Switch Lab Section</div>

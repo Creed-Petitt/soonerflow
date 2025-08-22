@@ -5,6 +5,7 @@ declare module "next-auth" {
     user: {
       id: string
       githubId: string  // This is now the provider ID (GitHub or Google)
+      googleId?: string  // Add googleId as optional
       provider?: string  // "github" or "google"
     } & DefaultSession["user"]
   }

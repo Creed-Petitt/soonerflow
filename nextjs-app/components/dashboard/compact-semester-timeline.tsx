@@ -553,7 +553,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
           onClose={() => setIsModalOpen(false)}
           semester={selectedSemester}
           onSave={handleSaveCourses}
-          existingCourses={semesters.find(s => s.label === selectedSemester)?.courses || []}
+          existingCourses={(semesters.find(s => s.label === selectedSemester)?.courses || []) as any}
         />
       )}
     </div>

@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useState, useEffect, useMemo } from "react"
-import { EventCalendar, type CalendarEvent } from "@/components/event-calendar/event-calendar"
+import { EventCalendar } from "@/components/event-calendar/event-calendar"
+import type { CalendarEvent } from "@/components/event-calendar/types"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -316,7 +317,7 @@ export default function SchedulerPage() {
         description: `${classData.title}\nInstructor: ${classData.instructor}\nLocation: ${classData.location || 'TBA'}`,
         start: templateDate,
         end: endDate,
-        color: isCompleted ? 'emerald' : 'gray',
+        color: (isCompleted ? 'emerald' : 'gray') as any,
         location: classData.location || 'TBA',
         allDay: false
       }]
@@ -391,14 +392,14 @@ export default function SchedulerPage() {
         description: `${classData.title}\nInstructor: ${classData.instructor}\nLocation: ${classData.location}`,
         start: templateDate,
         end: endDate,
-        color: classData.colorBg === 'bg-blue-500' ? 'sky' : 
+        color: (classData.colorBg === 'bg-blue-500' ? 'sky' : 
                classData.colorBg === 'bg-green-500' ? 'emerald' :
                classData.colorBg === 'bg-purple-500' ? 'violet' :
                classData.colorBg === 'bg-orange-500' ? 'orange' :
                classData.colorBg === 'bg-pink-500' ? 'rose' :
                classData.colorBg === 'bg-teal-500' ? 'teal' :
                classData.colorBg === 'bg-indigo-500' ? 'indigo' :
-               classData.colorBg === 'bg-red-500' ? 'red' : 'gray',
+               classData.colorBg === 'bg-red-500' ? 'red' : 'gray') as any,
         location: classData.location
       }
     })

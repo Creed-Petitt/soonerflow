@@ -200,22 +200,15 @@ export function EventCalendar({
     // Show semester name instead of month/year navigation
     const semesterName = currentSemesterDetails?.name || currentSemester
     
-    if (view === "month") {
-      return `${semesterName} - ${format(currentDate, "MMMM yyyy")}`
-    } else if (view === "week") {
-      const start = startOfWeek(currentDate, { weekStartsOn: 1 }) // Start on Monday
-      const end = endOfWeek(currentDate, { weekStartsOn: 1 })
-      if (isSameMonth(start, end)) {
-        return `${semesterName} - ${format(start, "MMMM d")}`
-      } else {
-        return `${semesterName} - ${format(start, "MMM d")} - ${format(end, "MMM d")}`
-      }
-    } else if (view === "agenda") {
-      return semesterName
+    // Since view is always "week", we only need this logic
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 }) // Start on Monday
+    const end = endOfWeek(currentDate, { weekStartsOn: 1 })
+    if (isSameMonth(start, end)) {
+      return `${semesterName} - ${format(start, "MMMM d")}`
     } else {
-      return semesterName
+      return `${semesterName} - ${format(start, "MMM d")} - ${format(end, "MMM d")}`
     }
-  }, [currentDate, view, currentSemesterDetails, currentSemester])
+  }, [currentDate, currentSemesterDetails, currentSemester])
 
   return (
     <div

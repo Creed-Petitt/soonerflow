@@ -218,7 +218,6 @@ export default function DashboardPage() {
               // Use consistent key format: CODE-SEMESTER
               const key = `${course.course_code}-${course.semester_completed}`;
               coursesMap.set(key, {
-                id: course.course_code,
                 code: course.course_code,
                 name: course.course_name,
                 credits: course.credits,
@@ -524,7 +523,7 @@ export default function DashboardPage() {
           credits: 0,
           courseCount: 0,
           isSummer: true  // Mark as summer for filtering
-        } as SemesterData & { isSummer: boolean });
+        } as any);
       }
     }
     

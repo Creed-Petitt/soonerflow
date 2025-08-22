@@ -31,6 +31,7 @@ import {
   ListFilterIcon,
   PlusIcon,
   Columns3Icon,
+  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -681,7 +682,7 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           )
           return { 
             ...course, 
-            status: newStatus,
+            status: newStatus as "Completed" | "In Progress" | "Not Started",
             grade: completedCourse?.grade || course.grade,
             semester: completedCourse?.semester || course.semester
           }

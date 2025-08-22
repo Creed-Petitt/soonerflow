@@ -340,8 +340,8 @@ export function AddCoursesModal({
     // Check cache first (only for first page)
     if (page === 1 && departmentCache[dept] && !resetCourses) {
       const cachedClasses = departmentCache[dept].courses
-      setRawClasses(cachedClasses)
-      processClassesToCourses(cachedClasses)
+      setRawClasses(cachedClasses as any)
+      processClassesToCourses(cachedClasses as any)
       setTotalCoursesCount(departmentCache[dept].totalCount)
       setHasMoreCourses(cachedClasses.length < departmentCache[dept].totalCount)
       return

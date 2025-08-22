@@ -35,7 +35,7 @@ export default function PrerequisiteEdge({
   });
 
   // Fallback to direct path if smart edge fails
-  const edgePath = getSmartEdgeResponse?.svgPathString || `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+  const edgePath = (getSmartEdgeResponse as any)?.svgPathString || getSmartEdgeResponse || `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
   
   // Calculate label position (middle of the edge)
   const labelX = (sourceX + targetX) / 2;

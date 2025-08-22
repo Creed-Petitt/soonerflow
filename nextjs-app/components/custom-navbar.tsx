@@ -109,7 +109,7 @@ export default function CustomNavbar() {
                     const isActive = pathname === link.href
                     return (
                       <NavigationMenuItem key={index} className="w-full">
-                        {link.disabled ? (
+                        {(link as any).disabled ? (
                           <div className="flex-row items-center gap-2 py-1.5 px-3 text-muted-foreground cursor-not-allowed">
                             <Icon
                               size={16}
@@ -150,7 +150,7 @@ export default function CustomNavbar() {
                       <NavigationMenuItem key={link.label}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            {link.disabled ? (
+                            {(link as any).disabled ? (
                               <div className="flex size-8 items-center justify-center p-1.5 rounded-md text-muted-foreground opacity-50 cursor-not-allowed">
                                 <link.icon size={18} aria-hidden="true" />
                                 <span className="sr-only">{link.label}</span>
