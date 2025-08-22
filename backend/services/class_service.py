@@ -57,13 +57,31 @@ class ClassService:
             query = query.filter(ClassModel.subject.ilike(f"%{subject}%"))
         
         if search:
-            query = query.filter(
-                or_(
-                    ClassModel.title.ilike(f"%{search}%"),
-                    ClassModel.subject.ilike(f"%{search}%"),
-                    ClassModel.courseNumber.ilike(f"%{search}%")
+            # Check if search term matches course code pattern (e.g., "ENGR 2002" or "C S 2413")
+            import re
+            course_pattern = re.match(r'^([A-Z]+(?:\s+[A-Z]+)?)\s+(\d+[A-Z]?)$', search.upper().strip())
+            
+            if course_pattern:
+                # Split into subject and course number
+                subject_part = course_pattern.group(1).strip()
+                number_part = course_pattern.group(2).strip()
+                
+                # Search for exact subject and course number match
+                query = query.filter(
+                    and_(
+                        ClassModel.subject == subject_part,
+                        ClassModel.courseNumber == number_part
+                    )
                 )
-            )
+            else:
+                # Fallback to fuzzy search for non-course-code searches
+                query = query.filter(
+                    or_(
+                        ClassModel.title.ilike(f"%{search}%"),
+                        ClassModel.subject.ilike(f"%{search}%"),
+                        ClassModel.courseNumber.ilike(f"%{search}%")
+                    )
+                )
         
         if semester:
             query = query.filter(ClassModel.semester == semester)

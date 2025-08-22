@@ -503,6 +503,28 @@ export default function DashboardPage() {
           credits: 0,
           courseCount: 0
         });
+        
+        // Summer semester - ALWAYS generate but mark as optional
+        const summerSem = `Summer ${year + 1}`;
+        let summerStatus;
+        if (summerSem === currentSem) {
+          summerStatus = 'current';
+        } else if (year + 1 < currentYear) {
+          summerStatus = 'completed';
+        } else if (year + 1 === currentYear && currentMonth > 7) {
+          // Summer is over after July
+          summerStatus = 'completed';
+        } else {
+          summerStatus = 'upcoming';
+        }
+        
+        semesters.push({
+          label: summerSem,
+          status: summerStatus as "completed" | "current" | "upcoming" | "future",
+          credits: 0,
+          courseCount: 0,
+          isSummer: true  // Mark as summer for filtering
+        } as SemesterData & { isSummer: boolean });
       }
     }
     

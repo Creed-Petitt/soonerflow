@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar, Clock, GraduationCap, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
@@ -96,7 +97,7 @@ export function AcademicCalendarModal({ isOpen, onClose }: AcademicCalendarModal
           </DialogHeader>
         </div>
         
-        <div className="overflow-y-auto max-h-[60vh] px-6">
+        <ScrollArea className="max-h-[60vh] px-6 [&>[data-radix-scroll-area-scrollbar]]:bg-transparent [&>[data-radix-scroll-area-scrollbar]]:border-none [&>[data-radix-scroll-area-thumb]]:bg-white/10 [&>[data-radix-scroll-area-thumb]]:rounded [&>[data-radix-scroll-area-thumb]]:border-none hover:[&>[data-radix-scroll-area-thumb]]:bg-white/20">
           <div className="space-y-6 pb-2">
             {/* Important dates first */}
             {['important', 'finals', 'deadline', 'registration', 'academic', 'holiday', 'graduation'].map(category => {
@@ -136,7 +137,7 @@ export function AcademicCalendarModal({ isOpen, onClose }: AcademicCalendarModal
               )
             })}
           </div>
-        </div>
+        </ScrollArea>
         
         <div className="text-xs text-muted-foreground p-6 pt-4 border-t border-zinc-800">
           * Calendar is subject to change. For the most current information, check with the registrar's office.

@@ -230,6 +230,11 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const [selectedLevel, setSelectedLevel] = useState("all");
   const [userMajorDepts, setUserMajorDepts] = useState<string[]>([]);
   const [departmentCache, setDepartmentCache] = useState<Record<string, ClassData[]>>({});
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchDebounceTimer, setSearchDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [totalClassCount, setTotalClassCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Dialog state
   const [selectedClass, setSelectedClass] = useState<any>(null);
@@ -270,6 +275,15 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       loadClassesForMajor();
     }
   }, [selectedDepartment, userMajorDepts]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
+    };
+  }, [searchDebounceTimer]);
 
   const loadDepartments = async () => {
     try {
@@ -343,11 +357,13 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=100&skip_ratings=true`);
+      // Increased limit to 500 to handle large departments like MATH
+      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       
       const data = await response.json();
       const deptClasses = data.classes || [];
+      setTotalClassCount(data.pagination?.total || deptClasses.length);
       
       // Cache the department data
       setDepartmentCache(prev => ({ ...prev, [dept]: deptClasses }));
@@ -358,6 +374,38 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       toast.error('Failed to load classes');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const performServerSearch = async (query: string) => {
+    if (!query || query.length < 2) {
+      // If search is cleared, reload the current department
+      if (selectedDepartment === "all") {
+        loadAllClasses();
+      } else if (selectedDepartment === "major") {
+        loadClassesForMajor();
+      } else if (selectedDepartment) {
+        loadClassesForDepartment(selectedDepartment);
+      }
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      
+      const response = await fetch(`/api/classes?search=${encodeURIComponent(query)}&semester=${currentSemester}&limit=200&skip_ratings=true`);
+      if (!response.ok) throw new Error('Failed to search classes');
+      
+      const data = await response.json();
+      const searchResults = data.classes || [];
+      setTotalClassCount(data.pagination?.total || searchResults.length);
+      
+      processClasses(searchResults);
+    } catch (error) {
+      console.error('Error searching classes:', error);
+      toast.error('Failed to search classes');
+    } finally {
+      setIsSearching(false);
     }
   };
   
@@ -372,7 +420,8 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
         if (departmentCache[dept]) {
           return departmentCache[dept];
         } else {
-          const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=100&skip_ratings=true`);
+          // Increased to 500 to handle large departments
+          const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
           if (response.ok) {
             const data = await response.json();
             const deptClasses = data.classes || [];
@@ -396,23 +445,46 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     }
   };
   
-  const loadAllClasses = async () => {
+  const loadAllClasses = async (page: number = 1, append: boolean = false) => {
     try {
-      setLoading(true);
+      if (page === 1) {
+        setLoading(true);
+        setCurrentPage(1);
+      } else {
+        setIsLoadingMore(true);
+      }
       
-      // Load classes without department filter to search across all
-      const response = await fetch(`/api/classes?semester=${currentSemester}&limit=200&skip_ratings=true`);
+      // Load 100 classes at a time for smooth performance
+      const response = await fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${page}&skip_ratings=true`);
       if (!response.ok) throw new Error('Failed to fetch classes');
       
       const data = await response.json();
-      const allClasses = data.classes || [];
+      const newClasses = data.classes || [];
+      setTotalClassCount(data.pagination?.total || 0);
       
-      processClasses(allClasses);
+      if (append && page > 1) {
+        // Append to existing classes for infinite scroll
+        const allClasses = [...classes, ...newClasses];
+        setClasses(allClasses);
+        processClasses(allClasses);
+      } else {
+        // Replace classes for initial load
+        processClasses(newClasses);
+      }
+      
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error loading all classes:', error);
       toast.error('Failed to load classes');
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  const loadMoreClasses = () => {
+    if (!isLoadingMore && selectedDepartment === "all") {
+      loadAllClasses(currentPage + 1, true);
     }
   };
   
@@ -454,7 +526,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   };
   
 
-  // Memoized filtering for performance
+  // Memoized filtering for performance - only level filtering now, search is server-side
   const filteredGroupedClasses = useMemo(() => {
     let filtered = [...groupedClasses];
 
@@ -473,21 +545,8 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       });
     }
 
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(g => 
-        g.subject.toLowerCase().includes(search) ||
-        g.number.toLowerCase().includes(search) ||
-        g.title.toLowerCase().includes(search) ||
-        `${g.subject} ${g.number}`.toLowerCase().includes(search) ||
-        // Also search in instructor names across all sections
-        g.sections.some(s => s.instructor?.toLowerCase().includes(search))
-      );
-    }
-
     return filtered;
-  }, [groupedClasses, searchTerm, selectedLevel]);
+  }, [groupedClasses, selectedLevel]);
 
   const checkTimeConflict = (classToCheck: ClassData) => {
     // Simple conflict check - you can enhance this
@@ -698,9 +757,23 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search classes..."
+              placeholder="Search all classes..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchTerm(value);
+                
+                // Clear previous timer
+                if (searchDebounceTimer) {
+                  clearTimeout(searchDebounceTimer);
+                }
+                
+                // Set new timer for debounced search
+                const timer = setTimeout(() => {
+                  performServerSearch(value);
+                }, 300);
+                setSearchDebounceTimer(timer);
+              }}
               className="pl-10"
             />
           </div>
@@ -739,8 +812,30 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           </div>
         </div>
 
+        {/* Class Count Display */}
+        {totalClassCount > 0 && (
+          <div className="px-4 py-2 bg-muted/50 border-b text-sm">
+            {searchTerm ? (
+              <span>Found {totalClassCount} classes matching "{searchTerm}"</span>
+            ) : (
+              <span>Showing {groupedClasses.length} of {totalClassCount} unique courses</span>
+            )}
+            {isSearching && <span className="ml-2">(Searching...)</span>}
+          </div>
+        )}
+
         {/* Table */}
-        <div className="flex-1 overflow-y-auto">
+        <div 
+          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20"
+          onScroll={(e) => {
+            const target = e.target as HTMLElement;
+            const scrolledToBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
+            
+            if (scrolledToBottom && selectedDepartment === "all" && !isLoadingMore && groupedClasses.length < totalClassCount) {
+              loadMoreClasses();
+            }
+          }}
+        >
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
@@ -751,7 +846,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {loading || isSearching ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8">
                     Loading classes...
@@ -764,7 +859,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredGroupedClasses.slice(0, 100).map((grouped: GroupedClass) => {
+                filteredGroupedClasses.map((grouped: GroupedClass) => {
                   const display = getGroupedClassDisplay(grouped);
                   const isScheduled = grouped.sections.some(s => isClassScheduled(s.id));
                   const allFull = display.totalAvailable === 0 && display.totalSeats > 0;
@@ -810,12 +905,21 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
                   );
                 })
               )}
+              {/* Loading more indicator */}
+              {isLoadingMore && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-4">
+                    Loading more classes...
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
           
-          {filteredGroupedClasses.length > 100 && (
+          {/* Show message when all classes are loaded */}
+          {selectedDepartment === "all" && groupedClasses.length >= totalClassCount && totalClassCount > 0 && (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Showing first 100 results. Use filters to narrow your search.
+              All {totalClassCount} classes loaded
             </div>
           )}
         </div>

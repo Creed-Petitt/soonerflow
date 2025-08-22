@@ -125,21 +125,16 @@ class ProfessorService:
     
     def _find_professor(self, class_id: str, instructor_name: str) -> Optional[Professor]:
         """
-        Find a professor using multiple strategies.
+        Find a professor by name matching.
         
         Args:
-            class_id: The class ID for mapping lookup
+            class_id: The class ID (unused but kept for compatibility)
             instructor_name: The instructor's name
             
         Returns:
             Professor object or None
         """
-        # Strategy 1: Try exact mapping using class_professor_mappings
-        professor = self._find_by_class_mapping(class_id)
-        if professor:
-            return professor
-        
-        # Strategy 2: Use fuzzy matching
+        # Only use name matching - no broken table lookups
         return self._find_professor_by_name(instructor_name)
     
     def _find_by_class_mapping(self, class_id: str) -> Optional[Professor]:
@@ -210,8 +205,8 @@ class ProfessorService:
                 # Return the professor object corresponding to the best match
                 return self._professor_name_cache[best_match[2]][0]
         
-        # Fallback: Try individual word matching for complex names
-        return self._fallback_word_matching(name)
+        # No fallback - if no exact match, return None
+        return None
     
     def _generate_name_variations(self, name: str) -> List[str]:
         """

@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Clock, Calendar } from "lucide-react"
 import {
   Table,
@@ -72,7 +73,7 @@ export function FinalsScheduleModal({ isOpen, onClose }: FinalsScheduleModalProp
           </div>
         </div>
         
-        <div className="overflow-y-auto max-h-[60vh] px-6">
+        <ScrollArea className="max-h-[60vh] px-6 [&>[data-radix-scroll-area-scrollbar]]:bg-transparent [&>[data-radix-scroll-area-scrollbar]]:border-none [&>[data-radix-scroll-area-thumb]]:bg-white/10 [&>[data-radix-scroll-area-thumb]]:rounded [&>[data-radix-scroll-area-thumb]]:border-none hover:[&>[data-radix-scroll-area-thumb]]:bg-white/20">
           <div className="space-y-6 pb-2">
             {/* MWF Classes */}
             <div>
@@ -128,7 +129,7 @@ export function FinalsScheduleModal({ isOpen, onClose }: FinalsScheduleModalProp
             </div>
           </div>
           </div>
-        </div>
+        </ScrollArea>
         
         <div className="text-xs text-muted-foreground p-6 pt-4 border-t border-zinc-800">
           * Evening classes and classes meeting once a week will have finals during their regular class time in finals week.

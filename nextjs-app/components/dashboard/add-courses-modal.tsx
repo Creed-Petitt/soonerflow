@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useDeferredValue, useRef } from "react"
 import { useSession } from "next-auth/react"
+import { semesterNameToCode } from "@/utils/semester-utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,8 +87,8 @@ export function AddCoursesModal({
   const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set())
   const { data: session } = useSession()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  // Add current semester state like ClassBrowserPanel
-  const [currentSemester] = useState("202510") // Fall 2025 - should match the current semester
+  // Convert semester name to code dynamically
+  const currentSemester = semesterNameToCode(semester)
 
   // Load user's major and completed courses when modal opens
   useEffect(() => {

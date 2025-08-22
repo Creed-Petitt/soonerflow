@@ -3,7 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ChevronRight, ChevronLeft, CheckCircle2, Clock, Calendar, GraduationCap, X } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AddCoursesModal } from "./add-courses-modal";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -71,18 +71,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
   const { data: session } = useSession();
   const { setCurrentSemester } = useSchedule();
   
-  // Find the current semester index and center it
-  const findCurrentSemesterIndex = () => {
-    const currentIdx = semesters.findIndex(sem => sem.status === "current");
-    if (currentIdx === -1) return 0; // Fallback to 0 if no current semester
-    
-    // Center the current semester (show previous, current, next)
-    const centerIndex = Math.max(0, currentIdx - 1);
-    // Ensure we don't go past the end when centering
-    return Math.min(centerIndex, Math.max(0, semesters.length - 3));
-  };
-  
-  const [currentIndex, setCurrentIndex] = useState(findCurrentSemesterIndex());
+  const [currentIndex, setCurrentIndex] = useState(0); // Start at 0, will be updated
   const semestersToShow = 3;
   const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -92,11 +81,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
     loadDismissedSummers(session?.user?.githubId)
   );
   const [summersWithClasses, setSummersWithClasses] = useState<Set<string>>(new Set());
-  
-  // Update the index when semesters data changes
-  useEffect(() => {
-    setCurrentIndex(findCurrentSemesterIndex());
-  }, [semesters]);
+  const hasCenteredRef = useRef(false); // Track if we've already auto-centered
   
   // Initialize summers with classes based on existing data
   useEffect(() => {
@@ -142,7 +127,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
       case "completed":
         return "";
       case "current":
-        return "ring-2 ring-blue-500/30";
+        return "ring-2 ring-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]";
       case "upcoming":
         return "";
       case "future":
@@ -153,7 +138,7 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
   const getStatusLabel = (status: SemesterData["status"]) => {
     switch (status) {
       case "completed": return "Completed";
-      case "current": return "In Progress";
+      case "current": return "Current Semester";
       case "upcoming": return "Next Semester";
       case "future": return "Graduation Target";
     }
@@ -218,55 +203,43 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
     return generatedSummers;
   };
 
-  // Generate all semesters including dynamically created summers
+  // Generate all semesters - summers are now in base data
   const allSemesters = useMemo(() => {
-    let semesterList = [...semesters];
-    
-    // Add generated summer semesters if checkbox is checked
-    if (includeSummerSemesters) {
-      const generatedSummers = generateSummerSemesters(semesters);
-      semesterList = [...semesterList, ...generatedSummers];
-    }
-    
-    // Sort by chronological order
-    semesterList.sort((a, b) => {
-      const getYearFromLabel = (label: string) => {
-        const match = label.match(/(\d{4})/);
-        return match ? parseInt(match[1]) : 0;
-      };
-      
-      const getSeasonOrder = (label: string) => {
-        if (label.includes('Spring')) return 1;
-        if (label.includes('Summer')) return 2;
-        if (label.includes('Fall')) return 3;
-        return 0;
-      };
-      
-      const yearA = getYearFromLabel(a.label);
-      const yearB = getYearFromLabel(b.label);
-      
-      if (yearA !== yearB) {
-        return yearA - yearB;
-      }
-      
-      return getSeasonOrder(a.label) - getSeasonOrder(b.label);
-    });
-    
-    return semesterList;
-  }, [semesters, includeSummerSemesters, dismissedSummers, summersWithClasses]);
+    // Summers are already in the base semesters data from dashboard
+    // No need to generate them anymore
+    return [...semesters];
+  }, [semesters]);
   
-  // Filter out dismissed summers and apply other filters
+  // Filter out dismissed summers and apply toggle logic
   const filteredSemesters = allSemesters.filter(sem => {
-    // Never hide summers that have classes (they're permanent)
-    if (sem.label.includes('Summer') && summersWithClasses.has(sem.label)) {
-      return true;
+    // If it's a summer semester
+    if (sem.label.includes('Summer')) {
+      // If toggle is OFF, hide ALL summers
+      if (!includeSummerSemesters) return false;
+      
+      // If toggle is ON, hide only dismissed summers
+      if (dismissedSummers.has(sem.label)) return false;
     }
-    
-    // Hide dismissed summers
-    if (dismissedSummers.has(sem.label)) return false;
     
     return true;
   });
+  
+  // Auto-center on current semester only once on initial load
+  useEffect(() => {
+    // Only center if we haven't already done so
+    if (!hasCenteredRef.current && filteredSemesters.length > 0) {
+      // Find current semester in the FILTERED array
+      const currentIdx = filteredSemesters.findIndex(sem => sem.status === "current");
+      if (currentIdx !== -1) {
+        // Center the current semester (show previous, current, next)
+        const centerIndex = Math.max(0, currentIdx - 1);
+        // Ensure we don't go past the end when centering
+        const finalIndex = Math.min(centerIndex, Math.max(0, filteredSemesters.length - 3));
+        setCurrentIndex(finalIndex);
+        hasCenteredRef.current = true; // Mark as centered
+      }
+    }
+  }, [filteredSemesters]);
   
   const handlePrevious = () => {
     setCurrentIndex(Math.max(0, currentIndex - 1)); // Changed from semestersToShow to 1
@@ -429,16 +402,32 @@ export function CompactSemesterTimeline({ semesters, onViewAll, onCoursesUpdate,
             </div>
 
             <div className="mb-4">
-              <p className="font-semibold text-lg">{semester.label}</p>
-              <p className="text-sm text-muted-foreground">
-                {semester.courseCount > 0 ? (
-                  <>
-                    {semester.courseCount} {semester.courseCount === 1 ? "course" : "courses"} • {semester.credits} credits
-                  </>
-                ) : (
-                  "No courses yet"
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-lg">{semester.label}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {semester.courseCount > 0 ? (
+                      <>
+                        {semester.courseCount} {semester.courseCount === 1 ? "course" : "courses"} • {semester.credits} credits
+                      </>
+                    ) : (
+                      "No courses yet"
+                    )}
+                  </p>
+                </div>
+                {/* X button for empty summer semesters only */}
+                {semester.label.includes('Summer') && semester.courseCount === 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 p-0 hover:bg-destructive/10"
+                    onClick={() => handleRemoveSummerSemester(semester.label)}
+                    title="Dismiss this summer semester"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 )}
-              </p>
+              </div>
             </div>
 
             {/* Course list at the top */}
