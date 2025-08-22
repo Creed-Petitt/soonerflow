@@ -255,9 +255,19 @@ class UserFlowchart(Base):
     user = relationship("User", back_populates="flowchart")
 
 def get_database_url():
-    """Get the database URL - matches the original Prisma schema"""
-    # Get the absolute path to the database file
+    """Get the database URL from environment variables or fallback to SQLite"""
     import os
+    from dotenv import load_dotenv
+    
+    # Load environment variables
+    load_dotenv()
+    
+    # Check for DATABASE_URL environment variable first
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        return database_url
+    
+    # Fallback to SQLite for backward compatibility
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(current_dir, 'dev.db')
     return f"sqlite:///{db_path}"
@@ -265,6 +275,12 @@ def get_database_url():
 def create_engine_and_session():
     """Create SQLAlchemy engine and session"""
     database_url = get_database_url()
-    engine = create_engine(database_url, echo=False)
+    
+    # Configure engine based on database type
+    if database_url.startswith('postgresql://'):
+        engine = create_engine(database_url, echo=False, pool_pre_ping=True)
+    else:
+        engine = create_engine(database_url, echo=False)
+    
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine, SessionLocal 

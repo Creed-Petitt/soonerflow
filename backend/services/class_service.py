@@ -276,6 +276,7 @@ class ClassService:
             "total_seats": cls.totalSeats or 0,
             "genEd": cls.genEd or "",
             "type": cls.type or "",
+            "description": cls.description or "",  # Always include description
             # Ratings will be added by the controller if needed
             "rating": 0.0,
             "difficulty": 0.0,
@@ -287,14 +288,12 @@ class ClassService:
         # Add expensive fields only when not skipping
         if not skip_ratings:
             response.update({
-                "description": cls.description or "",
                 "prerequisites": prerequisites,
                 "sections": sections
             })
         else:
             # Lightweight response for lists
             response.update({
-                "description": "",
                 "prerequisites": [],
                 "sections": []
             })

@@ -60,19 +60,19 @@ async def get_major_courses(major_name: str, db: Session = Depends(get_db)):
     courses = db.execute(text("""
         SELECT 
             mc.subject, 
-            mc.courseNumber, 
+            mc."courseNumber", 
             COALESCE(c.title, mc.title) as title, 
             COALESCE(c.credits, mc.credits, 3) as credits, 
-            r.categoryName
+            r."categoryName"
         FROM major_courses mc
-        JOIN requirements r ON mc.requirementId = r.id
+        JOIN requirements r ON mc."requirementId" = r.id
         LEFT JOIN (
-            SELECT DISTINCT subject, courseNumber, title, credits
+            SELECT DISTINCT subject, "courseNumber", title, credits
             FROM classes 
             WHERE title NOT LIKE 'Lab-%'
-        ) c ON mc.subject = c.subject AND mc.courseNumber = c.courseNumber
-        WHERE r.majorId = :major_id
-        ORDER BY r.categoryName, mc.subject, mc.courseNumber
+        ) c ON mc.subject = c.subject AND mc."courseNumber" = c."courseNumber"
+        WHERE r."majorId" = :major_id
+        ORDER BY r."categoryName", mc.subject, mc."courseNumber"
     """), {"major_id": major.id}).fetchall()
     
     return [

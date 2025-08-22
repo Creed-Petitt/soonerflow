@@ -141,8 +141,8 @@ class ProfessorService:
         """
         try:
             mapping = self.db.execute(text("""
-                SELECT professorId FROM class_professor_mappings 
-                WHERE classId = :class_id
+                SELECT "professorId" FROM class_professor_mappings 
+                WHERE "classId" = :class_id
             """), {"class_id": class_id}).first()
             
             if mapping:

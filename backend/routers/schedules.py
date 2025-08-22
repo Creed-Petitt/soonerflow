@@ -117,7 +117,6 @@ async def get_available_semesters(
 async def get_or_create_semester_schedule(
     provider_id: str, 
     semester: str,
-    api_key_valid: bool = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Get or create user's schedule for a specific semester."""
@@ -246,7 +245,15 @@ async def get_or_create_semester_schedule(
     
     for sc in schedule.scheduled_classes:
         cls = sc.class_
-        ratings = professor_service.get_rating(cls.id, cls.instructor)
+        
+        # Get professor ratings with error handling
+        try:
+            ratings = professor_service.get_rating(cls.id, cls.instructor)
+        except Exception as prof_error:
+            print(f"Professor service error for {cls.id}: {prof_error}")
+            db.rollback()
+            ratings = {"rating": None, "difficulty": None, "wouldTakeAgain": None}
+        
         time_str = class_service.format_meeting_times(cls.meetingTimes)
         days = [mt.days for mt in cls.meetingTimes if mt.days]
         location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
@@ -287,72 +294,106 @@ async def get_or_create_semester_schedule(
 @router.get("/users/{provider_id}/active-schedule")
 async def get_active_schedule(provider_id: str, db: Session = Depends(get_db)):
     """Get user's active schedule with full class details."""
-    user = db.query(User).filter(
-        (User.github_id == provider_id) | (User.google_id == provider_id)
-    ).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Get active schedule
-    schedule = db.query(Schedule).filter(
-        Schedule.user_id == user.id,
-        Schedule.is_active == True
-    ).first()
-    
-    if not schedule:
-        # Create default schedule if none exists
-        schedule = Schedule(
-            user_id=user.id,
-            name="Spring 2025 Schedule",
-            is_active=True,
-            semester="202420"  # Spring 2025
-        )
-        db.add(schedule)
-        db.commit()
-        db.refresh(schedule)
-    
-    # Get scheduled classes with full details
-    class_service = ClassService(db)
-    professor_service = ProfessorService(db)
-    scheduled_classes = []
-    
-    for sc in schedule.scheduled_classes:
-        cls = sc.class_
-        ratings = professor_service.get_rating(cls.id, cls.instructor)
-        time_str = class_service.format_meeting_times(cls.meetingTimes)
-        days = [mt.days for mt in cls.meetingTimes if mt.days]
-        location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
+    try:
+        user = db.query(User).filter(
+            (User.github_id == provider_id) | (User.google_id == provider_id)
+        ).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
         
-        # Clean up title (remove "Lab-" prefix if present)
-        clean_title = cls.title
-        if clean_title.startswith("Lab-"):
-            clean_title = clean_title[4:]
+        # Get active schedule
+        schedule = db.query(Schedule).filter(
+            Schedule.user_id == user.id,
+            Schedule.is_active == True
+        ).first()
         
-        scheduled_classes.append({
-            "id": cls.id,
-            "subject": cls.subject,
-            "number": cls.courseNumber,
-            "title": clean_title,
-            "instructor": cls.instructor or "TBA",
-            "credits": cls.credits or 3,
-            "time": time_str,
-            "location": location,
-            "days": days,
-            "type": cls.type or "",
-            "color": sc.color,
-            "available_seats": cls.availableSeats or 0,
-            "total_seats": cls.totalSeats or 0,
-            "rating": ratings["rating"],
-            "difficulty": ratings["difficulty"],
-            "wouldTakeAgain": ratings["wouldTakeAgain"],
-            "prerequisites": []  # Add empty prerequisites array for compatibility
-        })
-    
-    return {
-        "schedule_id": schedule.id,
-        "schedule_name": schedule.name,
-        "classes": scheduled_classes
-    }
+        if not schedule:
+            # Create default schedule if none exists
+            try:
+                schedule = Schedule(
+                    user_id=user.id,
+                    name="Spring 2025 Schedule",
+                    is_active=True,
+                    semester="202420"  # Spring 2025
+                )
+                db.add(schedule)
+                db.commit()
+                db.refresh(schedule)
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Failed to create schedule: {str(e)}")
+        
+        # Get scheduled classes with full details
+        class_service = ClassService(db)
+        professor_service = ProfessorService(db)
+        scheduled_classes = []
+        
+        try:
+            for sc in schedule.scheduled_classes:
+                try:
+                    cls = sc.class_
+                    
+                    # Get professor ratings with error handling
+                    try:
+                        ratings = professor_service.get_rating(cls.id, cls.instructor)
+                    except Exception as prof_error:
+                        print(f"Professor service error for {cls.id}: {prof_error}")
+                        # Rollback and continue with default ratings
+                        db.rollback()
+                        ratings = {"rating": None, "difficulty": None, "wouldTakeAgain": None}
+                    
+                    time_str = class_service.format_meeting_times(cls.meetingTimes)
+                    days = [mt.days for mt in cls.meetingTimes if mt.days]
+                    location = cls.meetingTimes[0].location if cls.meetingTimes else "TBA"
+                    
+                    # Clean up title (remove "Lab-" prefix if present)
+                    clean_title = cls.title
+                    if clean_title.startswith("Lab-"):
+                        clean_title = clean_title[4:]
+                    
+                    scheduled_classes.append({
+                        "id": cls.id,
+                        "subject": cls.subject,
+                        "number": cls.courseNumber,
+                        "title": clean_title,
+                        "instructor": cls.instructor or "TBA",
+                        "credits": cls.credits or 3,
+                        "time": time_str,
+                        "location": location,
+                        "days": days,
+                        "type": cls.type or "",
+                        "color": sc.color,
+                        "available_seats": cls.availableSeats or 0,
+                        "total_seats": cls.totalSeats or 0,
+                        "rating": ratings["rating"],
+                        "difficulty": ratings["difficulty"],
+                        "wouldTakeAgain": ratings["wouldTakeAgain"],
+                        "prerequisites": []  # Add empty prerequisites array for compatibility
+                    })
+                except Exception as class_error:
+                    print(f"Error processing scheduled class {sc.id}: {class_error}")
+                    # Skip this class and continue
+                    continue
+                    
+        except Exception as schedule_error:
+            print(f"Error loading scheduled classes: {schedule_error}")
+            db.rollback()
+            # Return schedule with empty classes array
+            scheduled_classes = []
+        
+        return {
+            "schedule_id": schedule.id,
+            "schedule_name": schedule.name,
+            "classes": scheduled_classes
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404)
+        raise
+    except Exception as e:
+        print(f"Unexpected error in get_active_schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to load schedule")
 
 
 @router.put("/schedules/{schedule_id}/classes")
@@ -689,3 +730,68 @@ async def validate_prerequisites(
     class_service = ClassService(db)
     result = class_service.check_prerequisites(request.class_id, user_id, schedule_id)
     return result
+
+
+@router.post("/users/{provider_id}/activate-semester/{semester}")
+async def activate_semester_schedule(
+    provider_id: str, 
+    semester: str,
+    db: Session = Depends(get_db)
+):
+    """Activate a specific semester's schedule for the user."""
+    try:
+        user = db.query(User).filter(
+            (User.github_id == provider_id) | (User.google_id == provider_id)
+        ).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Find the target semester's schedule
+        target_schedule = db.query(Schedule).filter(
+            Schedule.user_id == user.id,
+            Schedule.semester == semester
+        ).first()
+        
+        if not target_schedule:
+            # Create schedule if it doesn't exist
+            semester_names = {
+                "202420": "Spring 2025",
+                "202430": "Summer 2025", 
+                "202510": "Fall 2025",
+                "202520": "Spring 2026",
+                "202530": "Summer 2026",
+                "202610": "Fall 2026",
+                "202620": "Spring 2027",
+                "202630": "Summer 2027"
+            }
+            
+            semester_name = semester_names.get(semester, semester)
+            target_schedule = Schedule(
+                user_id=user.id,
+                name=f"{semester_name} Schedule",
+                is_active=False,
+                semester=semester
+            )
+            db.add(target_schedule)
+            db.flush()  # Get the ID
+        
+        # Deactivate all other schedules for this user
+        db.query(Schedule).filter(
+            Schedule.user_id == user.id
+        ).update({"is_active": False})
+        
+        # Activate the target schedule
+        target_schedule.is_active = True
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "schedule_id": target_schedule.id,
+            "semester": semester,
+            "message": f"Activated {target_schedule.name}"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to activate semester: {str(e)}")
