@@ -19,11 +19,11 @@ const handler = NextAuth({
       
       if (account?.provider === "github" || account?.provider === "google") {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/user`, {
+          const response = await fetch(`${process.env.BACKEND_URL}/api/auth/user`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-API-Key": process.env.NEXT_PUBLIC_API_KEY!,
+              "X-API-Key": process.env.API_KEY!,
             },
             body: JSON.stringify({
               provider: account.provider,

@@ -3,22 +3,20 @@
  * Uses API Key authentication for simplicity and security
  */
 
-// Get the API key from environment variable
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY
+// API key is now handled server-side in the proxy for security
 
 /**
- * Make an authenticated fetch request to the backend API
- * Automatically adds the X-API-Key header
+ * Make a fetch request to the backend API via the NextJS proxy
+ * Authentication is handled server-side for security
  */
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  // Add the API key header
+  // Headers for the request (API key is added server-side)
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
-    'X-API-Key': API_KEY,
   }
   
-  // Make the request with the API key
+  // Make the request (authentication handled by proxy)
   const response = await fetch(url, {
     ...options,
     headers,
@@ -37,12 +35,11 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
 }
 
 /**
- * Helper to get auth headers for fetch requests
- * Use this when you need to manually construct fetch calls
+ * Helper to get headers for fetch requests
+ * Authentication is now handled server-side
  */
 export function getAuthHeaders() {
   return {
-    'X-API-Key': API_KEY,
     'Content-Type': 'application/json',
   }
 }

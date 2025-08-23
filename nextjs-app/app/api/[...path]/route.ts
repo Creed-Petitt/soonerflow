@@ -19,7 +19,7 @@ export async function GET(
     const response = await fetch(`${BACKEND_URL}/api/${path}${queryString}`, {
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': request.headers.get('x-api-key') || '',
+        'X-API-Key': process.env.API_KEY || '',
       },
       signal: controller.signal,
     })
@@ -90,7 +90,7 @@ export async function POST(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': request.headers.get('x-api-key') || '',
+        'X-API-Key': process.env.API_KEY || '',
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
@@ -160,7 +160,7 @@ export async function PUT(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': request.headers.get('x-api-key') || '',
+        'X-API-Key': process.env.API_KEY || '',
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
@@ -217,7 +217,7 @@ export async function DELETE(
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': request.headers.get('x-api-key') || '',
+        'X-API-Key': process.env.API_KEY || '',
       },
       signal: controller.signal,
     })
