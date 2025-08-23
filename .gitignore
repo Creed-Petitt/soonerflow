@@ -199,3 +199,21 @@ pids
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Cloud deployment configs (contain secrets)
+env.yaml
+*.yaml
+
+# Additional database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Additional log files
+logs/
+*.log
+
+# Backup and temporary files
+backup.sql
+*.dump
+*.backup

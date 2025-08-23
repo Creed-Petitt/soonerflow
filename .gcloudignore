@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+node_modules/
+nextjs-app/node_modules/
+*.sql
+*.dump
+backup.sql
+.DS_Store
