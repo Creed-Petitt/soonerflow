@@ -7,7 +7,6 @@ import {
   HomeIcon,
   CalendarDaysIcon,
   TrendingUpIcon,
-  GitBranch,
   BookOpen,
 } from "lucide-react"
 
@@ -35,7 +34,6 @@ import {
 const navigationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/scheduler", label: "Scheduler", icon: CalendarDaysIcon },
-  { href: "/flowchart", label: "Flow", icon: GitBranch },
 ]
 
 export default function CustomNavbar() {

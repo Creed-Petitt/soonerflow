@@ -15,9 +15,7 @@ from backend.routers import (
     professors_router,
     users_router,
     schedules_router,
-    majors_router,
-    prerequisites_router,
-    flowchart_router
+    majors_router
 )
 from database.models import create_engine_and_session
 
@@ -53,8 +51,6 @@ app.include_router(professors_router)
 app.include_router(users_router)
 app.include_router(schedules_router)
 app.include_router(majors_router)
-app.include_router(prerequisites_router)
-app.include_router(flowchart_router)
 
 # Root endpoint
 @app.get("/")

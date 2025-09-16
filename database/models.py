@@ -241,18 +241,7 @@ class MajorCourse(Base):
     # Relationships
     requirement = relationship("Requirement", back_populates="courses")
 
-# Flowchart Persistence Model
-class UserFlowchart(Base):
-    __tablename__ = 'user_flowcharts'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True)
-    nodes = Column(Text)  # JSON array of nodes
-    edges = Column(Text)  # JSON array of edges
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    user = relationship("User", back_populates="flowchart")
+
 
 def get_database_url():
     """Get the database URL from environment variables or fallback to SQLite"""
@@ -295,6 +284,19 @@ def create_engine_and_session():
             database_url, 
             echo=False,
             connect_args={"check_same_thread": False, "timeout": 30},
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+            pool_recycle=3600
+        )
+    
+    SessionLocal = sessionmaker(
+        autocommit=False, 
+        autoflush=False, 
+        bind=engine,
+        expire_on_commit=False  # Prevent expired objects after transaction
+    )
+    return engine, SessionLocal        connect_args={"check_same_thread": False, "timeout": 30},
             pool_size=5,
             max_overflow=10,
             pool_pre_ping=True,
