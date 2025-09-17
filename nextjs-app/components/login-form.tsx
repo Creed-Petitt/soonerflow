@@ -55,8 +55,6 @@ export function LoginForm({
                 )}
                 Login with GitHub
               </Button>
-              
-              {/* Future OAuth providers */}
               <Button variant="outline" className="w-full" disabled>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="mr-2 h-4 w-4">
                   <path

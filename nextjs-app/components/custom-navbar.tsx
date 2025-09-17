@@ -64,7 +64,6 @@ export default function CustomNavbar() {
             </svg>
             <span className="font-bold text-2xl text-foreground">SoonerFlow</span>
           </div>
-          {/* Mobile menu trigger */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -138,7 +137,6 @@ export default function CustomNavbar() {
             </PopoverContent>
           </Popover>
           <div className="flex items-center gap-2">
-            {/* Desktop navigation - icon only */}
             <NavigationMenu className="hidden md:flex">
               <NavigationMenuList className="gap-1">
                 <TooltipProvider>
@@ -182,9 +180,7 @@ export default function CustomNavbar() {
             </NavigationMenu>
           </div>
         </div>
-        {/* Right side */}
         <div className="flex items-center gap-1">
-          {/* User menu */}
           <UserMenu />
         </div>
       </div>

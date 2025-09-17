@@ -178,60 +178,6 @@ const columns: ColumnDef<Course>[] = [
         </Button>
       );
       
-      /* Old dropdown code - replaced with multi-select
-      return (
-        <>
-          
-          Class Detail Dialog - the exact modal from calendar
-          {classDataForModal && (
-            <ClassDetailDialog
-              isOpen={showClassModal}
-              onClose={() => {
-                setShowClassModal(false);
-                setClassDataForModal(null);
-                // Restore focus to the button that opened the modal
-                setTimeout(() => {
-                  buttonRef.current?.focus();
-                }, 100);
-              }}
-              groupedClass={classDataForModal.groupedClass}
-              selectedSection={classDataForModal.selectedSection}
-              onAddToSchedule={(section) => {
-                // Generate a color for the calendar event
-                const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500'];
-                const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                
-                // Add to schedule hook for persistence
-                addClass({
-                  id: section.id,
-                  subject: section.subject,
-                  number: section.number || section.courseNumber || '',
-                  title: section.title,
-                  instructor: section.instructor || 'TBA',
-                  time: section.time || 'TBA',
-                  location: section.location || 'TBA',
-                  credits: section.credits || 3,
-                  type: section.type,
-                  color: randomColor,
-                  available_seats: section.availableSeats,
-                  total_seats: section.totalSeats,
-                  rating: section.rating,
-                  difficulty: section.difficulty,
-                  wouldTakeAgain: section.wouldTakeAgain
-                });
-                
-                setShowClassModal(false);
-                setClassDataForModal(null);
-                // Restore focus after successfully adding
-                setTimeout(() => {
-                  buttonRef.current?.focus();
-                }, 100);
-              }}
-            />
-          )}
-        </>
-      );
-      */
     },
     size: 60,
     enableHiding: false,
@@ -394,7 +340,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
   const { data: session } = useSession()
   
   // Flowchart store hooks
-  
   
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -907,8 +852,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
           </TableBody>
         </Table>
       </div>
-
-      {/* Class Detail Modal */}
       {showClassModal && (
         <>
           {modalLoading ? (
@@ -970,19 +913,14 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
         </>
       )}
 
-      {/* Multi-Class Selection Modal */}
       {showMultiClassModal && (
         <>
-          {/* Backdrop */}
           <div 
             className="fixed inset-0 bg-black/50 z-40 transition-opacity"
             onClick={() => setShowMultiClassModal(false)}
           />
-          
-          {/* Modal */}
           <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[500px] bg-background border rounded-lg shadow-xl z-50">
             <div className="flex flex-col h-full">
-              {/* Header */}
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">Add Multiple Courses to Schedule</h3>
                 <button
@@ -993,7 +931,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
                 </button>
               </div>
               
-              {/* Content */}
               <div className="flex-1 p-4 overflow-y-auto">
                 <p className="text-sm text-muted-foreground mb-4">
                   You've selected {multiSelectRows.length} courses. This feature will be available soon - 
@@ -1013,7 +950,6 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
                 </div>
               </div>
               
-              {/* Footer */}
               <div className="p-4 border-t">
                 <button
                   onClick={() => setShowMultiClassModal(false)}

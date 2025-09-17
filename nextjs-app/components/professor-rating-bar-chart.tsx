@@ -13,9 +13,6 @@ interface ProfessorRatingBarChartProps {
 }
 
 export function ProfessorRatingBarChart({ ratingDistribution }: ProfessorRatingBarChartProps) {
-  // Convert the rating distribution array to chart data
-  // ratingDistribution[0] = ratingR1 (1-star), ratingDistribution[4] = ratingR5 (5-star)
-  // Use color gradient from green (5★) to red (1★)
   const chartData = [
     { stars: "5★", count: ratingDistribution[4] || 0, fill: "hsl(142, 76%, 36%)" }, // Green
     { stars: "4★", count: ratingDistribution[3] || 0, fill: "hsl(141, 50%, 48%)" }, // Light green

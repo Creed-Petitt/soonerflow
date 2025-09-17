@@ -32,10 +32,7 @@ export default function Hero({ className, children }: HeroProps) {
         className
       )}
     >
-      {/* Background Beams Effect */}
       <BackgroundBeams />
-
-      {/* Content Container */}
       <div className="relative z-50 w-full max-w-5xl mx-auto px-4 text-center -mt-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

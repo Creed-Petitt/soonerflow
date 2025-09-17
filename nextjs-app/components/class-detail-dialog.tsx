@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { ProfessorRatingBarChart } from "@/components/professor-rating-bar-chart";
 import { useSchedule } from "@/hooks/use-schedule";
+import { cleanDescription, formatPrerequisites } from "@/utils/course-utils";
+import { useProfessorData } from "@/hooks/useProfessorData";
 
 interface ClassDetailDialogProps {
   isOpen: boolean;
@@ -39,47 +41,6 @@ interface ClassDetailDialogProps {
   isChangeMode?: boolean; // If true, this is for changing existing class
 }
 
-// Helper function to clean HTML and boilerplate text from description
-function cleanDescription(description: string): string {
-  if (!description) return description;
-  
-  let cleaned = description
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  
-  const boilerplatePatterns = [
-    /This course\/section has been selected for the Inclusive Access \(IA\) program.*?Check here to view the savings for your course material: https:\/\/link\.ou\.edu\/ia-savings\s*/gi,
-    /STUDENTS MUST ENROLL IN ONE OF THE FOLLOWING CO-REQUISITE:.*?\s*/gi,
-    /Co-requisite:.*?\s*/gi,
-    /Corequisite:.*?\s*/gi,
-    /Prerequisite[s]?:.*?\.\s*/gi,  // Remove prerequisite text and following period
-    /Prerequisites?:.*?\.\s*/gi,
-  ];
-  
-  boilerplatePatterns.forEach(pattern => {
-    cleaned = cleaned.replace(pattern, '');
-  });
-  
-  // Clean up any leading periods or extra spaces
-  cleaned = cleaned.replace(/^\.\s*/, '').replace(/\s+/g, ' ').trim();
-  
-  return cleaned;
-}
-
-// Helper function to format prerequisites for display
-function formatPrerequisites(prerequisites: any[]): string {
-  if (!prerequisites || prerequisites.length === 0) return '';
-  
-  const groups = prerequisites.map(group => {
-    const courses = group.courses.map((c: any) => `${c.subject} ${c.number}`).join(' or ');
-    return courses;
-  });
-  
-  return groups.join(' and ');
-}
 
 export function ClassDetailDialog({
   isOpen,
@@ -92,8 +53,7 @@ export function ClassDetailDialog({
   const [currentView, setCurrentView] = React.useState<"class" | "professor">("class");
   const [currentSection, setCurrentSection] = React.useState<any>(null);
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
-  const [professorData, setProfessorData] = React.useState<any>(null);
-  const [loadingProfessor, setLoadingProfessor] = React.useState(false);
+  const { professorData, loading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
   
   // Track original selections for change mode
   const [originalSection, setOriginalSection] = React.useState<any>(null);
@@ -125,38 +85,12 @@ export function ClassDetailDialog({
 
   // Load professor data when section changes
   React.useEffect(() => {
-    if (currentSection?.instructor && currentSection.instructor !== 'TBA') {
-      const loadProfessorData = async () => {
-        setLoadingProfessor(true);
-        try {
-          // Parse instructor name (usually "Last, First")
-          const nameParts = currentSection.instructor.split(',').map((p: string) => p.trim());
-          const searchName = nameParts.length > 1 ? 
-            `${nameParts[1]} ${nameParts[0]}` : currentSection.instructor;
-          
-          const response = await fetch(`/api/professors/search?name=${encodeURIComponent(searchName)}`);
-          if (response.ok) {
-            const prof = await response.json();
-            if (prof && prof.id) {
-              setProfessorData({
-                name: `${prof.firstName} ${prof.lastName}`,
-                rating: prof.avgRating || 0,
-                difficulty: prof.avgDifficulty || 0,
-                wouldTakeAgain: prof.wouldTakeAgainPercent || 0,
-                totalRatings: prof.numRatings || 0,
-                tags: prof.tags || [],
-                ratingDistribution: prof.ratingDistribution || [0, 0, 0, 0, 0]
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error loading professor data:', error);
-        }
-        setLoadingProfessor(false);
-      };
-      loadProfessorData();
+    if (currentSection?.instructor) {
+      loadProfessorData(currentSection.instructor);
+    } else {
+      clearProfessorData();
     }
-  }, [currentSection]);
+  }, [currentSection?.instructor, loadProfessorData, clearProfessorData]);
 
   if (!groupedClass) return null;
 
@@ -185,7 +119,6 @@ export function ClassDetailDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[600px] w-full min-h-[85vh] max-h-[90vh] h-[88vh] p-0 flex flex-col overflow-hidden">
-        {/* Compact Header */}
         <div className="px-6 pt-4 pb-1 shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -215,12 +148,9 @@ export function ClassDetailDialog({
             </div>
           </div>
         </div>
-        
-        {/* Body */}
         <div className="flex-1 px-6 py-2 space-y-3 overflow-hidden">
           {currentView === "class" ? (
             <>
-              {/* Section Selector */}
               {groupedClass.sections && groupedClass.sections.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium sans-serif -mt-2">Section</h4>
@@ -257,8 +187,6 @@ export function ClassDetailDialog({
                   ) : null}
                 </div>
               )}
-
-              {/* Lab Section Selector - only show if labs exist */}
               {groupedClass.labSections && groupedClass.labSections.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <h4 className="text-sm font-medium sans-serif">Lab Section (Required)</h4>
@@ -292,8 +220,6 @@ export function ClassDetailDialog({
                   </Select>
                 </div>
               )}
-
-              {/* Meeting Info */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center gap-3 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -311,8 +237,6 @@ export function ClassDetailDialog({
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span>{currentSection?.instructor || 'TBA'}</span>
                 </div>
-                
-                {/* Seats Progress Bar */}
                 {(currentSection?.total_seats !== undefined || currentSection?.totalSeats !== undefined) && (
                   <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-sm">
@@ -326,7 +250,6 @@ export function ClassDetailDialog({
                 )}
               </div>
               
-              {/* Prerequisites Section */}
               {currentSection?.prerequisites && currentSection.prerequisites.length > 0 && (
                 <div className="space-y-2 pt-3 border-t">
                   <h4 className="text-sm font-medium sans-serif">Prerequisites</h4>
@@ -336,7 +259,6 @@ export function ClassDetailDialog({
                 </div>
               )}
 
-              {/* Course Description */}
               {currentSection?.description && (
                 <div className="space-y-2 pt-3 border-t">
                   <h4 className="text-sm font-medium sans-serif">Course Description</h4>
@@ -347,7 +269,6 @@ export function ClassDetailDialog({
               )}
             </>
           ) : (
-            /* Professor View */
             <div className="space-y-3">
               {loadingProfessor ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
@@ -355,7 +276,6 @@ export function ClassDetailDialog({
                 </div>
               ) : professorData ? (
                 <>
-                  {/* Professor Header */}
                   <div className="space-y-1">
                     <h3 className="text-lg font-semibold">{professorData.name}</h3>
                     <p className="text-sm text-muted-foreground">
@@ -363,7 +283,6 @@ export function ClassDetailDialog({
                     </p>
                   </div>
 
-                  {/* Rating Overview */}
                   <div className="grid grid-cols-3 gap-4 pt-1 text-center">
                     <div className="space-y-1">
                       <p className="text-2xl font-bold">{professorData.rating.toFixed(1)}</p>
@@ -416,8 +335,6 @@ export function ClassDetailDialog({
                       <p className="text-xs text-muted-foreground">Would Take Again</p>
                     </div>
                   </div>
-
-                  {/* Tags */}
                   {professorData.tags && professorData.tags.length > 0 && (
                     <div className="space-y-2 pt-2">
                       <h4 className="text-sm font-medium">What Students Say</h4>
@@ -431,7 +348,6 @@ export function ClassDetailDialog({
                     </div>
                   )}
 
-                  {/* Rating Distribution */}
                   {professorData.ratingDistribution && (
                     <div className="pt-1">
                       <h4 className="text-sm font-medium mb-1">Rating Distribution</h4>
@@ -451,8 +367,6 @@ export function ClassDetailDialog({
             </div>
           )}
         </div>
-
-        {/* Footer */}
         <div className="px-6 py-4 border-t shrink-0">
           {buttonText ? (
             <Button
