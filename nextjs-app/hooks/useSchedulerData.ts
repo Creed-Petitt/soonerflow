@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import type { CalendarEvent } from "@/components/event-calendar/types"
 import { useSchedule } from "@/hooks/use-schedule"
+import { parseClassTime } from "@/lib/time-utils"
 
 interface ClassData {
   id: string
@@ -146,30 +147,10 @@ export function useSchedulerData() {
       }]
     }
 
-    const parts = classData.time.split(' ')
-    if (parts.length < 3) return []
+    const timeData = parseClassTime(classData.time)
+    if (!timeData) return []
 
-    const days = parts[0]
-    const timeRange = parts.slice(1).join(' ')
-    const [startTimeStr, endTimeStr] = timeRange.split('-')
-
-    const parseTime = (timeStr: string) => {
-      const cleanTime = timeStr.trim()
-      const isPM = cleanTime.includes('pm')
-      const isAM = cleanTime.includes('am')
-      const timeOnly = cleanTime.replace(/[ap]m/g, '').trim()
-      const [hourStr, minStr] = timeOnly.split(':')
-      let hour = parseInt(hourStr)
-      const min = parseInt(minStr) || 0
-
-      if (isPM && hour !== 12) hour += 12
-      if (isAM && hour === 12) hour = 0
-
-      return { hour, min }
-    }
-
-    const startTime = parseTime(startTimeStr)
-    const endTime = parseTime(endTimeStr)
+    const { days: classDays, startTime, endTime } = timeData
 
     const templateDates: { [key: string]: Date } = {
       'M': new Date(2025, 0, 6),
@@ -177,23 +158,6 @@ export function useSchedulerData() {
       'W': new Date(2025, 0, 8),
       'R': new Date(2025, 0, 9),
       'F': new Date(2025, 0, 10),
-    }
-
-    const classDays = []
-    let i = 0
-    while (i < days.length) {
-      if (i < days.length - 1 && days.slice(i, i + 2) === 'Th') {
-        classDays.push('R')
-        i += 2
-      } else if (days[i] === 'R') {
-        classDays.push('R')
-        i++
-      } else if (templateDates[days[i]]) {
-        classDays.push(days[i])
-        i++
-      } else {
-        i++
-      }
     }
 
     const events = classDays.map(dayLetter => {
