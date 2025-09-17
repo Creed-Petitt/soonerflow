@@ -2,9 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useMemo, useCallback, memo } from "react"
 import { useSession } from "next-auth/react"
-import useFlowchartStore from "@/stores/useFlowchartStore"
-import { Node } from '@xyflow/react'
-import { CourseNodeData } from '@/components/prerequisite-flow/course-node'
+
 import { useSchedule } from "@/hooks/use-schedule"
 import { ClassDetailDialog } from "@/components/class-detail-dialog"
 import { fetchWithAuth } from "@/lib/api-client"
@@ -396,7 +394,7 @@ const DegreeRequirementsTable = memo(function DegreeRequirementsTable() {
   const { data: session } = useSession()
   
   // Flowchart store hooks
-  const addNode = useFlowchartStore((state) => state.addNode);
+  
   
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})

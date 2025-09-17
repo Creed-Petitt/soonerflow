@@ -240,22 +240,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
-  // Validation error state
-  const [validationError, setValidationError] = useState<{
-    isOpen: boolean;
-    errorType: ScheduleErrorType;
-    classInfo: any;
-    conflicts?: any[];
-    missingPrerequisites?: any[];
-    pendingAddData?: { section: any; labSection?: any };
-  }>({
-    isOpen: false,
-    errorType: "time_conflict",
-    classInfo: { subject: "", number: "", title: "" },
-    conflicts: [],
-    missingPrerequisites: [],
-    pendingAddData: undefined
-  });
+  
 
   // Load departments when panel opens
   useEffect(() => {
@@ -613,64 +598,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       const scheduleData = await scheduleResponse.json();
       const scheduleId = scheduleData.schedule_id;
       
-      // Check for time conflicts
-      const conflictResponse = await fetch(`/api/schedules/${scheduleId}/validate-time`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class_id: section.id, schedule_id: scheduleId })
-      });
       
-      if (conflictResponse.ok) {
-        const conflictData = await conflictResponse.json();
-        
-        if (conflictData.has_conflict) {
-          // Show conflict error dialog
-          setValidationError({
-            isOpen: true,
-            errorType: "time_conflict",
-            classInfo: {
-              subject: section.subject,
-              number: section.number || section.courseNumber,
-              title: section.title
-            },
-            conflicts: conflictData.conflicts,
-            missingPrerequisites: [],
-            pendingAddData: undefined
-          });
-          return;
-        }
-      }
-      
-      // Check prerequisites
-      const prereqResponse = await fetch(`/api/schedules/${scheduleId}/validate-prerequisites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          class_id: section.id, 
-          schedule_id: scheduleId
-        })
-      });
-      
-      if (prereqResponse.ok) {
-        const prereqData = await prereqResponse.json();
-        
-        if (!prereqData.prerequisites_met) {
-          // Show prerequisite error dialog with option to add anyway
-          setValidationError({
-            isOpen: true,
-            errorType: "missing_prerequisites",
-            classInfo: {
-              subject: section.subject,
-              number: section.number || section.courseNumber,
-              title: section.title
-            },
-            conflicts: [],
-            missingPrerequisites: prereqData.missing,
-            pendingAddData: { section, labSection }
-          });
-          return;
-        }
-      }
       
       // If all validations pass, add the class
       addClassToSchedule(section, labSection);
@@ -935,24 +863,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
         />
       )}
       
-      {/* Schedule Error Dialog */}
-      <ScheduleErrorDialog
-        isOpen={validationError.isOpen}
-        onClose={() => setValidationError(prev => ({ ...prev, isOpen: false }))}
-        errorType={validationError.errorType}
-        classInfo={validationError.classInfo}
-        conflicts={validationError.conflicts}
-        missingPrerequisites={validationError.missingPrerequisites}
-        allowAddAnyway={validationError.errorType === "missing_prerequisites"}
-        onAddAnyway={() => {
-          if (validationError.pendingAddData) {
-            addClassToSchedule(
-              validationError.pendingAddData.section, 
-              validationError.pendingAddData.labSection
-            );
-          }
-        }}
-      />
+      
     </>
   );
 }

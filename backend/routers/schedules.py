@@ -714,22 +714,7 @@ async def validate_time_conflicts(
     return result
 
 
-@router.post("/schedules/{schedule_id}/validate-prerequisites")
-async def validate_prerequisites(
-    schedule_id: int,
-    request: ValidationRequest,
-    db: Session = Depends(get_db)
-):
-    """Check if prerequisites are met for a class."""
-    # Always get user_id from the schedule - this ensures we use the correct database user ID
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
-    if not schedule:
-        raise HTTPException(status_code=404, detail="Schedule not found")
-    user_id = schedule.user_id
-    
-    class_service = ClassService(db)
-    result = class_service.check_prerequisites(request.class_id, user_id, schedule_id)
-    return result
+
 
 
 @router.post("/users/{provider_id}/activate-semester/{semester}")
