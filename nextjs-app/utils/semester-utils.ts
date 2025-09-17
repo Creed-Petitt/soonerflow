@@ -1,12 +1,3 @@
-/**
- * Utility functions for semester name and code conversions
- */
-
-/**
- * Convert semester code to human-readable name
- * @param code - Semester code like "202410"
- * @returns Human-readable name like "Fall 2024"
- */
 export function semesterCodeToName(code: string): string {
   if (!code || code.length !== 6) {
     return code; // Return as-is if invalid format
@@ -27,15 +18,10 @@ export function semesterCodeToName(code: string): string {
   }
 }
 
-/**
- * Convert human-readable semester name to code
- * @param name - Semester name like "Fall 2024"
- * @returns Semester code like "202410"
- */
 export function semesterNameToCode(name: string): string {
   if (!name) return '';
   
-  // Parse semester name (e.g., "Fall 2024", "Spring 2025")
+  // Parse semester name ("Fall 2024", "Spring 2025")
   const parts = name.split(' ');
   if (parts.length !== 2) return name; // Return as-is if invalid format
   
@@ -58,12 +44,6 @@ export function semesterNameToCode(name: string): string {
   }
 }
 
-/**
- * Get all semester codes between two dates
- * @param startYear - Starting year
- * @param endYear - Ending year
- * @returns Array of semester codes
- */
 export function getSemesterRange(startYear: number, endYear: number): string[] {
   const semesters: string[] = [];
   
@@ -76,10 +56,6 @@ export function getSemesterRange(startYear: number, endYear: number): string[] {
   return semesters;
 }
 
-/**
- * Get the current semester code based on current date
- * @returns Current semester code
- */
 export function getCurrentSemesterCode(): string {
   const now = new Date();
   const month = now.getMonth() + 1; // 1-12
@@ -97,30 +73,15 @@ export function getCurrentSemesterCode(): string {
   }
 }
 
-/**
- * Check if a semester is in the past
- * @param semesterCode - Semester code to check
- * @returns True if semester is in the past
- */
 export function isSemesterPast(semesterCode: string): boolean {
   const currentCode = getCurrentSemesterCode();
   return semesterCode < currentCode;
 }
 
-/**
- * Check if a semester is current
- * @param semesterCode - Semester code to check
- * @returns True if semester is current
- */
 export function isSemesterCurrent(semesterCode: string): boolean {
   return semesterCode === getCurrentSemesterCode();
 }
 
-/**
- * Check if a semester is in the future
- * @param semesterCode - Semester code to check
- * @returns True if semester is in the future
- */
 export function isSemesterFuture(semesterCode: string): boolean {
   const currentCode = getCurrentSemesterCode();
   return semesterCode > currentCode;
