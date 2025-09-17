@@ -82,7 +82,6 @@ export function AddCoursesModal({
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [totalCoursesCount, setTotalCoursesCount] = useState(0)
   const [departments, setDepartments] = useState<{code: string, name: string, count: number}[]>([])
-  const [departmentCache, setDepartmentCache] = useState<Record<string, {courses: Course[], totalCount: number}>>({})
   const [userMajor, setUserMajor] = useState<string | null>(null)
   const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set())
   const { data: session } = useSession()
@@ -337,44 +336,23 @@ export function AddCoursesModal({
   }
 
   const loadCoursesForDepartment = async (dept: string, page: number = 1, resetCourses: boolean = false) => {
-    // Check cache first (only for first page)
-    if (page === 1 && departmentCache[dept] && !resetCourses) {
-      const cachedClasses = departmentCache[dept].courses
-      setRawClasses(cachedClasses as any)
-      processClassesToCourses(cachedClasses as any)
-      setTotalCoursesCount(departmentCache[dept].totalCount)
-      setHasMoreCourses(cachedClasses.length < departmentCache[dept].totalCount)
-      return
-    }
-    
     try {
       if (page === 1) {
         setLoading(true)
       } else {
         setIsLoadingMore(true)
       }
-      
+
       const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=100&page=${page}&skip_ratings=true`)
       const data = await response.json()
-      
+
       if (data.classes && data.classes.length > 0) {
         const newClasses = data.classes
-        
+
         if (page === 1 || resetCourses) {
           // First page or reset - replace all classes
           setRawClasses(newClasses)
           processClassesToCourses(newClasses)
-          
-          // Cache first page data
-          if (page === 1) {
-            setDepartmentCache(prev => ({ 
-              ...prev, 
-              [dept]: { 
-                courses: newClasses, 
-                totalCount: data.pagination?.total || newClasses.length 
-              } 
-            }))
-          }
         } else {
           // Additional pages - append to existing classes
           const allClasses = [...rawClasses, ...newClasses]

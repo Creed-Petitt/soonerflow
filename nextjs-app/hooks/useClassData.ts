@@ -50,7 +50,6 @@ export function useClassData(): UseClassDataReturn {
   const [isSearching, setIsSearching] = useState(false);
   const [totalClassCount, setTotalClassCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [departmentCache, setDepartmentCache] = useState<Record<string, ClassData[]>>({});
 
   const processClasses = useCallback((allClasses: ClassData[]) => {
     setClasses(allClasses);
@@ -90,25 +89,15 @@ export function useClassData(): UseClassDataReturn {
   }, []);
 
   const loadClassesForDepartment = useCallback(async (dept: string, currentSemester: string) => {
-    // Check cache first
-    if (departmentCache[dept]) {
-      processClasses(departmentCache[dept]);
-      return;
-    }
-
     try {
       setLoading(true);
 
-      // Increased limit to 500 to handle large departments like MATH
       const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
       if (!response.ok) throw new Error('Failed to fetch classes');
 
       const data = await response.json();
       const deptClasses = data.classes || [];
       setTotalClassCount(data.pagination?.total || deptClasses.length);
-
-      // Cache the department data
-      setDepartmentCache(prev => ({ ...prev, [dept]: deptClasses }));
 
       processClasses(deptClasses);
     } catch (error) {
@@ -117,7 +106,7 @@ export function useClassData(): UseClassDataReturn {
     } finally {
       setLoading(false);
     }
-  }, [departmentCache, processClasses]);
+  }, [processClasses]);
 
   const loadAllClasses = useCallback(async (currentSemester: string, page: number = 1, append: boolean = false) => {
     try {
@@ -137,12 +126,15 @@ export function useClassData(): UseClassDataReturn {
       setTotalClassCount(data.pagination?.total || 0);
 
       if (append && page > 1) {
-        // Append to existing classes for infinite scroll
-        const allClasses = [...classes, ...newClasses];
-        setClasses(allClasses);
-        processClasses(allClasses);
+        // Append to existing classes for infinite scroll using functional update
+        setClasses(prevClasses => {
+          const allClasses = [...prevClasses, ...newClasses];
+          processClasses(allClasses);
+          return allClasses;
+        });
       } else {
         // Replace classes for initial load
+        setClasses(newClasses);
         processClasses(newClasses);
       }
 
@@ -154,7 +146,7 @@ export function useClassData(): UseClassDataReturn {
       setLoading(false);
       setIsLoadingMore(false);
     }
-  }, [classes, processClasses]);
+  }, [processClasses]);
 
   const loadClassesForMajor = useCallback(async (userMajorDepts: string[], currentSemester: string) => {
     try {
@@ -162,20 +154,16 @@ export function useClassData(): UseClassDataReturn {
 
       const allMajorClasses: ClassData[] = [];
 
-      // Load classes for each major department in parallel
+      // Load classes for each major department in parallel - simple fetch
       const deptPromises = userMajorDepts.map(async (dept) => {
-        if (departmentCache[dept]) {
-          return departmentCache[dept];
-        } else {
-          // Increased to 500 to handle large departments
+        try {
           const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
           if (response.ok) {
             const data = await response.json();
-            const deptClasses = data.classes || [];
-            // Cache the department data
-            setDepartmentCache(prev => ({ ...prev, [dept]: deptClasses }));
-            return deptClasses;
+            return data.classes || [];
           }
+          return [];
+        } catch {
           return [];
         }
       });
@@ -190,7 +178,7 @@ export function useClassData(): UseClassDataReturn {
     } finally {
       setLoading(false);
     }
-  }, [departmentCache, processClasses]);
+  }, [processClasses]);
 
   const performServerSearch = useCallback(async (query: string, currentSemester: string) => {
     if (!query || query.length < 2) {
@@ -217,10 +205,36 @@ export function useClassData(): UseClassDataReturn {
   }, [processClasses]);
 
   const loadMoreClasses = useCallback((currentSemester: string) => {
-    if (!isLoadingMore) {
-      loadAllClasses(currentSemester, currentPage + 1, true);
-    }
-  }, [isLoadingMore, currentPage, loadAllClasses]);
+    setIsLoadingMore(prev => {
+      if (!prev) {
+        setCurrentPage(prevPage => {
+          const nextPage = prevPage + 1;
+          // Directly call the logic instead of depending on loadAllClasses
+          fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${nextPage}&skip_ratings=true`)
+            .then(response => response.ok ? response.json() : { classes: [] })
+            .then(data => {
+              const newClasses = data.classes || [];
+              setTotalClassCount(data.pagination?.total || 0);
+              setClasses(prevClasses => {
+                const allClasses = [...prevClasses, ...newClasses];
+                processClasses(allClasses);
+                return allClasses;
+              });
+              setCurrentPage(nextPage);
+              setIsLoadingMore(false);
+            })
+            .catch(error => {
+              console.error('Error loading more classes:', error);
+              toast.error('Failed to load more classes');
+              setIsLoadingMore(false);
+            });
+          return nextPage;
+        });
+        return true;
+      }
+      return prev;
+    });
+  }, [processClasses]);
 
   const clearClasses = useCallback(() => {
     setClasses([]);
