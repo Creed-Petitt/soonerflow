@@ -12,11 +12,6 @@ export type SemesterGenerationOptions = {
   reverseOrder?: boolean
 }
 
-/**
- * Generate a list of semesters between start and end years
- * @param options Configuration for semester generation
- * @returns Array of Semester objects
- */
 export function generateSemesters(options: SemesterGenerationOptions = {}): Semester[] {
   const {
     startYear = 2019,
@@ -58,13 +53,6 @@ export function generateSemesters(options: SemesterGenerationOptions = {}): Seme
   return reverseOrder ? semesters.reverse() : semesters
 }
 
-/**
- * Generate semesters for a student's entire academic journey
- * @param enrollmentYear The year the student enrolled
- * @param graduationYear The expected graduation year
- * @param includeSummer Whether to include summer semesters
- * @returns Array of Semester objects
- */
 export function generateStudentSemesters(
   enrollmentYear: number,
   graduationYear: number,
@@ -78,10 +66,6 @@ export function generateStudentSemesters(
   })
 }
 
-/**
- * Get the current semester based on the current date
- * @returns The current semester
- */
 export function getCurrentSemester(): Semester {
   const now = new Date()
   const month = now.getMonth() + 1 // getMonth() is 0-indexed
@@ -105,15 +89,6 @@ export function getCurrentSemester(): Semester {
   }
 }
 
-/**
- * Calculate the number of semesters between enrollment and graduation
- * @param enrollmentYear The year the student enrolled
- * @param enrollmentTerm The term the student enrolled
- * @param graduationYear The expected graduation year
- * @param graduationTerm The expected graduation term
- * @param includeSummer Whether to count summer semesters
- * @returns Number of semesters
- */
 export function calculateSemesterCount(
   enrollmentYear: number,
   enrollmentTerm: 'Spring' | 'Fall',
@@ -137,11 +112,6 @@ export function calculateSemesterCount(
   return Math.max(count, 1)
 }
 
-/**
- * Parse a semester string into components
- * @param semesterString e.g., "Fall 2024"
- * @returns Object with term and year
- */
 export function parseSemester(semesterString: string): { term: string; year: number } | null {
   const match = semesterString.match(/^(Spring|Summer|Fall)\s+(\d{4})$/)
   if (!match) return null
@@ -152,12 +122,6 @@ export function parseSemester(semesterString: string): { term: string; year: num
   }
 }
 
-/**
- * Format a semester for display
- * @param semester The semester to format
- * @param format The format to use ('short' | 'long' | 'abbreviated')
- * @returns Formatted semester string
- */
 export function formatSemester(
   semester: Semester,
   format: 'short' | 'long' | 'abbreviated' = 'long'
@@ -183,13 +147,7 @@ export function formatSemester(
   }
 }
 
-/**
- * Get semesters for a dropdown/select component
- * Commonly used for marking classes as completed
- * @param yearsBack How many years back to include from current year
- * @param yearsForward How many years forward to include from current year
- * @returns Array of semester options
- */
+
 export function getSemesterOptions(yearsBack = 5, yearsForward = 3): Semester[] {
   const currentYear = new Date().getFullYear()
   return generateSemesters({
