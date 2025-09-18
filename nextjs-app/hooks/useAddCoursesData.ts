@@ -36,6 +36,8 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
     clearClasses
   } = useClassData();
 
+  const isLoading = departmentsLoading || classDataLoading || majorLoading;
+
   // Load user's major when modal opens
   const loadUserMajor = useCallback(async () => {
     if (session?.user?.email && !userMajor) {
@@ -128,27 +130,16 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
   }, [loadMoreClasses, currentSemester]);
 
   return {
-    // Department/filter state
+    isLoading,
     selectedDepartment,
     setSelectedDepartment,
     departments,
-    departmentsLoading,
-
-    // Major courses
     userMajor,
     majorCourses,
-    majorLoading,
-
-    // Department courses (from useClassData)
     departmentCourses: getDepartmentCourses(),
-    classDataLoading,
     totalClassCount,
     currentPage,
-
-    // Display data
     displayedCourses: getDisplayedCourses(),
-
-    // Actions
     loadUserMajor,
     loadMajorCourses,
     loadClassesForDepartment: loadClassesForDepartmentWrapper,
