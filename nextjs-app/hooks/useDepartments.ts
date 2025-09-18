@@ -3,11 +3,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { fetchWithAuth } from "@/lib/api-client";
 import { getDepartmentsForMajor } from "@/lib/major-mappings";
-
-interface Department {
-  code: string;
-  count: number;
-}
+import type { Department } from "@/types/course";
 
 interface UseDepartmentsReturn {
   departments: Department[];
