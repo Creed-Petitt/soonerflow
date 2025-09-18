@@ -59,19 +59,6 @@ export function AddCoursesModal({
     }
   }, [coursesData.selectedDepartment, coursesData.userMajor, coursesData]);
 
-  // Handle search
-  useEffect(() => {
-    if (coursesData.deferredSearchQuery.length >= 1) {
-      coursesData.performGlobalSearch(coursesData.deferredSearchQuery);
-    }
-  }, [coursesData.deferredSearchQuery, coursesData]);
-
-  // Handle infinite scroll
-  const handleLoadMore = () => {
-    if (coursesData.selectedDepartment && coursesData.selectedDepartment !== "major" && coursesData.selectedDepartment !== "all") {
-      coursesData.loadMoreClasses();
-    }
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -89,11 +76,6 @@ export function AddCoursesModal({
         </DialogHeader>
         <div className="flex h-full overflow-hidden">
           <AddCoursesSearchPanel
-            // Search state
-            searchQuery={coursesData.searchQuery}
-            onSearchChange={coursesData.setSearchQuery}
-            searchLoading={coursesData.searchLoading}
-
             // Department filter
             selectedDepartment={coursesData.selectedDepartment}
             onDepartmentChange={coursesData.setSelectedDepartment}
@@ -103,17 +85,12 @@ export function AddCoursesModal({
             // Course data
             displayedCourses={coursesData.displayedCourses}
             loading={coursesData.classDataLoading || coursesData.majorLoading}
-            isLoadingMore={coursesData.isLoadingMore}
             totalCoursesCount={coursesData.totalClassCount}
-            hasMoreCourses={false} // Simplified for now
 
             // Course selection
             onCourseToggle={selectedCoursesData.handleCourseToggle}
             isCourseSelected={selectedCoursesData.isCourseSelected}
             isCourseCompleted={selectedCoursesData.isCourseCompleted}
-
-            // Infinite scroll
-            onLoadMore={handleLoadMore}
           />
 
           <SelectedCoursesPanel

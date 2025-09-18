@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useDeferredValue } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { semesterNameToCode } from "@/utils/semester-utils";
 import { useClassData } from "@/hooks/useClassData";
@@ -16,16 +16,12 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
   const { data: session } = useSession();
   const currentSemester = semesterNameToCode(semester);
 
-  // Search and filtering state
-  const [searchQuery, setSearchQuery] = useState("");
-  const deferredSearchQuery = useDeferredValue(searchQuery);
+  // Filtering state
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [userMajor, setUserMajor] = useState<string | null>(null);
 
   // Course data state
-  const [searchResults, setSearchResults] = useState<Course[]>([]);
   const [majorCourses, setMajorCourses] = useState<Course[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [majorLoading, setMajorLoading] = useState(false);
 
   // Use existing hooks for department and class data
@@ -33,11 +29,9 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
   const {
     groupedClasses,
     loading: classDataLoading,
-    isLoadingMore,
     totalClassCount,
     currentPage,
     loadClassesForDepartment,
-    performServerSearch,
     loadMoreClasses,
     clearClasses
   } = useClassData();
@@ -97,67 +91,6 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
     }
   }, [userMajor]);
 
-  // Global search functionality
-  const performGlobalSearch = useCallback(async (query: string) => {
-    if (!query || query.length < 1) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      setSearchLoading(true);
-      const response = await fetch(`/api/classes?search=${encodeURIComponent(query)}&semester=${currentSemester}&limit=500&skip_ratings=true`);
-      const data = await response.json();
-
-      if (data.classes && data.classes.length > 0) {
-        // Group classes like in the original modal
-        const grouped: Record<string, GroupedClass> = {};
-        data.classes.forEach((cls: any) => {
-          if (!cls.subject || (!cls.number && !cls.courseNumber)) return;
-
-          const key = `${cls.subject} ${cls.number || cls.courseNumber}`;
-
-          if (!grouped[key]) {
-            grouped[key] = {
-              subject: cls.subject,
-              number: cls.number || cls.courseNumber,
-              title: cls.title,
-              credits: cls.credits,
-              sections: [],
-              labSections: []
-            };
-          }
-
-          if (cls.type === "Lab" || cls.type === "Lab with No Credit") {
-            grouped[key].labSections.push(cls);
-          } else {
-            grouped[key].sections.push(cls);
-          }
-        });
-
-        const groupedArray = Object.values(grouped).filter(g =>
-          g.sections.length > 0 || g.labSections.length > 0
-        );
-
-        const searchCourses: Course[] = groupedArray.map(group => ({
-          id: `${group.subject}-${group.number}`,
-          code: `${group.subject} ${group.number}`,
-          name: group.title,
-          credits: group.credits || 3,
-          category: group.subject
-        }));
-
-        setSearchResults(searchCourses);
-      } else {
-        setSearchResults([]);
-      }
-    } catch (error) {
-      console.error('Search failed:', error);
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, [currentSemester]);
 
   // Convert grouped classes to Course format for department view
   const getDepartmentCourses = useCallback((): Course[] => {
@@ -172,27 +105,18 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
 
   // Get displayed courses based on current view
   const getDisplayedCourses = useCallback((): Course[] => {
-    if (deferredSearchQuery.length >= 1) {
-      return searchResults;
-    }
     if (selectedDepartment === "major") {
       return majorCourses;
     }
     return getDepartmentCourses();
-  }, [deferredSearchQuery, searchResults, selectedDepartment, majorCourses, getDepartmentCourses]);
+  }, [selectedDepartment, majorCourses, getDepartmentCourses]);
 
-  // Reset functions
-  const resetSearch = useCallback(() => {
-    setSearchQuery("");
-    setSearchResults([]);
-  }, []);
-
+  // Reset function
   const resetData = useCallback(() => {
-    resetSearch();
     setSelectedDepartment("");
     setMajorCourses([]);
     clearClasses();
-  }, [resetSearch, clearClasses]);
+  }, [clearClasses]);
 
   // Wrapper functions with proper semester handling
   const loadClassesForDepartmentWrapper = useCallback((dept: string) => {
@@ -204,13 +128,6 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
   }, [loadMoreClasses, currentSemester]);
 
   return {
-    // Search state
-    searchQuery,
-    setSearchQuery,
-    deferredSearchQuery,
-    searchResults,
-    searchLoading,
-
     // Department/filter state
     selectedDepartment,
     setSelectedDepartment,
@@ -225,7 +142,6 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
     // Department courses (from useClassData)
     departmentCourses: getDepartmentCourses(),
     classDataLoading,
-    isLoadingMore,
     totalClassCount,
     currentPage,
 
@@ -237,8 +153,6 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
     loadMajorCourses,
     loadClassesForDepartment: loadClassesForDepartmentWrapper,
     loadMoreClasses: loadMoreClassesWrapper,
-    performGlobalSearch,
-    resetSearch,
     resetData
   };
 }

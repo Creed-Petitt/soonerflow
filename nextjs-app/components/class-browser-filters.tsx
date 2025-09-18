@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import React from "react";
 import {
   Select,
   SelectContent,
@@ -17,8 +15,6 @@ interface Department {
 }
 
 interface ClassBrowserFiltersProps {
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
   selectedDepartment: string;
   setSelectedDepartment: (dept: string) => void;
   selectedLevel: string;
@@ -27,13 +23,9 @@ interface ClassBrowserFiltersProps {
   userMajorDepts: string[];
   totalClassCount: number;
   groupedClassesLength: number;
-  isSearching: boolean;
-  performServerSearch: (query: string) => void;
 }
 
 export function ClassBrowserFilters({
-  searchTerm,
-  setSearchTerm,
   selectedDepartment,
   setSelectedDepartment,
   selectedLevel,
@@ -42,39 +34,11 @@ export function ClassBrowserFilters({
   userMajorDepts,
   totalClassCount,
   groupedClassesLength,
-  isSearching,
-  performServerSearch,
 }: ClassBrowserFiltersProps) {
-  const [searchDebounceTimer, setSearchDebounceTimer] = useState<NodeJS.Timeout | null>(null);
-
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-
-    // Clear previous timer
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer);
-    }
-
-    // Set new timer for debounced search
-    const timer = setTimeout(() => {
-      performServerSearch(value);
-    }, 300);
-    setSearchDebounceTimer(timer);
-  };
 
   return (
     <>
       <div className="p-4 space-y-3 border-b">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Search all classes..."
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
         <div className="flex gap-2">
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
             <SelectTrigger className="flex-1">
@@ -111,12 +75,7 @@ export function ClassBrowserFilters({
 
       {totalClassCount > 0 && (
         <div className="px-4 py-2 bg-muted/50 border-b text-sm">
-          {searchTerm ? (
-            <span>Found {totalClassCount} classes matching "{searchTerm}"</span>
-          ) : (
-            <span>Showing {groupedClassesLength} of {totalClassCount} unique courses</span>
-          )}
-          {isSearching && <span className="ml-2">(Searching...)</span>}
+          <span>Showing {groupedClassesLength} of {totalClassCount} unique courses</span>
         </div>
       )}
     </>

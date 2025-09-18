@@ -25,7 +25,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const { scheduledClasses, addClass, isClassScheduled, currentSemester } = useSchedule();
 
   // State for filters and search
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("all");
 
@@ -44,13 +43,10 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const {
     groupedClasses,
     loading: classDataLoading,
-    isLoadingMore,
-    isSearching,
     totalClassCount,
     loadClassesForDepartment,
     loadAllClasses,
     loadClassesForMajor,
-    performServerSearch,
     loadMoreClasses,
     clearClasses,
   } = useClassData();
@@ -109,20 +105,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     setIsDialogOpen(true);
   };
 
-  const handleSearchWithDebounce = (query: string) => {
-    if (!query || query.length < 2) {
-      // If search is cleared, reload the current department
-      if (selectedDepartment === "all") {
-        loadAllClasses(currentSemester);
-      } else if (selectedDepartment === "major") {
-        loadClassesForMajor(userMajorDepts, currentSemester);
-      } else if (selectedDepartment) {
-        loadClassesForDepartment(selectedDepartment, currentSemester);
-      }
-      return;
-    }
-    performServerSearch(query, currentSemester);
-  };
 
   const handleAddToSchedule = async (section: any, labSection?: any) => {
     // First validate the class before adding
@@ -214,8 +196,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
         </div>
 
         <ClassBrowserFilters
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
           selectedDepartment={selectedDepartment}
           setSelectedDepartment={setSelectedDepartment}
           selectedLevel={selectedLevel}
@@ -224,15 +204,11 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           userMajorDepts={userMajorDepts}
           totalClassCount={totalClassCount}
           groupedClassesLength={groupedClasses.length}
-          isSearching={isSearching}
-          performServerSearch={handleSearchWithDebounce}
         />
 
         <ClassBrowserTable
           filteredGroupedClasses={filteredGroupedClasses}
           loading={loading}
-          isSearching={isSearching}
-          isLoadingMore={isLoadingMore}
           selectedDepartment={selectedDepartment}
           totalClassCount={totalClassCount}
           groupedClassesLength={groupedClasses.length}

@@ -30,14 +30,11 @@ interface UseClassDataReturn {
   classes: ClassData[];
   groupedClasses: GroupedClass[];
   loading: boolean;
-  isLoadingMore: boolean;
-  isSearching: boolean;
   totalClassCount: number;
   currentPage: number;
   loadClassesForDepartment: (dept: string, currentSemester: string) => Promise<void>;
   loadAllClasses: (currentSemester: string, page?: number, append?: boolean) => Promise<void>;
   loadClassesForMajor: (userMajorDepts: string[], currentSemester: string) => Promise<void>;
-  performServerSearch: (query: string, currentSemester: string) => Promise<void>;
   loadMoreClasses: (currentSemester: string) => void;
   clearClasses: () => void;
 }
@@ -46,8 +43,6 @@ export function useClassData(): UseClassDataReturn {
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [totalClassCount, setTotalClassCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -110,12 +105,8 @@ export function useClassData(): UseClassDataReturn {
 
   const loadAllClasses = useCallback(async (currentSemester: string, page: number = 1, append: boolean = false) => {
     try {
-      if (page === 1) {
-        setLoading(true);
-        setCurrentPage(1);
-      } else {
-        setIsLoadingMore(true);
-      }
+      setLoading(true);
+      setCurrentPage(page === 1 ? 1 : page);
 
       // Load 100 classes at a time for smooth performance
       const response = await fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${page}&skip_ratings=true`);
@@ -144,7 +135,6 @@ export function useClassData(): UseClassDataReturn {
       toast.error('Failed to load classes');
     } finally {
       setLoading(false);
-      setIsLoadingMore(false);
     }
   }, [processClasses]);
 
@@ -180,59 +170,27 @@ export function useClassData(): UseClassDataReturn {
     }
   }, [processClasses]);
 
-  const performServerSearch = useCallback(async (query: string, currentSemester: string) => {
-    if (!query || query.length < 2) {
-      return;
-    }
-
-    try {
-      setIsSearching(true);
-
-      const response = await fetch(`/api/classes?search=${encodeURIComponent(query)}&semester=${currentSemester}&limit=200&skip_ratings=true`);
-      if (!response.ok) throw new Error('Failed to search classes');
-
-      const data = await response.json();
-      const searchResults = data.classes || [];
-      setTotalClassCount(data.pagination?.total || searchResults.length);
-
-      processClasses(searchResults);
-    } catch (error) {
-      console.error('Error searching classes:', error);
-      toast.error('Failed to search classes');
-    } finally {
-      setIsSearching(false);
-    }
-  }, [processClasses]);
 
   const loadMoreClasses = useCallback((currentSemester: string) => {
-    setIsLoadingMore(prev => {
-      if (!prev) {
-        setCurrentPage(prevPage => {
-          const nextPage = prevPage + 1;
-          // Directly call the logic instead of depending on loadAllClasses
-          fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${nextPage}&skip_ratings=true`)
-            .then(response => response.ok ? response.json() : { classes: [] })
-            .then(data => {
-              const newClasses = data.classes || [];
-              setTotalClassCount(data.pagination?.total || 0);
-              setClasses(prevClasses => {
-                const allClasses = [...prevClasses, ...newClasses];
-                processClasses(allClasses);
-                return allClasses;
-              });
-              setCurrentPage(nextPage);
-              setIsLoadingMore(false);
-            })
-            .catch(error => {
-              console.error('Error loading more classes:', error);
-              toast.error('Failed to load more classes');
-              setIsLoadingMore(false);
-            });
-          return nextPage;
+    setCurrentPage(prevPage => {
+      const nextPage = prevPage + 1;
+      fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${nextPage}&skip_ratings=true`)
+        .then(response => response.ok ? response.json() : { classes: [] })
+        .then(data => {
+          const newClasses = data.classes || [];
+          setTotalClassCount(data.pagination?.total || 0);
+          setClasses(prevClasses => {
+            const allClasses = [...prevClasses, ...newClasses];
+            processClasses(allClasses);
+            return allClasses;
+          });
+          setCurrentPage(nextPage);
+        })
+        .catch(error => {
+          console.error('Error loading more classes:', error);
+          toast.error('Failed to load more classes');
         });
-        return true;
-      }
-      return prev;
+      return nextPage;
     });
   }, [processClasses]);
 
@@ -247,14 +205,11 @@ export function useClassData(): UseClassDataReturn {
     classes,
     groupedClasses,
     loading,
-    isLoadingMore,
-    isSearching,
     totalClassCount,
     currentPage,
     loadClassesForDepartment,
     loadAllClasses,
     loadClassesForMajor,
-    performServerSearch,
     loadMoreClasses,
     clearClasses,
   };

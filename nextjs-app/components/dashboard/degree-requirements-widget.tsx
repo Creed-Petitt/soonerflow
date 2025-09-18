@@ -1,24 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
 import { useSchedule } from "@/hooks/use-schedule"
 import { fetchWithAuth } from "@/lib/api-client"
@@ -131,27 +114,29 @@ export function DegreeRequirementsWidget() {
   }
 
   // Sort and paginate courses
-  const sortedAndPaginatedCourses = useMemo(() => {
+  const getSortedAndPaginatedCourses = () => {
     // Sort courses: not_started first, then in_progress, then completed
     const sorted = [...requirements].sort((a, b) => {
       const statusA = getCourseStatus(a.subject, a.courseNumber)
       const statusB = getCourseStatus(b.subject, b.courseNumber)
-      
+
       const statusOrder = { not_started: 0, in_progress: 1, completed: 2 }
       const orderDiff = statusOrder[statusA] - statusOrder[statusB]
-      
+
       if (orderDiff !== 0) return orderDiff
-      
+
       // Then sort by course code
       return `${a.subject} ${a.courseNumber}`.localeCompare(`${b.subject} ${b.courseNumber}`)
     })
-    
+
     // Paginate
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
     const endIndex = startIndex + ITEMS_PER_PAGE
-    
+
     return sorted.slice(startIndex, endIndex)
-  }, [requirements, completedCourses, scheduledClasses, currentPage])
+  }
+
+  const sortedAndPaginatedCourses = getSortedAndPaginatedCourses()
 
   const totalPages = Math.ceil(requirements.length / ITEMS_PER_PAGE)
 

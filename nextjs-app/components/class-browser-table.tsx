@@ -16,15 +16,12 @@ import { GroupedClass } from "@/hooks/useClassData";
 interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
   loading: boolean;
-  isSearching: boolean;
-  isLoadingMore: boolean;
   selectedDepartment: string;
   totalClassCount: number;
   groupedClassesLength: number;
   handleClassClick: (grouped: GroupedClass) => void;
   isClassScheduled: (id: string) => boolean;
   loadMoreClasses: () => void;
-  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
 // Helper function to get display info for a grouped class
@@ -65,35 +62,17 @@ function getGroupedClassDisplay(grouped: GroupedClass) {
 export function ClassBrowserTable({
   filteredGroupedClasses,
   loading,
-  isSearching,
-  isLoadingMore,
   selectedDepartment,
   totalClassCount,
   groupedClassesLength,
   handleClassClick,
   isClassScheduled,
   loadMoreClasses,
-  onScroll,
 }: ClassBrowserTableProps) {
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    const scrolledToBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
-
-    if (scrolledToBottom && selectedDepartment === "all" && !isLoadingMore && groupedClassesLength < totalClassCount) {
-      loadMoreClasses();
-    }
-
-    // Call additional onScroll handler if provided
-    if (onScroll) {
-      onScroll(e);
-    }
-  };
 
   return (
-    <div
-      className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20"
-      onScroll={handleScroll}
-    >
+    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
+      <div>
       <Table>
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
@@ -104,7 +83,7 @@ export function ClassBrowserTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {loading || isSearching ? (
+          {loading ? (
             <TableRow>
               <TableCell colSpan={4} className="text-center py-8">
                 Loading classes...
@@ -163,21 +142,28 @@ export function ClassBrowserTable({
               );
             })
           )}
-          {isLoadingMore && (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-4">
-                Loading more classes...
-              </TableCell>
-            </TableRow>
-          )}
         </TableBody>
       </Table>
+
+      {/* Load More Button */}
+      {selectedDepartment === "all" && groupedClassesLength < totalClassCount && (
+        <div className="p-4 text-center">
+          <Button
+            onClick={loadMoreClasses}
+            variant="outline"
+            className="w-full"
+          >
+`Load More (${totalClassCount - groupedClassesLength} remaining)`
+          </Button>
+        </div>
+      )}
 
       {selectedDepartment === "all" && groupedClassesLength >= totalClassCount && totalClassCount > 0 && (
         <div className="p-4 text-center text-sm text-muted-foreground">
           All {totalClassCount} classes loaded
         </div>
       )}
+      </div>
     </div>
   );
 }
