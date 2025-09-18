@@ -75,22 +75,6 @@ export function AddCoursesModal({
           <DialogTitle>Add Courses to {semester}</DialogTitle>
         </DialogHeader>
         <div className="flex h-full overflow-hidden">
-          <AddCoursesSearchPanel
-            // Department filter
-            selectedDepartment={coursesData.selectedDepartment}
-            onDepartmentChange={coursesData.setSelectedDepartment}
-            departments={coursesData.departments}
-
-            // Course data
-            displayedCourses={coursesData.displayedCourses}
-            loading={coursesData.isLoading}
-            totalCoursesCount={coursesData.totalClassCount}
-
-            // Course selection
-            onCourseToggle={selectedCoursesData.handleCourseToggle}
-            isCourseSelected={selectedCoursesData.isCourseSelected}
-            isCourseCompleted={selectedCoursesData.isCourseCompleted}
-          />
 
           <SelectedCoursesPanel
             semester={semester}
