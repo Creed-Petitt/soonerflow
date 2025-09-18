@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+
 import { differenceInMinutes, format, getMinutes, isPast } from "date-fns"
 
 import { getBorderRadiusClasses, getEventColorClasses } from "@/components/event-calendar/utils"
@@ -89,23 +89,17 @@ export function EventItem({
   const eventColor = event.color
 
   // Use the provided currentTime (for dragging) or the event's actual time
-  const displayStart = useMemo(() => {
-    return currentTime || new Date(event.start)
-  }, [currentTime, event.start])
+  const displayStart = currentTime || new Date(event.start)
 
-  const displayEnd = useMemo(() => {
-    return currentTime
+  const displayEnd = currentTime
       ? new Date(
           new Date(currentTime).getTime() +
             (new Date(event.end).getTime() - new Date(event.start).getTime())
         )
       : new Date(event.end)
-  }, [currentTime, event.start, event.end])
 
   // Calculate event duration in minutes
-  const durationMinutes = useMemo(() => {
-    return differenceInMinutes(displayEnd, displayStart)
-  }, [displayStart, displayEnd])
+  const durationMinutes = differenceInMinutes(displayEnd, displayStart)
 
   const getEventTime = () => {
     if (event.allDay) return "All day"

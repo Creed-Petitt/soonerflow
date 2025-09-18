@@ -99,7 +99,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const debouncedClasses = useDebounce(localClasses, 1000);
 
   // Load available semesters
-  const loadSemesters = useCallback(async () => {
+  const loadSemesters = async () => {
     try {
       const url = `/api/semesters?include_summers=${includeSummerSemesters}&include_historical=${includeHistoricalSemesters}`;
       const response = await fetch(url);
@@ -110,10 +110,10 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Failed to load semesters:', err);
     }
-  }, [includeSummerSemesters, includeHistoricalSemesters]);
+  };
 
   // Load user's schedule for a specific semester
-  const loadSchedule = useCallback(async (semester?: string) => {
+  const loadSchedule = async (semester?: string) => {
     if (status === "loading") return;
     
     if (status === "unauthenticated") {
@@ -160,7 +160,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [session, status, currentSemester]);
+  };
 
   // Load semesters on mount and trigger migration
   useEffect(() => {
@@ -182,20 +182,23 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         console.error('Migration failed:', error);
       });
     }
-  }, [loadSemesters, session?.user?.githubId, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.githubId, status]);
 
   // Reload semesters when filter settings change
   useEffect(() => {
     loadSemesters();
-  }, [includeSummerSemesters, includeHistoricalSemesters, loadSemesters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [includeSummerSemesters, includeHistoricalSemesters]);
 
   // Load schedule when semester changes or auth changes
   useEffect(() => {
     loadSchedule(currentSemester);
-  }, [currentSemester, loadSchedule]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSemester]);
 
   // Save schedule function
-  const saveSchedule = useCallback(async () => {
+  const saveSchedule = async () => {
     if (!schedule || !session?.user?.githubId || isSaving) return;
     
     try {
@@ -231,7 +234,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSaving(false);
     }
-  }, [schedule, session?.user?.githubId, localClasses, isSaving]);
+  };
 
   // Auto-save when classes change
   useEffect(() => {
@@ -260,10 +263,11 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         saveSchedule();
       }
     }
-  }, [debouncedClasses, hasLoadedSchedule, schedule, isSaving, saveSchedule]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedClasses, hasLoadedSchedule, schedule, isSaving]);
 
   // Class management functions
-  const addClass = useCallback((classData: ScheduledClass) => {
+  const addClass = (classData: ScheduledClass) => {
     setLocalClasses(prev => {
       // Check if class already exists
       const existingIndex = prev.findIndex(c => c.id === classData.id);
@@ -275,30 +279,30 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, classData];
     });
-  }, []);
+  };
 
-  const removeClass = useCallback((classId: string) => {
+  const removeClass = (classId: string) => {
     setLocalClasses(prev => prev.filter(c => c.id !== classId));
-  }, []);
+  };
 
-  const updateClass = useCallback((classId: string, updates: Partial<ScheduledClass>) => {
+  const updateClass = (classId: string, updates: Partial<ScheduledClass>) => {
     setLocalClasses(prev => 
       prev.map(c => c.id === classId ? { ...c, ...updates } : c)
     );
-  }, []);
+  };
 
-  const clearSchedule = useCallback(() => {
+  const clearSchedule = () => {
     setLocalClasses([]);
-  }, []);
+  };
 
-  const isClassScheduled = useCallback((classId: string) => {
+  const isClassScheduled = (classId: string) => {
     return localClasses.some(c => c.id === classId);
-  }, [localClasses]);
+  };
 
   const isAuthenticated = status === "authenticated";
 
   // Semester setter that triggers reload (with validation)
-  const setCurrentSemester = useCallback(async (semester: string) => {
+  const setCurrentSemester = async (semester: string) => {
     if (!session?.user?.githubId && !session?.user?.googleId) return;
     
     // Get the actual current semester code
@@ -343,7 +347,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       setError('Failed to switch semester');
       setLoading(false);
     }
-  }, [loadSchedule, session]);
+  };
 
   const value: ScheduleContextType = {
     scheduledClasses: localClasses,

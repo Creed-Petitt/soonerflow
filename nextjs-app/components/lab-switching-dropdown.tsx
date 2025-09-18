@@ -168,8 +168,7 @@ export function LabSwitchingDropdown({
   const [open, setOpen] = React.useState(false)
 
   // Analyze lab sections for conflicts and availability
-  const analyzedLabs = React.useMemo(() => {
-    return availableLabSections
+  const analyzedLabs = availableLabSections
       .filter(lab => lab.id !== currentLabClass.id) // Exclude current lab
       .map(lab => {
         const conflicts = scheduledClasses.filter(scheduled => 
@@ -185,11 +184,9 @@ export function LabSwitchingDropdown({
           isSameInstructor: lab.instructor === lectureClass.instructor
         }
       })
-  }, [availableLabSections, scheduledClasses, currentLabClass.id, lectureClass.instructor])
 
   // Sort labs: no conflicts first, then by availability, then by same instructor
-  const sortedLabs = React.useMemo(() => {
-    return [...analyzedLabs].sort((a, b) => {
+  const sortedLabs = [...analyzedLabs].sort((a, b) => {
       // Prioritize labs without conflicts
       if (a.hasConflict !== b.hasConflict) {
         return a.hasConflict ? 1 : -1
@@ -209,7 +206,6 @@ export function LabSwitchingDropdown({
       // Sort by available seats (descending)
       return (b.available_seats || 0) - (a.available_seats || 0)
     })
-  }, [analyzedLabs])
 
   const handleLabSwitch = (newLabSection: ClassData) => {
     onSwitchLab(newLabSection)

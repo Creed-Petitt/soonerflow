@@ -11,7 +11,6 @@ interface AddCoursesSearchPanelProps {
   selectedDepartment: string;
   onDepartmentChange: (dept: string) => void;
   departments: Department[];
-  departmentsLoading: boolean;
 
   // Course data
   displayedCourses: Course[];
@@ -28,7 +27,6 @@ export function AddCoursesSearchPanel({
   selectedDepartment,
   onDepartmentChange,
   departments,
-  departmentsLoading,
   displayedCourses,
   loading,
   totalCoursesCount,

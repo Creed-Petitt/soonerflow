@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { RiCalendarCheckLine } from "@remixicon/react"
 import {
   addDays,
@@ -196,19 +196,19 @@ export function EventCalendar({
     })
   }
 
-  const viewTitle = useMemo(() => {
+  const viewTitle = (() => {
     // Show semester name instead of month/year navigation
-    const semesterName = currentSemesterDetails?.name || currentSemester
+    const semesterName = currentSemesterDetails?.name || currentSemester;
     
     // Since view is always "week", we only need this logic
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 }) // Start on Monday
-    const end = endOfWeek(currentDate, { weekStartsOn: 1 })
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
+    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
     if (isSameMonth(start, end)) {
-      return `${semesterName} - ${format(start, "MMMM d")}`
+      return `${semesterName} - ${format(start, "MMMM d")}`;
     } else {
-      return `${semesterName} - ${format(start, "MMM d")} - ${format(end, "MMM d")}`
+      return `${semesterName} - ${format(start, "MMM d")} - ${format(end, "MMM d")}`;
     }
-  }, [currentDate, currentSemesterDetails, currentSemester])
+  })();
 
   return (
     <div

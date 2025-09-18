@@ -80,11 +80,10 @@ export function AddCoursesModal({
             selectedDepartment={coursesData.selectedDepartment}
             onDepartmentChange={coursesData.setSelectedDepartment}
             departments={coursesData.departments}
-            departmentsLoading={coursesData.departmentsLoading}
 
             // Course data
             displayedCourses={coursesData.displayedCourses}
-            loading={coursesData.classDataLoading || coursesData.majorLoading}
+            loading={coursesData.isLoading}
             totalCoursesCount={coursesData.totalClassCount}
 
             // Course selection

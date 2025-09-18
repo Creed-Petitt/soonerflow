@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+
 import { format, isToday, isTomorrow, addDays } from "date-fns"
 import { Calendar, Clock, MapPin, User, ChevronRight } from "lucide-react"
 import Link from "next/link"
@@ -19,7 +19,7 @@ export function DashboardCalendarWidget({
 }: DashboardCalendarWidgetProps) {
   
   // Get today's events first, then tomorrow's if today is empty
-  const { displayDate, displayEvents, dayLabel } = useMemo(() => {
+  const { displayDate, displayEvents, dayLabel } = (() => {
     const today = new Date(currentDate)
     const tomorrow = addDays(today, 1)
     
@@ -39,12 +39,10 @@ export function DashboardCalendarWidget({
       displayEvents: tomorrowEvents,
       dayLabel: "Tomorrow"
     }
-  }, [events, currentDate])
+  })();
 
   // Sort events by start time
-  const sortedEvents = useMemo(() => {
-    return displayEvents.sort((a, b) => a.start.getTime() - b.start.getTime())
-  }, [displayEvents])
+  const sortedEvents = [...displayEvents].sort((a, b) => a.start.getTime() - b.start.getTime())
 
   const formatEventTime = (event: CalendarEvent) => {
     if (event.allDay) return "All day"

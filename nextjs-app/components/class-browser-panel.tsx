@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClassDetailDialog } from "./class-detail-dialog";
@@ -78,27 +78,21 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     }
   }, [selectedDepartment, userMajorDepts, currentSemester, loadAllClasses, loadClassesForMajor, loadClassesForDepartment]);
 
-  // Memoized filtering for performance - only level filtering now, search is server-side
-  const filteredGroupedClasses = useMemo(() => {
-    let filtered = [...groupedClasses];
+  // Filter classes by level
+  let filteredGroupedClasses = [...groupedClasses];
+  if (selectedLevel && selectedLevel !== "all") {
+    filteredGroupedClasses = filteredGroupedClasses.filter(g => {
+      const courseNum = parseInt(g.number);
+      if (isNaN(courseNum)) return false;
 
-    // Filter by class level
-    if (selectedLevel && selectedLevel !== "all") {
-      filtered = filtered.filter(g => {
-        const courseNum = parseInt(g.number);
-        if (isNaN(courseNum)) return false;
-
-        if (selectedLevel === "5000") {
-          return courseNum >= 5000;
-        } else {
-          const levelStart = parseInt(selectedLevel);
-          return courseNum >= levelStart && courseNum < levelStart + 1000;
-        }
-      });
-    }
-
-    return filtered;
-  }, [groupedClasses, selectedLevel]);
+      if (selectedLevel === "5000") {
+        return courseNum >= 5000;
+      } else {
+        const levelStart = parseInt(selectedLevel);
+        return courseNum >= levelStart && courseNum < levelStart + 1000;
+      }
+    });
+  }
 
   const handleClassClick = (groupedClass: GroupedClass) => {
     setSelectedClass(groupedClass);
