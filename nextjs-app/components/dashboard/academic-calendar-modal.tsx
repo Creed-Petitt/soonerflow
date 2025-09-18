@@ -99,11 +99,10 @@ export function AcademicCalendarModal({ isOpen, onClose }: AcademicCalendarModal
         
         <ScrollArea className="max-h-[60vh] px-6 [&>[data-radix-scroll-area-scrollbar]]:bg-transparent [&>[data-radix-scroll-area-scrollbar]]:border-none [&>[data-radix-scroll-area-thumb]]:bg-white/10 [&>[data-radix-scroll-area-thumb]]:rounded [&>[data-radix-scroll-area-thumb]]:border-none hover:[&>[data-radix-scroll-area-thumb]]:bg-white/20">
           <div className="space-y-6 pb-2">
-            {/* Important dates first */}
             {['important', 'finals', 'deadline', 'registration', 'academic', 'holiday', 'graduation'].map(category => {
               const categoryEvents = groupedEvents[category]
               if (!categoryEvents || categoryEvents.length === 0) return null
-              
+      
               return (
                 <div key={category} className="space-y-2">
                   <div className="flex items-center gap-2 mb-3">

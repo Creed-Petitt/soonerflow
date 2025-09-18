@@ -45,15 +45,12 @@ export function AcademicStanding({
 
   return (
     <div className="flex items-center gap-8 mt-8">
-      {/* Large Radial Chart - Much Bigger */}
       <div className="flex-shrink-0 w-80 h-80">
         <ProgressRadialChart 
           creditsCompleted={creditsCompleted}
           totalCredits={totalCredits}
         />
       </div>
-      
-      {/* Simple GPA Display - Aligned with chart center */}
       <div className="flex-1 flex items-center">
         <div className="text-4xl font-bold">
           GPA: {gpa !== null ? gpa.toFixed(1) : "N/A"}

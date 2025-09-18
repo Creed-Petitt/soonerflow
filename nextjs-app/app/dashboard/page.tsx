@@ -29,7 +29,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <CustomNavbar />
       
-      {/* Profile Setup Modal for new users */}
       <ProfileSetupModal 
         isOpen={showProfileSetup}
         onComplete={() => setShowProfileSetup(false)}
@@ -38,12 +37,8 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col justify-start lg:justify-center max-w-7xl mx-auto px-6 py-6 w-full">
         {!loading && (
           <>
-            {/* Professional Two-Column Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
-              
-              {/* MAIN COLUMN (70% - Left Side) */}
               <div className="space-y-6">
-                {/* Student Profile and GPA Cards */}
                 <div className="flex flex-col sm:flex-row gap-4 items-stretch">
                   <div className="flex-1">
                     <StudentProfileCard
@@ -60,28 +55,19 @@ export default function DashboardPage() {
                     <GPACard gpa={gpa} />
                   </div>
                 </div>
-
-                {/* Academic Timeline */}
                 <CompactSemesterTimeline
                   semesters={semesterTimelineData}
                   onCoursesUpdate={handleCoursesUpdate}
                   onRemoveCourse={handleRemoveCourse}
                 />
               </div>
-
-              {/* ACTION COLUMN (30% - Right Side) */}
               <div className="space-y-6">
-                {/* Quick Actions without title */}
                 <QuickActionsPanel />
-                
-                {/* Degree Requirements Table */}
                 <DegreeRequirementsWidget />
               </div>
             </div>
           </>
         )}
-        
-        {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">

@@ -21,17 +21,13 @@ export function AcademicOverviewCard({
 
   return (
     <div className="bg-card rounded-lg border p-6">
-      {/* Header with Major and Year */}
       <div className="flex items-center gap-2 mb-6">
         <GraduationCap className="h-5 w-5 text-muted-foreground" />
         <div className="text-sm text-muted-foreground">
           {majorName || "Undeclared Major"} • Class of {graduationYear || "TBD"}
         </div>
       </div>
-
-      {/* Chart and Stats Layout */}
       <div className="flex items-center gap-8">
-        {/* Progress Chart */}
         <div className="flex-shrink-0 w-64 h-64">
           <ProgressRadialChart 
             creditsCompleted={creditsCompleted}
@@ -39,7 +35,6 @@ export function AcademicOverviewCard({
           />
         </div>
         
-        {/* GPA Display */}
         <div className="flex-1 flex flex-col items-start gap-4">
           <div>
             <div className="text-3xl font-bold mb-1">
@@ -49,8 +44,6 @@ export function AcademicOverviewCard({
               Current cumulative GPA
             </div>
           </div>
-          
-          {/* Additional Stats */}
           <div className="space-y-2 text-sm">
             <div className="flex justify-between gap-8">
               <span className="text-muted-foreground">Credits completed:</span>

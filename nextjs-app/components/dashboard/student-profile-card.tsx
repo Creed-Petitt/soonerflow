@@ -55,14 +55,11 @@ export function StudentProfileCard({
   return (
     <Card className="overflow-hidden bg-transparent">
       <CardContent className="px-6" style={{ paddingTop: '3px', paddingBottom: '3px' }}>
-        {/* Header Section - Major and Graduation */}
         <div className="pb-3 mb-3 border-b border-border/30">
           <h2 className="text-2xl font-semibold tracking-tight mb-1">
             {majorName || "Undeclared"} • Class of {graduationYear || "TBD"}
           </h2>
         </div>
-
-        {/* Credit Progress */}
         <div className="py-1">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">

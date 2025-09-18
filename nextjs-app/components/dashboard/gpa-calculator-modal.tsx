@@ -110,7 +110,6 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
         
         {!loading && (
           <div className="space-y-6">
-            {/* Current Stats */}
             <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
                 <p className="text-sm text-muted-foreground">Current GPA</p>
@@ -121,8 +120,6 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
                 <p className="text-2xl font-bold">{currentCredits}</p>
               </div>
             </div>
-            
-            {/* Simulated Courses */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium">Add Hypothetical Courses</h3>
@@ -181,8 +178,6 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
                 </div>
               )}
             </div>
-            
-            {/* Results */}
             {simulatedCourses.length > 0 && (
               <div className="p-4 border rounded-lg space-y-3">
                 <h3 className="font-medium">Projected Results</h3>
@@ -206,8 +201,6 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
                     </p>
                   </div>
                 </div>
-                
-                {/* GPA Status Messages */}
                 <div className="text-sm">
                   {newGPA >= 3.5 && (
                     <p className="text-green-600">Dean's List eligible (3.5+ GPA)</p>
