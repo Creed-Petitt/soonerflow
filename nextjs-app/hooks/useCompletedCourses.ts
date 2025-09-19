@@ -74,9 +74,24 @@ export function useCompletedCourses(onGpaUpdate: (credits: number, gpa: number) 
 
         return newScheduledCourses;
       });
+    } else {
+      // Clear scheduled courses for current semester if no classes
+      setScheduledCourses(prevScheduled => {
+        const newScheduledCourses = new Map(prevScheduled);
+        const currentSem = currentSemesterName;
 
-      setIsLoading(false);
+        Array.from(newScheduledCourses.keys()).forEach(key => {
+          if (key.endsWith(`-${currentSem}`)) {
+            newScheduledCourses.delete(key);
+          }
+        });
+
+        return newScheduledCourses;
+      });
     }
+
+    // Always set loading to false after processing, regardless of whether classes exist
+    setIsLoading(false);
   }, [scheduledClasses, currentSemesterName]);
 
   useEffect(() => {
