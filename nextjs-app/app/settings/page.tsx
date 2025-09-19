@@ -36,18 +36,17 @@ interface UserProfile {
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
   const router = useRouter()
-  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [showMajorSearch, setShowMajorSearch] = useState(false)
-  
+
   // User data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null)
   const [graduationYear, setGraduationYear] = useState<string>("")
-  
+
   // Data from API
   const [majors, setMajors] = useState<Major[]>([])
-  const [dataLoaded, setDataLoaded] = useState(false)
 
   // Get auth provider type
   const getAuthProvider = () => {
@@ -92,7 +91,7 @@ export default function SettingsPage() {
       } catch (error) {
         console.error("Error fetching data:", error)
       } finally {
-        setDataLoaded(true)
+        setIsLoading(false)
       }
     }
     
@@ -110,7 +109,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     if (!session?.user?.githubId || !selectedMajor) return
 
-    setIsSaving(true)
+    setIsLoading(true)
     try {
       const response = await fetchWithAuth(`/api/users/${session.user.githubId}/major`, {
         method: "PUT",
@@ -131,11 +130,11 @@ export default function SettingsPage() {
     } catch (error) {
       console.error("Error saving settings:", error)
     } finally {
-      setIsSaving(false)
+      setIsLoading(false)
     }
   }
 
-  if (status === "loading" || !dataLoaded) {
+  if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -277,10 +276,10 @@ export default function SettingsPage() {
                     <Button
                       size="sm"
                       onClick={handleSave}
-                      disabled={isSaving || !selectedMajor}
+                      disabled={isLoading || !selectedMajor}
                       className="flex-1"
                     >
-                      {isSaving ? (
+                      {isLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         "Save"

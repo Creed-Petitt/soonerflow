@@ -20,7 +20,7 @@ export function DegreeRequirementsWidget() {
   const { scheduledClasses } = useSchedule()
   const [requirements, setRequirements] = useState<MajorCourse[]>([])
   const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Load major requirements
@@ -63,7 +63,7 @@ export function DegreeRequirementsWidget() {
       } catch (error) {
         console.error("Error loading requirements:", error)
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
@@ -140,7 +140,7 @@ export function DegreeRequirementsWidget() {
 
   const totalPages = Math.ceil(requirements.length / ITEMS_PER_PAGE)
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div>
         <h2 className="text-xl font-bold mb-4">Degree Requirements</h2>

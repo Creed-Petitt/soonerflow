@@ -15,7 +15,7 @@ import { GroupedClass } from "@/hooks/useClassData";
 
 interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
-  loading: boolean;
+  isLoading: boolean;
   selectedDepartment: string;
   totalClassCount: number;
   groupedClassesLength: number;
@@ -61,7 +61,7 @@ function getGroupedClassDisplay(grouped: GroupedClass) {
 
 export function ClassBrowserTable({
   filteredGroupedClasses,
-  loading,
+  isLoading,
   selectedDepartment,
   totalClassCount,
   groupedClassesLength,
@@ -83,7 +83,7 @@ export function ClassBrowserTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {loading ? (
+          {isLoading ? (
             <TableRow>
               <TableCell colSpan={4} className="text-center py-8">
                 Loading classes...

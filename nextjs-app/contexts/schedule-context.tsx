@@ -41,9 +41,8 @@ interface Semester {
 interface ScheduleContextType {
   scheduledClasses: ScheduledClass[];
   schedule: Schedule | null;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
-  isSaving: boolean;
   isAuthenticated: boolean;
   currentSemester: string;
   availableSemesters: Semester[];
@@ -67,10 +66,9 @@ const ScheduleContext = createContext<ScheduleContextType | undefined>(undefined
 export function ScheduleProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const [schedule, setSchedule] = useState<Schedule | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [localClasses, setLocalClasses] = useState<ScheduledClass[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false);
   // Get current semester based on current date
   const getCurrentSemester = () => {
@@ -119,20 +117,20 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     if (status === "unauthenticated") {
       setSchedule(null);
       setLocalClasses([]);
-      setLoading(false);
+      setIsLoading(false);
       setError(null);
       return;
     }
 
     if (!session?.user?.githubId) {
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
 
     const targetSemester = semester || currentSemester;
 
     try {
-      setLoading(true);
+      setIsLoading(true);
       const response = await fetchWithAuth(`/api/users/${session.user.githubId}/active-schedule`);
       
       if (!response.ok) {
@@ -158,7 +156,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load schedule:', err);
       setError('Failed to load schedule');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -199,10 +197,10 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
   // Save schedule function
   const saveSchedule = async () => {
-    if (!schedule || !session?.user?.githubId || isSaving) return;
+    if (!schedule || !session?.user?.githubId || isLoading) return;
     
     try {
-      setIsSaving(true);
+      setIsLoading(true);
       
       // Extract class IDs and colors
       const class_ids = localClasses.map(c => c.id);
@@ -232,13 +230,13 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       console.error('Failed to save schedule:', err);
       setError('Failed to save schedule');
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
 
   // Auto-save when classes change
   useEffect(() => {
-    if (!hasLoadedSchedule || !schedule || isSaving) return;
+    if (!hasLoadedSchedule || !schedule || isLoading) return;
     
     // Skip if both are empty
     if (debouncedClasses.length === 0 && (!schedule.classes || schedule.classes.length === 0)) {
@@ -264,7 +262,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedClasses, hasLoadedSchedule, schedule, isSaving]);
+  }, [debouncedClasses, hasLoadedSchedule, schedule, isLoading]);
 
   // Class management functions
   const addClass = (classData: ScheduledClass) => {
@@ -320,8 +318,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       setLocalClasses([]);
       setSchedule(null);
       setError(null);
-      setLoading(true);
-      setIsSaving(false); // Cancel any pending saves
+      setIsLoading(true);
       
       // Update semester state
       setCurrentSemesterState(semester);
@@ -345,16 +342,15 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Failed to switch semester:', err);
       setError('Failed to switch semester');
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   const value: ScheduleContextType = {
     scheduledClasses: localClasses,
     schedule,
-    loading,
+    isLoading,
     error,
-    isSaving,
     isAuthenticated,
     currentSemester,
     availableSemesters,

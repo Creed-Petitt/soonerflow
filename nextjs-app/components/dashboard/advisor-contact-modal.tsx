@@ -18,7 +18,7 @@ export function AdvisorContactModal({ isOpen, onClose }: AdvisorContactModalProp
   const [advisorEmail, setAdvisorEmail] = useState("")
   const [advisorName, setAdvisorName] = useState("")
   const [isEditing, setIsEditing] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   
   // Load advisor info when modal opens
   useEffect(() => {
@@ -41,7 +41,7 @@ export function AdvisorContactModal({ isOpen, onClose }: AdvisorContactModalProp
     } catch (error) {
       setIsEditing(true)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
   
@@ -80,7 +80,7 @@ export function AdvisorContactModal({ isOpen, onClose }: AdvisorContactModalProp
           </DialogDescription>
         </DialogHeader>
         
-        {!loading && (
+        {!isLoading && (
           <div className="space-y-4">
             {isEditing ? (
               <>

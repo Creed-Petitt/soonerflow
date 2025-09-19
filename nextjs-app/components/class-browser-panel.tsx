@@ -36,13 +36,13 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const {
     departments,
     userMajorDepts,
-    loading: departmentsLoading,
+    isLoading: departmentsLoading,
     loadDepartments,
   } = useDepartments();
 
   const {
     groupedClasses,
-    loading: classDataLoading,
+    isLoading: classDataLoading,
     totalClassCount,
     loadClassesForDepartment,
     loadAllClasses,
@@ -52,7 +52,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   } = useClassData();
 
   // Combined loading state
-  const loading = departmentsLoading || classDataLoading;
+  const isLoading = departmentsLoading || classDataLoading;
 
   // Load departments when panel opens
   useEffect(() => {
@@ -202,7 +202,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
 
         <ClassBrowserTable
           filteredGroupedClasses={filteredGroupedClasses}
-          loading={loading}
+          isLoading={isLoading}
           selectedDepartment={selectedDepartment}
           totalClassCount={totalClassCount}
           groupedClassesLength={groupedClasses.length}

@@ -15,7 +15,7 @@ import { useSchedulerActions } from "@/hooks/useSchedulerActions"
 import Link from "next/link"
 
 export default function SchedulerPage() {
-  const { isSaving } = useSchedule()
+  const { isLoading } = useSchedule()
 
   const {
     calendarEvents,
@@ -145,7 +145,7 @@ export default function SchedulerPage() {
               className="h-full"
               scheduledClasses={scheduledClasses}
               totalCredits={totalCredits}
-              isSaving={isSaving}
+              isSaving={isLoading}
               groupedClasses={groupedClasses}
               onRemoveFromSchedule={handleRemoveFromSchedule}
               onLabSwitch={handleLabSwitch}

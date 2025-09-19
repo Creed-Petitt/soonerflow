@@ -53,7 +53,7 @@ export function ClassDetailDialog({
   const [currentView, setCurrentView] = React.useState<"class" | "professor">("class");
   const [currentSection, setCurrentSection] = React.useState<any>(null);
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
-  const { professorData, loading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
+  const { professorData, isLoading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
   
   // Track original selections for change mode
   const [originalSection, setOriginalSection] = React.useState<any>(null);

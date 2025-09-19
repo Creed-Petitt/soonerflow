@@ -26,7 +26,7 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
   const [currentGPA, setCurrentGPA] = useState(0)
   const [currentCredits, setCurrentCredits] = useState(0)
   const [simulatedCourses, setSimulatedCourses] = useState<SimulatedCourse[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   
   // Load current GPA when modal opens
   useEffect(() => {
@@ -46,7 +46,7 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
     } catch (error) {
       console.error("Failed to load GPA:", error)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
   
@@ -108,7 +108,7 @@ export function GPACalculatorModal({ isOpen, onClose }: GPACalculatorModalProps)
           </DialogDescription>
         </DialogHeader>
         
-        {!loading && (
+        {!isLoading && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>

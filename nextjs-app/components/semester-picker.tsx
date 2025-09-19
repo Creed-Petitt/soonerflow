@@ -13,11 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { useSchedule } from "@/contexts/schedule-context"
 
 export function SemesterPicker() {
-  const { 
-    currentSemester, 
-    availableSemesters, 
+  const {
+    currentSemester,
+    availableSemesters,
     setCurrentSemester,
-    loading 
+    isLoading
   } = useSchedule()
 
   // Get the current semester details
@@ -47,7 +47,7 @@ export function SemesterPicker() {
     sem => sem.code >= actualCurrentSemester
   );
 
-  if (loading || filteredSemesters.length === 0) {
+  if (isLoading || filteredSemesters.length === 0) {
     return (
       <Button variant="outline" size="sm" disabled className="h-9 px-3">
         <Calendar className="h-4 w-4 mr-2" />

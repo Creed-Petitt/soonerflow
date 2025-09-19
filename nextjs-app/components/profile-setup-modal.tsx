@@ -40,7 +40,6 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
   const [enrollmentYear, setEnrollmentYear] = useState("")
   const [graduationYear, setGraduationYear] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
 
   // Fetch majors on mount
   useEffect(() => {
@@ -96,7 +95,7 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
       return
     }
 
-    setIsSaving(true)
+    setIsLoading(true)
     try {
       const selectedMajorData = majors.find(m => m.id === selectedMajor)
       const enrollYear = parseInt(enrollmentYear.split(' ')[1])
@@ -121,7 +120,7 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
     } catch (error) {
       console.error("Error saving profile:", error)
     } finally {
-      setIsSaving(false)
+      setIsLoading(false)
     }
   }
 
@@ -213,11 +212,11 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
         <div className="flex justify-end gap-3">
           <Button
             onClick={handleSave}
-            disabled={!selectedMajor || !enrollmentYear || !graduationYear || isSaving}
+            disabled={!selectedMajor || !enrollmentYear || !graduationYear || isLoading}
             size="lg"
             className="min-w-[120px]"
           >
-            {isSaving ? (
+            {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...

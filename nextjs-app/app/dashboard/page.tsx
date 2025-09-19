@@ -16,7 +16,7 @@ export default function DashboardPage() {
     gpa,
     majorName,
     graduationYear,
-    loading,
+    isLoading,
     userName,
     showProfileSetup,
     setShowProfileSetup,
@@ -35,7 +35,7 @@ export default function DashboardPage() {
       />
       
       <main className="flex-1 flex flex-col justify-start lg:justify-center max-w-7xl mx-auto px-6 py-6 w-full">
-        {!loading && (
+        {!isLoading && (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
               <div className="space-y-6">
@@ -68,7 +68,7 @@ export default function DashboardPage() {
             </div>
           </>
         )}
-        {loading && (
+        {isLoading && (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
