@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Check, ChevronDown, Search } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 
 interface DropdownOption {
   id: string
@@ -14,7 +14,6 @@ interface SimpleDropdownProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
-  searchable?: boolean
   disabled?: boolean
 }
 
@@ -23,40 +22,22 @@ export function SimpleDropdown({
   value,
   onChange,
   placeholder = "Select an option...",
-  searchable = false,
   disabled = false
 }: SimpleDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false)
-        setSearchTerm("")
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
-
-  // Focus search input when dropdown opens
-  useEffect(() => {
-    if (isOpen && searchable && searchInputRef.current) {
-      searchInputRef.current.focus()
-    }
-  }, [isOpen, searchable])
-
-  const filteredOptions = searchTerm
-    ? options.filter(opt => 
-        opt.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (opt.sublabel && opt.sublabel.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    : options
 
   const selectedOption = options.find(opt => opt.id === value)
 
@@ -94,16 +75,6 @@ export function SimpleDropdown({
     width: 'max-content'
   }
 
-  const searchInputStyle = {
-    width: '100%',
-    padding: '8px 12px 8px 36px',
-    backgroundColor: 'rgb(24, 24, 27)',
-    border: 'none',
-    borderBottom: '1px solid rgb(39, 39, 42)',
-    color: 'rgb(244, 244, 245)',
-    fontSize: '14px',
-    outline: 'none'
-  }
 
   const optionStyle = (isSelected: boolean, isHovered: boolean) => ({
     padding: '8px 12px',
@@ -155,42 +126,18 @@ export function SimpleDropdown({
             el.style.width = `${buttonRect.width}px`;
           }
         }}>
-          {searchable && (
-            <div style={{ position: 'relative' }}>
-              <Search 
-                style={{ 
-                  position: 'absolute', 
-                  left: '12px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  width: '16px',
-                  height: '16px',
-                  color: 'rgb(113, 113, 122)'
-                }} 
-              />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={searchInputStyle}
-              />
-            </div>
-          )}
-          
           <div style={{ padding: '4px' }}>
-            {filteredOptions.length === 0 ? (
-              <div style={{ 
-                padding: '12px', 
-                textAlign: 'center', 
+            {options.length === 0 ? (
+              <div style={{
+                padding: '12px',
+                textAlign: 'center',
                 color: 'rgb(113, 113, 122)',
                 fontSize: '14px'
               }}>
                 No options found
               </div>
             ) : (
-              filteredOptions.map((option) => (
+              options.map((option) => (
                 <DropdownOption
                   key={option.id}
                   option={option}
@@ -198,7 +145,6 @@ export function SimpleDropdown({
                   onClick={() => {
                     onChange(option.id)
                     setIsOpen(false)
-                    setSearchTerm("")
                   }}
                 />
               ))

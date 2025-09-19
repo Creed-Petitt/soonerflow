@@ -25,7 +25,6 @@ export default function SchedulerPage() {
     setSelectedDate,
     groupedClasses,
     isInteractiveSemester,
-    semesterDates,
     isLoading,
   } = useSchedulerData()
 
