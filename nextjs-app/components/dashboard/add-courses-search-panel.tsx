@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { CourseListItem } from "./course-list-item";
 import type { Course, Department } from "@/types/course";
 
-interface AddCoursesSearchPanelProps {
+interface AddCoursesBrowsePanelProps {
   // Department filter
   selectedDepartment: string;
   onDepartmentChange: (dept: string) => void;
@@ -23,7 +23,7 @@ interface AddCoursesSearchPanelProps {
   isCourseCompleted: (courseId: string) => boolean;
 }
 
-export function AddCoursesSearchPanel({
+export function AddCoursesBrowsePanel({
   selectedDepartment,
   onDepartmentChange,
   departments,
@@ -33,7 +33,7 @@ export function AddCoursesSearchPanel({
   onCourseToggle,
   isCourseSelected,
   isCourseCompleted
-}: AddCoursesSearchPanelProps) {
+}: AddCoursesBrowsePanelProps) {
 
   const renderCourseInfo = () => {
     if (totalCoursesCount > 0) {

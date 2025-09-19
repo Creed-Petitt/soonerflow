@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AddCoursesSearchPanel } from "./add-courses-search-panel";
+import { AddCoursesBrowsePanel } from "./add-courses-search-panel";
 import { SelectedCoursesPanel } from "./selected-courses-panel";
 import { useAddCoursesData } from "@/hooks/useAddCoursesData";
 import { useSelectedCourses } from "@/hooks/useSelectedCourses";
@@ -75,7 +75,17 @@ export function AddCoursesModal({
           <DialogTitle>Add Courses to {semester}</DialogTitle>
         </DialogHeader>
         <div className="flex h-full overflow-hidden">
-
+          <AddCoursesBrowsePanel
+            selectedDepartment={coursesData.selectedDepartment}
+            onDepartmentChange={coursesData.setSelectedDepartment}
+            departments={coursesData.departments}
+            displayedCourses={coursesData.displayedCourses}
+            loading={coursesData.isLoading}
+            totalCoursesCount={coursesData.totalClassCount}
+            onCourseToggle={selectedCoursesData.handleCourseToggle}
+            isCourseSelected={selectedCoursesData.isCourseSelected}
+            isCourseCompleted={selectedCoursesData.isCourseCompleted}
+          />
           <SelectedCoursesPanel
             semester={semester}
             selectedCourses={selectedCoursesData.selectedCourses}
