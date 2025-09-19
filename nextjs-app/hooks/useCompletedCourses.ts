@@ -24,7 +24,7 @@ export function useCompletedCourses(onGpaUpdate: (credits: number, gpa: number) 
   const [completedCourses, setCompletedCourses] = useState<Map<string, Course>>(new Map());
   const [scheduledCourses, setScheduledCourses] = useState<Map<string, Course>>(new Map());
   const [allSemesterSchedules, setAllSemesterSchedules] = useState<Map<string, Course[]>>(new Map());
-  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   const getCurrentSemesterName = () => {
     if (!currentSemester) return 'Spring 2025';
@@ -75,7 +75,7 @@ export function useCompletedCourses(onGpaUpdate: (credits: number, gpa: number) 
         return newScheduledCourses;
       });
 
-      setLoadingCourses(false);
+      setIsLoading(false);
     }
   }, [scheduledClasses, currentSemesterName]);
 
@@ -228,7 +228,7 @@ export function useCompletedCourses(onGpaUpdate: (credits: number, gpa: number) 
     scheduledCourses,
     allSemesterSchedules,
     setAllSemesterSchedules,
-    loadingCourses,
+    isLoading,
     currentSemesterName,
     handleRemoveCourse,
     handleCoursesUpdate

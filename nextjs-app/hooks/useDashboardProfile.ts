@@ -12,7 +12,7 @@ export function useDashboardProfile() {
   const [majorName, setMajorName] = useState<string | null>(null);
   const [enrollmentYear, setEnrollmentYear] = useState<number | null>(null);
   const [graduationYear, setGraduationYear] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
 
@@ -20,7 +20,7 @@ export function useDashboardProfile() {
     if (typeof window === 'undefined') return;
 
     if (!session?.user?.email) {
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
 
@@ -62,7 +62,7 @@ export function useDashboardProfile() {
       setGraduationYear(null);
       setUserName(session.user?.name || null);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [session?.user?.email, session?.user?.name]);
 
@@ -71,7 +71,7 @@ export function useDashboardProfile() {
   useEffect(() => {
     if (!session?.user?.email || hasLoadedDashboard) {
       if (!hasLoadedDashboard && !session?.user?.email) {
-        setLoading(false)
+        setIsLoading(false)
       }
       return
     }
@@ -110,7 +110,7 @@ export function useDashboardProfile() {
     majorName,
     enrollmentYear,
     graduationYear,
-    loading,
+    isLoading,
     userName,
     showProfileSetup,
     setShowProfileSetup,

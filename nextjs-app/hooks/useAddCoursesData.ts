@@ -25,10 +25,10 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
   const [majorLoading, setMajorLoading] = useState(false);
 
   // Use existing hooks for department and class data
-  const { departments, loading: departmentsLoading } = useDepartments();
+  const { departments, isLoading: departmentsLoading } = useDepartments();
   const {
     groupedClasses,
-    loading: classDataLoading,
+    isLoading: classDataLoading,
     totalClassCount,
     currentPage,
     loadClassesForDepartment,

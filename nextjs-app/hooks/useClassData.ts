@@ -29,7 +29,7 @@ export interface GroupedClass {
 interface UseClassDataReturn {
   classes: ClassData[];
   groupedClasses: GroupedClass[];
-  loading: boolean;
+  isLoading: boolean;
   totalClassCount: number;
   currentPage: number;
   loadClassesForDepartment: (dept: string, currentSemester: string) => Promise<void>;
@@ -42,7 +42,7 @@ interface UseClassDataReturn {
 export function useClassData(): UseClassDataReturn {
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [totalClassCount, setTotalClassCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -85,7 +85,7 @@ export function useClassData(): UseClassDataReturn {
 
   const loadClassesForDepartment = useCallback(async (dept: string, currentSemester: string) => {
     try {
-      setLoading(true);
+      setIsLoading(true);
 
       const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
       if (!response.ok) throw new Error('Failed to fetch classes');
@@ -99,13 +99,13 @@ export function useClassData(): UseClassDataReturn {
       console.error('Error loading classes:', error);
       toast.error('Failed to load classes');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [processClasses]);
 
   const loadAllClasses = useCallback(async (currentSemester: string, page: number = 1, append: boolean = false) => {
     try {
-      setLoading(true);
+      setIsLoading(true);
       setCurrentPage(page === 1 ? 1 : page);
 
       // Load 100 classes at a time for smooth performance
@@ -134,13 +134,13 @@ export function useClassData(): UseClassDataReturn {
       console.error('Error loading all classes:', error);
       toast.error('Failed to load classes');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [processClasses]);
 
   const loadClassesForMajor = useCallback(async (userMajorDepts: string[], currentSemester: string) => {
     try {
-      setLoading(true);
+      setIsLoading(true);
 
       const allMajorClasses: ClassData[] = [];
 
@@ -166,7 +166,7 @@ export function useClassData(): UseClassDataReturn {
       console.error('Error loading major classes:', error);
       toast.error('Failed to load classes');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [processClasses]);
 
@@ -204,7 +204,7 @@ export function useClassData(): UseClassDataReturn {
   return {
     classes,
     groupedClasses,
-    loading,
+    isLoading,
     totalClassCount,
     currentPage,
     loadClassesForDepartment,

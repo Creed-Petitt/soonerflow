@@ -11,7 +11,7 @@ export function useDashboardData() {
     majorName,
     enrollmentYear,
     graduationYear,
-    loading,
+    isLoading: profileLoading,
     userName,
     showProfileSetup,
     setShowProfileSetup,
@@ -22,7 +22,7 @@ export function useDashboardData() {
     completedCourses,
     scheduledCourses,
     allSemesterSchedules,
-    loadingCourses,
+    isLoading: coursesLoading,
     parseTimeToEvents,
     currentSemesterName,
     getCurrentSemester,
@@ -31,6 +31,9 @@ export function useDashboardData() {
     handleCoursesUpdate
   } = useCourseManagement(enrollmentYear, graduationYear, updateGpaAndCredits);
 
+  // Consolidate loading states
+  const isLoading = profileLoading || coursesLoading;
+
   return {
     creditsCompleted,
     totalCredits,
@@ -38,14 +41,13 @@ export function useDashboardData() {
     majorName,
     enrollmentYear,
     graduationYear,
-    loading,
+    isLoading,
     userName,
     showProfileSetup,
     setShowProfileSetup,
     completedCourses,
     scheduledCourses,
     allSemesterSchedules,
-    loadingCourses,
     parseTimeToEvents,
     currentSemesterName,
     getCurrentSemester,

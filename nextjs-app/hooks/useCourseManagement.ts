@@ -11,7 +11,7 @@ export function useCourseManagement(enrollmentYear: number | null, graduationYea
     scheduledCourses,
     allSemesterSchedules,
     setAllSemesterSchedules,
-    loadingCourses,
+    isLoading,
     currentSemesterName,
     handleRemoveCourse,
     handleCoursesUpdate
@@ -85,7 +85,7 @@ export function useCourseManagement(enrollmentYear: number | null, graduationYea
     completedCourses,
     scheduledCourses,
     allSemesterSchedules,
-    loadingCourses,
+    isLoading,
     parseTimeToEvents,
     currentSemesterName,
     getCurrentSemester,

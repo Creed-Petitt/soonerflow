@@ -12,14 +12,14 @@ export interface ProfessorData {
 
 interface UseProfessorDataReturn {
   professorData: ProfessorData | null;
-  loading: boolean;
+  isLoading: boolean;
   loadProfessorData: (instructorName: string) => Promise<void>;
   clearProfessorData: () => void;
 }
 
 export function useProfessorData(): UseProfessorDataReturn {
   const [professorData, setProfessorData] = useState<ProfessorData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const loadProfessorData = useCallback(async (instructorName: string) => {
     if (!instructorName || instructorName === 'TBA') {
@@ -27,7 +27,7 @@ export function useProfessorData(): UseProfessorDataReturn {
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
     try {
       // Parse instructor name (usually "Last, First")
       const nameParts = instructorName.split(',').map((p: string) => p.trim());
@@ -57,18 +57,18 @@ export function useProfessorData(): UseProfessorDataReturn {
       console.error('Error loading professor data:', error);
       setProfessorData(null);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
   const clearProfessorData = useCallback(() => {
     setProfessorData(null);
-    setLoading(false);
+    setIsLoading(false);
   }, []);
 
   return {
     professorData,
-    loading,
+    isLoading,
     loadProfessorData,
     clearProfessorData,
   };

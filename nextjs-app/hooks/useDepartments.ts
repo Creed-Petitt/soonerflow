@@ -8,7 +8,7 @@ import type { Department } from "@/types/course";
 interface UseDepartmentsReturn {
   departments: Department[];
   userMajorDepts: string[];
-  loading: boolean;
+  isLoading: boolean;
   loadDepartments: (currentSemester: string) => Promise<{
     departments: Department[],
     userMajorDepts: string[],
@@ -20,11 +20,11 @@ export function useDepartments(): UseDepartmentsReturn {
   const { data: session } = useSession();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [userMajorDepts, setUserMajorDepts] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const loadDepartments = useCallback(async (currentSemester: string) => {
     try {
-      setLoading(true);
+      setIsLoading(true);
 
       // Load departments list
       const deptResponse = await fetch(`/api/classes/departments?semester=${currentSemester}`);
@@ -72,14 +72,14 @@ export function useDepartments(): UseDepartmentsReturn {
         suggestedSelection: ""
       };
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [session?.user?.githubId]);
 
   return {
     departments,
     userMajorDepts,
-    loading,
+    isLoading,
     loadDepartments,
   };
 }
