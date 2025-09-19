@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Loader2, Search, Check } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Select,
@@ -14,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import { fetchWithAuth } from "@/lib/api-client"
 
 interface Major {
@@ -37,8 +35,6 @@ export default function SettingsPage() {
   const { data: session, status, update } = useSession()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showMajorSearch, setShowMajorSearch] = useState(false)
 
   // User data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
@@ -48,12 +44,6 @@ export default function SettingsPage() {
   // Data from API
   const [majors, setMajors] = useState<Major[]>([])
 
-  // Get auth provider type
-  const getAuthProvider = () => {
-    if (session?.user?.githubId) return "GitHub"
-    if ((session?.user as any)?.googleId) return "Google"
-    return "Account"
-  }
 
   // Fetch user profile and majors simultaneously
   useEffect(() => {
@@ -100,11 +90,6 @@ export default function SettingsPage() {
     }
   }, [session, status])
 
-  // Filter majors based on search
-  const filteredMajors = majors.filter(major =>
-    major.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    major.department.toLowerCase().includes(searchQuery.toLowerCase())
-  )
 
   const handleSave = async () => {
     if (!session?.user?.githubId || !selectedMajor) return
@@ -126,7 +111,6 @@ export default function SettingsPage() {
       }
 
       await update()
-      setShowMajorSearch(false)
     } catch (error) {
       console.error("Error saving settings:", error)
     } finally {
@@ -150,7 +134,6 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto py-8 px-6">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-12">
           <Button
             variant="ghost"
@@ -167,7 +150,6 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-12">
-          {/* Profile Section */}
           <div>
             <h2 className="text-lg font-medium mb-6">Account</h2>
             <div className="flex items-center gap-4 mb-8">
@@ -188,12 +170,9 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-
-          {/* Academic Information */}
           <div>
             <h2 className="text-lg font-medium mb-6">Academic Information</h2>
-            
-            {/* Current Major */}
+      
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Current Major</label>
@@ -204,7 +183,7 @@ export default function SettingsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setShowMajorSearch(!showMajorSearch)}
+                        onClick={() => {}}
                         className="text-xs h-8"
                       >
                         Change
@@ -213,7 +192,7 @@ export default function SettingsPage() {
                   ) : (
                     <Button
                       variant="outline"
-                      onClick={() => setShowMajorSearch(true)}
+                      onClick={() => {}}
                       className="w-full justify-center h-12"
                     >
                       Select your major
@@ -221,75 +200,44 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
-
-              {/* Major Search */}
-              {showMajorSearch && (
-                <div className="space-y-3 p-4 border rounded-lg bg-background">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search for a major..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  
-                  <div className="max-h-60 overflow-y-auto space-y-1">
-                    {filteredMajors.slice(0, 50).map((major) => (
-                      <div
-                        key={major.id}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors",
-                          selectedMajor?.id === major.id
-                            ? "bg-primary/10 border border-primary/20"
-                            : "hover:bg-muted/50"
-                        )}
-                        onClick={() => setSelectedMajor(major)}
-                      >
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-muted-foreground">Choose Major</label>
+                <Select
+                  value={selectedMajor?.id || ""}
+                  onValueChange={(value) => {
+                    const major = majors.find(m => m.id === value)
+                    setSelectedMajor(major || null)
+                  }}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Select a major..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {majors.slice(0, 100).map((major) => (
+                      <SelectItem key={major.id} value={major.id}>
                         <div>
-                          <div className="font-medium text-sm">{major.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {major.department}
-                          </div>
+                          <div className="font-medium">{major.name}</div>
+                          <div className="text-xs text-muted-foreground">{major.department}</div>
                         </div>
-                        {selectedMajor?.id === major.id && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
+                      </SelectItem>
                     ))}
-                  </div>
-                  
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setShowMajorSearch(false)
-                        setSearchQuery("")
-                        setSelectedMajor(userProfile?.major ? majors.find(m => m.name === userProfile.major) || null : null)
-                      }}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      disabled={isLoading || !selectedMajor}
-                      className="flex-1"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        "Save"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  </SelectContent>
+                </Select>
 
-              {/* Graduation Year */}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    onClick={handleSave}
+                    disabled={!selectedMajor || isLoading}
+                    className="w-full"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Save Major"
+                    )}
+                  </Button>
+                </div>
+              </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Expected Graduation Year</label>
                 <Select value={graduationYear} onValueChange={setGraduationYear}>
