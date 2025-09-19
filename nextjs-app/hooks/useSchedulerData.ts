@@ -1,9 +1,9 @@
-"use client"
+'use client'
 
-import { useState, useEffect, useMemo } from "react"
-import type { CalendarEvent } from "@/components/event-calendar/types"
-import { useSchedule } from "@/hooks/use-schedule"
-import { parseClassTime } from "@/lib/time-utils"
+import { useState, useEffect, useMemo, Dispatch, SetStateAction } from 'react'
+import type { CalendarEvent } from '@/components/event-calendar/types'
+import { useSchedule } from '@/hooks/use-schedule'
+import { parseClassTime } from '@/lib/time-utils'
 
 interface ClassData {
   id: string
@@ -47,36 +47,35 @@ const classColors = [
   { bg: 'bg-pink-500', hex: '#ec4899' },
   { bg: 'bg-teal-500', hex: '#14b8a6' },
   { bg: 'bg-indigo-500', hex: '#6366f1' },
-  { bg: 'bg-red-500', hex: '#ef4444' }
+  { bg: 'bg-red-500', hex: '#ef4444' },
 ]
 
 export function useSchedulerData() {
-  const {
-    scheduledClasses: persistedClasses,
-    currentSemester,
-  } = useSchedule()
+  const scheduleData = useSchedule()
+  const { scheduledClasses: persistedClasses, currentSemester } = scheduleData
+  const isLoading = scheduleData.isLoading
 
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
 
   const getCurrentSemesterCode = () => {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const now = new Date()
+    const month = now.getMonth() + 1
+    const year = now.getFullYear()
 
     if (month >= 1 && month <= 5) {
-      return `${year - 1}20`;
+      return `${year - 1}20`
     } else if (month >= 8 && month <= 12) {
-      return `${year}10`;
+      return `${year}10`
     } else {
-      return `${year - 1}30`;
+      return `${year - 1}30`
     }
-  };
+  }
 
-  const currentSemesterCode = getCurrentSemesterCode();
-  const isCurrentSemester = currentSemester === currentSemesterCode;
-  const isFutureSemester = currentSemester > currentSemesterCode;
-  const isPastSemester = currentSemester < currentSemesterCode;
+  const currentSemesterCode = getCurrentSemesterCode()
+  const isCurrentSemester = currentSemester === currentSemesterCode
+  const isFutureSemester = currentSemester > currentSemesterCode
+  const isPastSemester = currentSemester < currentSemesterCode
   const isInteractiveSemester = isCurrentSemester || isFutureSemester
 
   const getSemesterDates = () => {
@@ -86,17 +85,17 @@ export function useSchedulerData() {
     if (term === '10') {
       return {
         start: new Date(year, 7, 20),
-        end: new Date(year, 11, 15)
+        end: new Date(year, 11, 15),
       }
     } else if (term === '20') {
       return {
         start: new Date(year + 1, 0, 15),
-        end: new Date(year + 1, 4, 15)
+        end: new Date(year + 1, 4, 15),
       }
     } else {
       return {
         start: new Date(year + 1, 5, 1),
-        end: new Date(year + 1, 7, 10)
+        end: new Date(year + 1, 7, 10),
       }
     }
   }
@@ -120,31 +119,46 @@ export function useSchedulerData() {
     }))
   }, [persistedClasses])
 
-  const totalCredits = scheduledClasses.reduce((sum, cls) => sum + (cls.credits || 3), 0)
+  const totalCredits = scheduledClasses.reduce(
+    (sum, cls) => sum + (cls.credits || 3),
+    0
+  )
 
   const subjects = useMemo(() => {
     return [...new Set(scheduledClasses.map(cls => cls.subject))]
   }, [scheduledClasses])
 
   const parseTimeToEvents = (classData: ScheduledClass) => {
-    if (!classData.time || classData.time === 'TBA' || classData.time.trim() === '') {
-      const isCompleted = classData.instructor === 'Completed' || classData.type === 'Completed Course'
+    if (
+      !classData.time ||
+      classData.time === 'TBA' ||
+      classData.time.trim() === ''
+    ) {
+      const isCompleted =
+        classData.instructor === 'Completed' ||
+        classData.type === 'Completed Course'
       const templateDate = new Date(2025, 0, 6)
       templateDate.setHours(9, 0, 0, 0)
 
       const endDate = new Date(templateDate)
       endDate.setHours(10, 30, 0, 0)
 
-      return [{
-        id: `${classData.id}-template`,
-        title: isCompleted ? `✓ ${classData.subject} ${classData.number}` : `${classData.subject} ${classData.number}`,
-        description: `${classData.title}\nInstructor: ${classData.instructor}\nLocation: ${classData.location || 'TBA'}`,
-        start: templateDate,
-        end: endDate,
-        color: (isCompleted ? 'emerald' : 'gray') as any,
-        location: classData.location || 'TBA',
-        allDay: false
-      }]
+      return [
+        {
+          id: `${classData.id}-template`,
+          title: isCompleted
+            ? `✓ ${classData.subject} ${classData.number}`
+            : `${classData.subject} ${classData.number}`,
+          description: `${classData.title}\nInstructor: ${
+            classData.instructor
+          }\nLocation: ${classData.location || 'TBA'}`,
+          start: templateDate,
+          end: endDate,
+          color: (isCompleted ? 'emerald' : 'gray') as any,
+          location: classData.location || 'TBA',
+          allDay: false,
+        },
+      ]
     }
 
     const timeData = parseClassTime(classData.time)
@@ -153,11 +167,11 @@ export function useSchedulerData() {
     const { days: classDays, startTime, endTime } = timeData
 
     const templateDates: { [key: string]: Date } = {
-      'M': new Date(2025, 0, 6),
-      'T': new Date(2025, 0, 7),
-      'W': new Date(2025, 0, 8),
-      'R': new Date(2025, 0, 9),
-      'F': new Date(2025, 0, 10),
+      M: new Date(2025, 0, 6),
+      T: new Date(2025, 0, 7),
+      W: new Date(2025, 0, 8),
+      R: new Date(2025, 0, 9),
+      F: new Date(2025, 0, 10),
     }
 
     const events = classDays.map(dayLetter => {
@@ -170,18 +184,29 @@ export function useSchedulerData() {
       return {
         id: `${classData.id}-${dayLetter}`,
         title: `${classData.subject} ${classData.number}`,
-        description: `${classData.title}\nInstructor: ${classData.instructor}\nLocation: ${classData.location}`,
+        description: `${classData.title}\nInstructor: ${
+          classData.instructor
+        }\nLocation: ${classData.location}`,
         start: templateDate,
         end: endDate,
-        color: (classData.colorBg === 'bg-blue-500' ? 'sky' :
-               classData.colorBg === 'bg-green-500' ? 'emerald' :
-               classData.colorBg === 'bg-purple-500' ? 'violet' :
-               classData.colorBg === 'bg-orange-500' ? 'orange' :
-               classData.colorBg === 'bg-pink-500' ? 'rose' :
-               classData.colorBg === 'bg-teal-500' ? 'teal' :
-               classData.colorBg === 'bg-indigo-500' ? 'indigo' :
-               classData.colorBg === 'bg-red-500' ? 'red' : 'gray') as any,
-        location: classData.location
+        color: (classData.colorBg === 'bg-blue-500'
+          ? 'sky'
+          : classData.colorBg === 'bg-green-500'
+          ? 'emerald'
+          : classData.colorBg === 'bg-purple-500'
+          ? 'violet'
+          : classData.colorBg === 'bg-orange-500'
+          ? 'orange'
+          : classData.colorBg === 'bg-pink-500'
+          ? 'rose'
+          : classData.colorBg === 'bg-teal-500'
+          ? 'teal'
+          : classData.colorBg === 'bg-indigo-500'
+          ? 'indigo'
+          : classData.colorBg === 'bg-red-500'
+          ? 'red'
+          : 'gray') as any,
+        location: classData.location,
       }
     })
 
@@ -202,7 +227,7 @@ export function useSchedulerData() {
           title: cls.title,
           credits: cls.credits,
           sections: [],
-          labSections: []
+          labSections: [],
         })
       }
 
@@ -215,7 +240,9 @@ export function useSchedulerData() {
       }
     })
 
-    return Array.from(groups.values()).filter(group => group.sections.length > 0)
+    return Array.from(groups.values()).filter(
+      group => group.sections.length > 0
+    )
   }
 
   useEffect(() => {
@@ -242,7 +269,9 @@ export function useSchedulerData() {
         for (const subject of subjects) {
           if (cancelled) return
 
-          const response = await fetch(`/api/classes?subject=${subject}&semester=${currentSemester}&limit=100&skip_ratings=true`)
+          const response = await fetch(
+            `/api/classes?subject=${subject}&semester=${currentSemester}&limit=100&skip_ratings=true`
+          )
           if (response.ok && !cancelled) {
             const data = await response.json()
             allClasses.push(...(data.classes || []))
@@ -270,6 +299,7 @@ export function useSchedulerData() {
   const semesterDates = getSemesterDates()
 
   return {
+    isLoading,
     calendarEvents,
     scheduledClasses,
     totalCredits,
@@ -283,6 +313,6 @@ export function useSchedulerData() {
     currentSemesterCode,
     semesterDates,
     parseTimeToEvents,
-    groupClasses
+    groupClasses,
   }
 }

@@ -52,7 +52,7 @@ export interface EventCalendarProps {
   onDateChange?: (date: Date) => void
   scheduledClasses?: any[]
   totalCredits?: number
-  isSaving?: boolean
+  isLoading?: boolean
   groupedClasses?: any[]
   onRemoveFromSchedule?: (id: string) => void
   onLabSwitch?: (currentLab: any, newLab: any) => void
@@ -70,7 +70,7 @@ export function EventCalendar({
   onDateChange,
   scheduledClasses = [],
   totalCredits = 0,
-  isSaving = false,
+  isLoading = false,
   groupedClasses = [],
   onRemoveFromSchedule,
   onLabSwitch,
@@ -221,31 +221,40 @@ export function EventCalendar({
         } as React.CSSProperties
       }
     >
-      <>
-        {/* Removed view selector and new event controls - calendar is now week-only */}
-
-        <div className="flex flex-1 flex-col">
-          {/* Always show week view - removed other views */}
-          <TimeGridView
-            currentDate={currentDate}
-            events={events}
-            onEventSelect={handleEventSelect}
-            onEventCreate={() => {}} // Disabled event creation
-            days={5} // Only show weekdays
-          />
+      {isLoading ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading schedule...</p>
+          </div>
         </div>
+      ) : (
+        <>
+          {/* Removed view selector and new event controls - calendar is now week-only */}
 
-        <EventDialog
-          event={selectedEvent}
-          isOpen={isEventDialogOpen}
-          onClose={() => {
-            setIsEventDialogOpen(false)
-            setSelectedEvent(null)
-          }}
-          onSave={handleEventSave}
-          onDelete={handleEventDelete}
-        />
-      </>
+          <div className="flex flex-1 flex-col">
+            {/* Always show week view - removed other views */}
+            <TimeGridView
+              currentDate={currentDate}
+              events={events}
+              onEventSelect={handleEventSelect}
+              onEventCreate={() => {}} // Disabled event creation
+              days={5} // Only show weekdays
+            />
+          </div>
+
+          <EventDialog
+            event={selectedEvent}
+            isOpen={isEventDialogOpen}
+            onClose={() => {
+              setIsEventDialogOpen(false)
+              setSelectedEvent(null)
+            }}
+            onSave={handleEventSave}
+            onDelete={handleEventDelete}
+          />
+        </>
+      )}
     </div>
   )
 }

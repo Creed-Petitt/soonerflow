@@ -75,20 +75,21 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     const now = new Date();
     const month = now.getMonth() + 1; // 1-12
     const year = now.getFullYear();
-    
+
     if (month >= 1 && month <= 5) {
       // Spring semester (January - May)
       return `${year - 1}20`; // Spring 2025 = 202420
     } else if (month >= 8 && month <= 12) {
-      // Fall semester (August - December)  
+      // Fall semester (August - December)
       return `${year}10`; // Fall 2025 = 202510
     } else {
       // Summer semester (June - July)
       return `${year - 1}30`; // Summer 2025 = 202430
     }
   };
-  
-  const [currentSemester, setCurrentSemesterState] = useState<string>(getCurrentSemester());
+
+  // Use stable initial value to prevent hydration mismatch
+  const [currentSemester, setCurrentSemesterState] = useState<string>('202510'); // Default to Fall 2025
   const [availableSemesters, setAvailableSemesters] = useState<Semester[]>([]);
   const [includeSummerSemesters, setIncludeSummerSemesters] = useState<boolean>(false);
   const [includeHistoricalSemesters, setIncludeHistoricalSemesters] = useState<boolean>(false);
@@ -160,10 +161,19 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Set correct current semester on client-side only
+  useEffect(() => {
+    // Only run on client to avoid hydration mismatch
+    if (typeof window !== 'undefined') {
+      const actualCurrentSemester = getCurrentSemester();
+      setCurrentSemesterState(actualCurrentSemester);
+    }
+  }, []);
+
   // Load semesters on mount and trigger migration
   useEffect(() => {
     loadSemesters();
-    
+
     // One-time migration of completed courses to schedules
     if (session?.user?.githubId && status === "authenticated") {
       fetch(`/api/users/${session.user.githubId}/migrate-completed-courses`, {
@@ -193,7 +203,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadSchedule(currentSemester);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSemester]);
+  }, [currentSemester, status, session?.user?.githubId]);
 
   // Save schedule function
   const saveSchedule = async () => {
