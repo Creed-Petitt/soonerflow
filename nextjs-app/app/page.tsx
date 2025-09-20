@@ -1,33 +1,22 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Hero from "@/components/sections/hero";
 
 export default function LandingPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    // If user is authenticated, redirect to scheduler
-    if (status === "authenticated" && session) {
-      router.push("/scheduler");
-    }
-  }, [status, session, router]);
+    // Always redirect to scheduler since that's the only page now
+    router.push("/scheduler");
+  }, [router]);
 
-  // Show loading state while checking authentication
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
-          <p className="mt-4 text-gray-400">Loading...</p>
-        </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        <p className="mt-4 text-muted-foreground">Redirecting to scheduler...</p>
       </div>
-    );
-  }
-
-  // If not authenticated, show hero page
-  return <Hero />;
+    </div>
+  );
 }
