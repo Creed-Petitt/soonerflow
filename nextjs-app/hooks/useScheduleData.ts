@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { fetchUserActiveSchedule, saveScheduleClasses } from '@/lib/schedule-api'
 import type { ScheduledClass, Schedule } from '@/lib/schedule-api'
@@ -13,7 +13,7 @@ export function useScheduleData() {
   const [error, setError] = useState<string | null>(null)
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false)
 
-  const loadSchedule = async (semester?: string, currentSemester?: string) => {
+  const loadSchedule = useCallback(async (semester?: string, currentSemester?: string) => {
     if (status === "loading") return
 
     if (status === "unauthenticated") {
@@ -41,9 +41,9 @@ export function useScheduleData() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [session?.user?.githubId, status])
 
-  const saveSchedule = async () => {
+  const saveSchedule = useCallback(async () => {
     if (!schedule || !session?.user?.githubId || isLoading) return
 
     try {
@@ -64,7 +64,12 @@ export function useScheduleData() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [schedule, session?.user?.githubId, isLoading, localClasses])
+
+  // Auto-load schedule when session is ready
+  useEffect(() => {
+    loadSchedule()
+  }, [loadSchedule])
 
   return {
     schedule,
