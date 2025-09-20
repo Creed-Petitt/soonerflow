@@ -63,6 +63,27 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const scheduleData = useScheduleData();
   const semesterData = useSemesterManagement();
 
+  // Initialize data on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const actualCurrentSemester = semesterData.getCurrentSemester();
+      semesterData.setCurrentSemester(actualCurrentSemester);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load semesters and trigger migration
+  useEffect(() => {
+    semesterData.loadSemesters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesterData.includeSummerSemesters, semesterData.includeHistoricalSemesters]);
+
+  // Load schedule when semester changes
+  useEffect(() => {
+    scheduleData.loadSchedule(semesterData.currentSemester, semesterData.currentSemester);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesterData.currentSemester]);
+
   const addClass = (classData: ScheduledClass) => {
     scheduleData.setLocalClasses(prev => {
       const existingIndex = prev.findIndex(c => c.id === classData.id);
