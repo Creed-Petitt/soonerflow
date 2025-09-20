@@ -4,17 +4,7 @@ import { useState } from "react"
 import type { CalendarEvent } from "@/components/event-calendar/types"
 import type { ClassData, ScheduledClass } from "@/types/course"
 import { useSchedule } from "@/hooks/use-schedule"
-
-const classColors = [
-  { bg: 'bg-blue-500', hex: '#3b82f6' },
-  { bg: 'bg-green-500', hex: '#10b981' },
-  { bg: 'bg-purple-500', hex: '#8b5cf6' },
-  { bg: 'bg-orange-500', hex: '#f97316' },
-  { bg: 'bg-pink-500', hex: '#ec4899' },
-  { bg: 'bg-teal-500', hex: '#14b8a6' },
-  { bg: 'bg-indigo-500', hex: '#6366f1' },
-  { bg: 'bg-red-500', hex: '#ef4444' }
-]
+import { classColors } from "@/constants/colors"
 
 export function useSchedulerActions(
   scheduledClasses: ScheduledClass[],

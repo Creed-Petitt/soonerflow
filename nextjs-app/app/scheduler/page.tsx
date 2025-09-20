@@ -56,7 +56,6 @@ export default function SchedulerPage() {
             <div className="flex justify-center mb-3">
               <SemesterPicker />
             </div>
-            <SidebarCalendarButtons />
           </div>
 
           <div className="flex-1 flex flex-col px-4 pb-4 min-h-0">
@@ -106,6 +105,7 @@ export default function SchedulerPage() {
             </div>
 
             <div className="pt-3 mt-3 space-y-2 flex-shrink-0">
+              <SidebarCalendarButtons />
               {isInteractiveSemester ? (
                 <>
                   <Button
