@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock } from "lucide-react"
-import { AcademicCalendarModal } from "@/components/dashboard/academic-calendar-modal"
-import { FinalsScheduleModal } from "@/components/dashboard/finals-schedule-modal"
+import { AcademicCalendarModal } from "@/components/modals/academic-calendar-modal"
+import { FinalsScheduleModal } from "@/components/modals/finals-schedule-modal"
 
 export function SidebarCalendarButtons() {
   const [showAcademicCalendar, setShowAcademicCalendar] = useState(false)
