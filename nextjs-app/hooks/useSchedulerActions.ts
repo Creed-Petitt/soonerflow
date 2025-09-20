@@ -2,32 +2,8 @@
 
 import { useState } from "react"
 import type { CalendarEvent } from "@/components/event-calendar/types"
+import type { ClassData, ScheduledClass } from "@/types/course"
 import { useSchedule } from "@/hooks/use-schedule"
-
-interface ClassData {
-  id: string
-  subject: string
-  number: string
-  title: string
-  instructor: string
-  time: string
-  location: string
-  credits?: number
-  rating?: number
-  difficulty?: number
-  wouldTakeAgain?: number
-  available_seats?: number
-  total_seats?: number
-  description?: string
-  type?: string
-  grade?: string
-  semester?: string
-}
-
-interface ScheduledClass extends ClassData {
-  colorBg: string
-  colorHex: string
-}
 
 const classColors = [
   { bg: 'bg-blue-500', hex: '#3b82f6' },

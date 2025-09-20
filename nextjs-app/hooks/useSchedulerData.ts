@@ -4,40 +4,7 @@ import { useState, useMemo, Dispatch, SetStateAction } from 'react'
 import { useSchedule } from '@/hooks/use-schedule'
 import { processCalendarEvents, groupClassesBySubject, getSemesterDates } from '@/lib/calendar-utils'
 import type { CalendarEvent } from '@/components/event-calendar/types'
-
-interface ClassData {
-  id: string
-  subject: string
-  number: string
-  title: string
-  instructor: string
-  time: string
-  location: string
-  credits?: number
-  rating?: number
-  difficulty?: number
-  wouldTakeAgain?: number
-  available_seats?: number
-  total_seats?: number
-  description?: string
-  type?: string
-  grade?: string
-  semester?: string
-}
-
-interface ScheduledClass extends ClassData {
-  colorBg: string
-  colorHex: string
-}
-
-interface GroupedClass {
-  subject: string
-  number: string
-  title: string
-  credits?: number
-  sections: ClassData[]
-  labSections?: ClassData[]
-}
+import type { ClassData, ScheduledClass, GroupedClass } from '@/types/course'
 
 const classColors = [
   { bg: 'bg-blue-500', hex: '#3b82f6' },

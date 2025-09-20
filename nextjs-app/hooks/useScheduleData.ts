@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { fetchUserActiveSchedule, saveScheduleClasses } from '@/lib/schedule-api'
-import type { ScheduledClass, Schedule } from '@/lib/schedule-api'
+import type { ScheduledClass, Schedule } from '@/types/course'
 
 export function useScheduleData() {
   const { data: session, status } = useSession()

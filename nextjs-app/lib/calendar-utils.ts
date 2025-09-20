@@ -1,6 +1,6 @@
 import { parseClassTime } from '@/lib/time-utils';
 import type { CalendarEvent } from '@/components/event-calendar/types';
-import type { ScheduledClass } from '@/lib/schedule-api';
+import type { ScheduledClass } from '@/types/course';
 
 function createTimeDate(hour: number, minute: number): Date {
   const date = new Date();

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useScheduleData } from '@/hooks/useScheduleData';
 import { useSemesterManagement } from '@/hooks/useSemesterManagement';
-import type { ScheduledClass, Schedule } from '@/lib/schedule-api';
+import type { ScheduledClass, Schedule } from '@/types/course';
 
 interface Semester {
   code: string;

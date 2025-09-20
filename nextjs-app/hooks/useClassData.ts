@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fetchClassesForDepartment, processClasses } from "@/lib/class-api";
-import type { ClassData, GroupedClass } from "@/lib/class-api";
+import type { ClassData, GroupedClass } from "@/types/course";
 
 export type { ClassData, GroupedClass };
 

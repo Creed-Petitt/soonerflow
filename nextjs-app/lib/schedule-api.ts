@@ -1,29 +1,5 @@
 import { fetchWithAuth } from "@/lib/api-client";
-
-export interface ScheduledClass {
-  id: string;
-  subject: string;
-  number: string;
-  title: string;
-  instructor: string;
-  time: string;
-  location: string;
-  credits: number;
-  type?: string;
-  color: string;
-  available_seats?: number;
-  total_seats?: number;
-  rating?: number;
-  difficulty?: number;
-  wouldTakeAgain?: number;
-}
-
-export interface Schedule {
-  schedule_id: number;
-  schedule_name: string;
-  semester: string;
-  classes: ScheduledClass[];
-}
+import type { ScheduledClass, Schedule } from "@/types/course";
 
 export async function fetchUserActiveSchedule(githubId: string): Promise<Schedule> {
   const response = await fetchWithAuth(`/api/users/${githubId}/active-schedule`);

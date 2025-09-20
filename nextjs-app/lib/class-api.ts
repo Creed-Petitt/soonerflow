@@ -1,29 +1,5 @@
 import { toast } from "sonner";
-
-export interface ClassData {
-  id: string;
-  subject: string;
-  courseNumber: string;
-  number?: string;
-  title: string;
-  credits: number;
-  instructor?: string;
-  time?: string;
-  meetingTimes?: any[];
-  available_seats?: number;
-  total_seats?: number;
-  type?: string;
-  labs?: any[];
-}
-
-export interface GroupedClass {
-  subject: string;
-  number: string;
-  title: string;
-  credits?: number;
-  sections: ClassData[];
-  labSections: ClassData[];
-}
+import type { ClassData, GroupedClass } from "@/types/course";
 
 export async function fetchClassesForDepartment(
   department: string,
