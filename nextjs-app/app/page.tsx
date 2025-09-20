@@ -10,9 +10,9 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If user is authenticated, redirect to dashboard
+    // If user is authenticated, redirect to scheduler
     if (status === "authenticated" && session) {
-      router.push("/dashboard");
+      router.push("/scheduler");
     }
   }, [status, session, router]);
 

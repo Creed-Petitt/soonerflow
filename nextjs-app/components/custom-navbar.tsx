@@ -4,10 +4,7 @@ import { useId } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  HomeIcon,
   CalendarDaysIcon,
-  TrendingUpIcon,
-  BookOpen,
 } from "lucide-react"
 
 import UserMenu from "@/components/navbar-components/user-menu"
@@ -32,7 +29,6 @@ import {
 
 // Navigation links with icons for desktop icon-only navigation
 const navigationLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/scheduler", label: "Scheduler", icon: CalendarDaysIcon },
 ]
 

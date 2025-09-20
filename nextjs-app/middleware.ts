@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
   // Handle root path for authenticated users
   if (pathname === '/') {
     if (token) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/scheduler', request.url))
     }
     // Not authenticated, show login page
     return NextResponse.next()
