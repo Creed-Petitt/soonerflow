@@ -20,8 +20,6 @@ interface ClassBrowserFiltersProps {
   selectedLevel: string;
   setSelectedLevel: (level: string) => void;
   departments: Department[];
-  userMajorDepts: string[];
-  totalClassCount: number;
   groupedClassesLength: number;
 }
 
@@ -31,8 +29,6 @@ export function ClassBrowserFilters({
   selectedLevel,
   setSelectedLevel,
   departments,
-  userMajorDepts,
-  totalClassCount,
   groupedClassesLength,
 }: ClassBrowserFiltersProps) {
 
@@ -45,9 +41,6 @@ export function ClassBrowserFilters({
               <SelectValue placeholder="Select Department" />
             </SelectTrigger>
             <SelectContent>
-              {userMajorDepts.length > 0 && (
-                <SelectItem value="major">My Major</SelectItem>
-              )}
               <SelectItem value="all">All Departments</SelectItem>
               {departments.map(dept => (
                 <SelectItem key={dept.code} value={dept.code}>
@@ -73,9 +66,9 @@ export function ClassBrowserFilters({
         </div>
       </div>
 
-      {totalClassCount > 0 && (
+      {groupedClassesLength > 0 && (
         <div className="px-4 py-2 bg-muted/50 border-b text-sm">
-          <span>Showing {groupedClassesLength} of {totalClassCount} unique courses</span>
+          <span>Showing {groupedClassesLength} courses</span>
         </div>
       )}
     </>

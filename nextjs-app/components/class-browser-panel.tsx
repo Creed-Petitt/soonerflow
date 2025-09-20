@@ -35,7 +35,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   // Custom hooks for data management
   const {
     departments,
-    userMajorDepts,
     isLoading: departmentsLoading,
     loadDepartments,
   } = useDepartments();
@@ -43,11 +42,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const {
     groupedClasses,
     isLoading: classDataLoading,
-    totalClassCount,
     loadClassesForDepartment,
-    loadAllClasses,
-    loadClassesForMajor,
-    loadMoreClasses,
     clearClasses,
   } = useClassData();
 
@@ -57,26 +52,15 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   // Load departments when panel opens
   useEffect(() => {
     if (isOpen && departments.length === 0) {
-      loadDepartments(currentSemester).then((result) => {
-        if (result.suggestedSelection) {
-          setSelectedDepartment(result.suggestedSelection);
-        }
-      });
+      loadDepartments(currentSemester);
     }
   }, [isOpen, departments.length, loadDepartments, currentSemester]);
 
   // Load classes when department changes
   useEffect(() => {
-    if (!selectedDepartment) return;
-
-    if (selectedDepartment === "all") {
-      loadAllClasses(currentSemester);
-    } else if (selectedDepartment === "major" && userMajorDepts.length > 0) {
-      loadClassesForMajor(userMajorDepts, currentSemester);
-    } else if (selectedDepartment !== "major") {
-      loadClassesForDepartment(selectedDepartment, currentSemester);
-    }
-  }, [selectedDepartment, userMajorDepts, currentSemester, loadAllClasses, loadClassesForMajor, loadClassesForDepartment]);
+    if (!selectedDepartment || selectedDepartment === "all") return;
+    loadClassesForDepartment(selectedDepartment, currentSemester);
+  }, [selectedDepartment, currentSemester, loadClassesForDepartment]);
 
   // Filter classes by level
   let filteredGroupedClasses = [...groupedClasses];
@@ -165,9 +149,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     setIsDialogOpen(false);
   };
 
-  const handleLoadMoreClasses = () => {
-    loadMoreClasses(currentSemester);
-  };
 
   if (!isOpen) return null;
 
@@ -195,8 +176,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           selectedLevel={selectedLevel}
           setSelectedLevel={setSelectedLevel}
           departments={departments}
-          userMajorDepts={userMajorDepts}
-          totalClassCount={totalClassCount}
           groupedClassesLength={groupedClasses.length}
         />
 
@@ -204,11 +183,9 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           filteredGroupedClasses={filteredGroupedClasses}
           isLoading={isLoading}
           selectedDepartment={selectedDepartment}
-          totalClassCount={totalClassCount}
           groupedClassesLength={groupedClasses.length}
           handleClassClick={handleClassClick}
           isClassScheduled={isClassScheduled}
-          loadMoreClasses={handleLoadMoreClasses}
         />
       </div>
 

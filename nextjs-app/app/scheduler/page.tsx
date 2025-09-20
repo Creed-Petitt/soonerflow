@@ -12,6 +12,7 @@ import { EnrolledClassCard } from '@/components/scheduler/enrolled-class-card'
 import { useSchedule } from '@/hooks/use-schedule'
 import { useSchedulerData } from '@/hooks/useSchedulerData'
 import { useSchedulerActions } from '@/hooks/useSchedulerActions'
+import { SidebarCalendarButtons } from '@/components/scheduler/sidebar-calendar-buttons'
 import Link from 'next/link'
 
 export default function SchedulerPage() {
@@ -44,6 +45,7 @@ export default function SchedulerPage() {
     openClassDetailModal,
   } = useSchedulerActions(scheduledClasses, useSchedule().currentSemester)
 
+
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
       <CustomNavbar />
@@ -54,6 +56,7 @@ export default function SchedulerPage() {
             <div className="flex justify-center mb-3">
               <SemesterPicker />
             </div>
+            <SidebarCalendarButtons />
           </div>
 
           <div className="flex-1 flex flex-col px-4 pb-4 min-h-0">
@@ -72,13 +75,7 @@ export default function SchedulerPage() {
                         No classes scheduled
                       </p>
                       <p className="text-xs">
-                        Add classes from your{" "}
-                        <Link
-                          href="/dashboard"
-                          className="text-primary underline"
-                        >
-                          degree tracker
-                        </Link>
+                        Use "Browse & Add Classes" below to get started
                       </p>
                     </div>
                   ) : (

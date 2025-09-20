@@ -51,31 +51,6 @@ export async function fetchClassesForDepartment(
   }
 }
 
-export async function fetchAllClasses(
-  semester: string,
-  page: number = 1,
-  limit: number = 100
-): Promise<{ classes: ClassData[]; total: number }> {
-  try {
-    const response = await fetch(
-      `/api/classes?semester=${semester}&limit=${limit}&page=${page}&skip_ratings=true`
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch classes');
-    }
-
-    const data = await response.json();
-    return {
-      classes: data.classes || [],
-      total: data.pagination?.total || 0
-    };
-  } catch (error) {
-    console.error('Error fetching all classes:', error);
-    toast.error('Failed to load classes');
-    return { classes: [], total: 0 };
-  }
-}
 
 export function processClasses(allClasses: ClassData[]): GroupedClass[] {
   const grouped: Record<string, GroupedClass> = {};

@@ -3,31 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useScheduleData } from '@/hooks/useScheduleData';
 import { useSemesterManagement } from '@/hooks/useSemesterManagement';
-
-interface ScheduledClass {
-  id: string;
-  subject: string;
-  number: string;
-  title: string;
-  instructor: string;
-  time: string;
-  location: string;
-  credits: number;
-  type?: string;
-  color: string;
-  available_seats?: number;
-  total_seats?: number;
-  rating?: number;
-  difficulty?: number;
-  wouldTakeAgain?: number;
-}
-
-interface Schedule {
-  schedule_id: number;
-  schedule_name: string;
-  semester: string;
-  classes: ScheduledClass[];
-}
+import type { ScheduledClass, Schedule } from '@/lib/schedule-api';
 
 interface Semester {
   code: string;
@@ -41,7 +17,6 @@ interface ScheduleContextType {
   schedule: Schedule | null;
   isLoading: boolean;
   error: string | null;
-  isAuthenticated: boolean;
   currentSemester: string;
   availableSemesters: Semester[];
   includeSummerSemesters: boolean;
@@ -119,7 +94,6 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     schedule: scheduleData.schedule,
     isLoading: scheduleData.isLoading,
     error: scheduleData.error,
-    isAuthenticated: true,
     currentSemester: semesterData.currentSemester,
     availableSemesters: semesterData.availableSemesters,
     includeSummerSemesters: semesterData.includeSummerSemesters,

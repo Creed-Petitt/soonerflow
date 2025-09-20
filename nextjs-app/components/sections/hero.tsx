@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-import { useAuthModal } from "@/contexts/auth-modal-context";
 import { useRouter } from "next/navigation";
 
 interface HeroProps {
@@ -13,15 +12,13 @@ interface HeroProps {
 }
 
 export default function Hero({ className, children }: HeroProps) {
-  const { openModal } = useAuthModal();
   const router = useRouter();
 
   const handleGetStarted = () => {
-    openModal();
+    router.push("/scheduler");
   };
 
   const handleTryDemo = () => {
-    // Just redirect to scheduler - no demo mode needed
     router.push("/scheduler");
   };
 

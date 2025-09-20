@@ -1,18 +1,6 @@
 import { parseClassTime } from '@/lib/time-utils';
 import type { CalendarEvent } from '@/components/event-calendar/types';
-
-export interface ClassData {
-  id: string;
-  subject: string;
-  number: string;
-  title: string;
-  instructor: string;
-  time: string;
-  location: string;
-  credits?: number;
-  colorBg?: string;
-  colorHex?: string;
-}
+import type { ScheduledClass } from '@/lib/schedule-api';
 
 function createTimeDate(hour: number, minute: number): Date {
   const date = new Date();
@@ -20,7 +8,7 @@ function createTimeDate(hour: number, minute: number): Date {
   return date;
 }
 
-export function processCalendarEvents(classes: ClassData[]): CalendarEvent[] {
+export function processCalendarEvents(classes: ScheduledClass[]): CalendarEvent[] {
   return classes
     .map(classData => {
       const parsedTime = parseClassTime(classData.time);
@@ -39,7 +27,7 @@ export function processCalendarEvents(classes: ClassData[]): CalendarEvent[] {
     .flat();
 }
 
-export function groupClassesBySubject(classes: ClassData[]) {
+export function groupClassesBySubject(classes: ScheduledClass[]) {
   const subjects = Array.from(new Set(classes.map(cls => cls.subject)));
   return subjects;
 }

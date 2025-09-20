@@ -17,11 +17,9 @@ interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
   isLoading: boolean;
   selectedDepartment: string;
-  totalClassCount: number;
   groupedClassesLength: number;
   handleClassClick: (grouped: GroupedClass) => void;
   isClassScheduled: (id: string) => boolean;
-  loadMoreClasses: () => void;
 }
 
 // Helper function to get display info for a grouped class
@@ -63,11 +61,9 @@ export function ClassBrowserTable({
   filteredGroupedClasses,
   isLoading,
   selectedDepartment,
-  totalClassCount,
   groupedClassesLength,
   handleClassClick,
   isClassScheduled,
-  loadMoreClasses,
 }: ClassBrowserTableProps) {
 
   return (
@@ -145,24 +141,6 @@ export function ClassBrowserTable({
         </TableBody>
       </Table>
 
-      {/* Load More Button */}
-      {selectedDepartment === "all" && groupedClassesLength < totalClassCount && (
-        <div className="p-4 text-center">
-          <Button
-            onClick={loadMoreClasses}
-            variant="outline"
-            className="w-full"
-          >
-`Load More (${totalClassCount - groupedClassesLength} remaining)`
-          </Button>
-        </div>
-      )}
-
-      {selectedDepartment === "all" && groupedClassesLength >= totalClassCount && totalClassCount > 0 && (
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          All {totalClassCount} classes loaded
-        </div>
-      )}
       </div>
     </div>
   );
