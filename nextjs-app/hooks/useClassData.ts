@@ -1,30 +1,8 @@
-import { useState, useCallback } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
+import { fetchClassesForDepartment, fetchAllClasses, processClasses } from "@/lib/class-api";
+import type { ClassData, GroupedClass } from "@/lib/class-api";
 
-export interface ClassData {
-  id: string;
-  subject: string;
-  courseNumber: string;
-  number?: string; // API returns "number" not "courseNumber"
-  title: string;
-  credits: number;
-  instructor?: string;
-  time?: string;
-  meetingTimes?: any[];
-  available_seats?: number; // API uses underscore
-  total_seats?: number; // API uses underscore
-  type?: string;
-  labs?: any[];
-}
-
-export interface GroupedClass {
-  subject: string;
-  number: string;
-  title: string;
-  credits?: number;
-  sections: ClassData[];
-  labSections: ClassData[];
-}
+export type { ClassData, GroupedClass };
 
 interface UseClassDataReturn {
   classes: ClassData[];
@@ -32,10 +10,10 @@ interface UseClassDataReturn {
   isLoading: boolean;
   totalClassCount: number;
   currentPage: number;
-  loadClassesForDepartment: (dept: string, currentSemester: string) => Promise<void>;
-  loadAllClasses: (currentSemester: string, page?: number, append?: boolean) => Promise<void>;
-  loadClassesForMajor: (userMajorDepts: string[], currentSemester: string) => Promise<void>;
-  loadMoreClasses: (currentSemester: string) => void;
+  loadClassesForDepartment: (dept: string, semester: string) => Promise<void>;
+  loadAllClasses: (semester: string, page?: number, append?: boolean) => Promise<void>;
+  loadClassesForMajor: (userMajorDepts: string[], semester: string) => Promise<void>;
+  loadMoreClasses: (semester: string) => void;
   clearClasses: () => void;
 }
 
@@ -46,160 +24,61 @@ export function useClassData(): UseClassDataReturn {
   const [totalClassCount, setTotalClassCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const processClasses = useCallback((allClasses: ClassData[]) => {
-    setClasses(allClasses);
+  const loadClassesForDepartment = async (dept: string, semester: string) => {
+    setIsLoading(true);
+    const { classes: deptClasses, total } = await fetchClassesForDepartment(dept, semester);
+    setClasses(deptClasses);
+    setGroupedClasses(processClasses(deptClasses));
+    setTotalClassCount(total);
+    setIsLoading(false);
+  };
 
-    // Group classes by subject + number
-    const grouped: Record<string, GroupedClass> = {};
-    allClasses.forEach((cls: ClassData) => {
-      // Skip invalid classes
-      if (!cls.subject || (!cls.number && !cls.courseNumber)) return;
+  const loadAllClasses = async (semester: string, page: number = 1, append: boolean = false) => {
+    setIsLoading(true);
+    const { classes: newClasses, total } = await fetchAllClasses(semester, page);
 
-      const key = `${cls.subject} ${cls.number || cls.courseNumber}`;
+    if (append && page > 1) {
+      const allClasses = [...classes, ...newClasses];
+      setClasses(allClasses);
+      setGroupedClasses(processClasses(allClasses));
+    } else {
+      setClasses(newClasses);
+      setGroupedClasses(processClasses(newClasses));
+    }
 
-      if (!grouped[key]) {
-        grouped[key] = {
-          subject: cls.subject,
-          number: cls.number || cls.courseNumber,
-          title: cls.title,
-          credits: cls.credits,
-          sections: [],
-          labSections: []
-        };
-      }
+    setTotalClassCount(total);
+    setCurrentPage(page);
+    setIsLoading(false);
+  };
 
-      // Separate labs from lectures
-      if (cls.type === "Lab" || cls.type === "Lab with No Credit") {
-        grouped[key].labSections.push(cls);
-      } else {
-        grouped[key].sections.push(cls);
-      }
+  const loadClassesForMajor = async (userMajorDepts: string[], semester: string) => {
+    setIsLoading(true);
+    const allMajorClasses: ClassData[] = [];
+
+    const deptPromises = userMajorDepts.map(async (dept) => {
+      const { classes: deptClasses } = await fetchClassesForDepartment(dept, semester);
+      return deptClasses;
     });
 
-    // Filter out groups with no sections
-    const groupedArray = Object.values(grouped).filter(g =>
-      g.sections.length > 0 || g.labSections.length > 0
-    );
-    setGroupedClasses(groupedArray);
-  }, []);
+    const results = await Promise.all(deptPromises);
+    results.forEach(deptClasses => allMajorClasses.push(...deptClasses));
 
-  const loadClassesForDepartment = useCallback(async (dept: string, currentSemester: string) => {
-    try {
-      setIsLoading(true);
+    setClasses(allMajorClasses);
+    setGroupedClasses(processClasses(allMajorClasses));
+    setIsLoading(false);
+  };
 
-      const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
-      if (!response.ok) throw new Error('Failed to fetch classes');
+  const loadMoreClasses = (semester: string) => {
+    const nextPage = currentPage + 1;
+    loadAllClasses(semester, nextPage, true);
+  };
 
-      const data = await response.json();
-      const deptClasses = data.classes || [];
-      setTotalClassCount(data.pagination?.total || deptClasses.length);
-
-      processClasses(deptClasses);
-    } catch (error) {
-      console.error('Error loading classes:', error);
-      toast.error('Failed to load classes');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [processClasses]);
-
-  const loadAllClasses = useCallback(async (currentSemester: string, page: number = 1, append: boolean = false) => {
-    try {
-      setIsLoading(true);
-      setCurrentPage(page === 1 ? 1 : page);
-
-      // Load 100 classes at a time for smooth performance
-      const response = await fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${page}&skip_ratings=true`);
-      if (!response.ok) throw new Error('Failed to fetch classes');
-
-      const data = await response.json();
-      const newClasses = data.classes || [];
-      setTotalClassCount(data.pagination?.total || 0);
-
-      if (append && page > 1) {
-        // Append to existing classes for infinite scroll using functional update
-        setClasses(prevClasses => {
-          const allClasses = [...prevClasses, ...newClasses];
-          processClasses(allClasses);
-          return allClasses;
-        });
-      } else {
-        // Replace classes for initial load
-        setClasses(newClasses);
-        processClasses(newClasses);
-      }
-
-      setCurrentPage(page);
-    } catch (error) {
-      console.error('Error loading all classes:', error);
-      toast.error('Failed to load classes');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [processClasses]);
-
-  const loadClassesForMajor = useCallback(async (userMajorDepts: string[], currentSemester: string) => {
-    try {
-      setIsLoading(true);
-
-      const allMajorClasses: ClassData[] = [];
-
-      // Load classes for each major department in parallel - simple fetch
-      const deptPromises = userMajorDepts.map(async (dept) => {
-        try {
-          const response = await fetch(`/api/classes?subject=${dept}&semester=${currentSemester}&limit=500&skip_ratings=true`);
-          if (response.ok) {
-            const data = await response.json();
-            return data.classes || [];
-          }
-          return [];
-        } catch {
-          return [];
-        }
-      });
-
-      const results = await Promise.all(deptPromises);
-      results.forEach(deptClasses => allMajorClasses.push(...deptClasses));
-
-      processClasses(allMajorClasses);
-    } catch (error) {
-      console.error('Error loading major classes:', error);
-      toast.error('Failed to load classes');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [processClasses]);
-
-
-  const loadMoreClasses = useCallback((currentSemester: string) => {
-    setCurrentPage(prevPage => {
-      const nextPage = prevPage + 1;
-      fetch(`/api/classes?semester=${currentSemester}&limit=100&page=${nextPage}&skip_ratings=true`)
-        .then(response => response.ok ? response.json() : { classes: [] })
-        .then(data => {
-          const newClasses = data.classes || [];
-          setTotalClassCount(data.pagination?.total || 0);
-          setClasses(prevClasses => {
-            const allClasses = [...prevClasses, ...newClasses];
-            processClasses(allClasses);
-            return allClasses;
-          });
-          setCurrentPage(nextPage);
-        })
-        .catch(error => {
-          console.error('Error loading more classes:', error);
-          toast.error('Failed to load more classes');
-        });
-      return nextPage;
-    });
-  }, [processClasses]);
-
-  const clearClasses = useCallback(() => {
+  const clearClasses = () => {
     setClasses([]);
     setGroupedClasses([]);
     setTotalClassCount(0);
     setCurrentPage(1);
-  }, []);
+  };
 
   return {
     classes,

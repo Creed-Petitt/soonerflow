@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { fetchWithAuth } from '@/lib/api-client'
 
@@ -12,11 +12,33 @@ interface Semester {
 }
 
 export function useSemesterManagement() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [currentSemester, setCurrentSemesterState] = useState<string>('202510')
   const [availableSemesters, setAvailableSemesters] = useState<Semester[]>([])
   const [includeSummerSemesters, setIncludeSummerSemesters] = useState<boolean>(false)
   const [includeHistoricalSemesters, setIncludeHistoricalSemesters] = useState<boolean>(false)
+
+  // Load semesters and migration on mount
+  useEffect(() => {
+    loadSemesters();
+
+    // One-time migration of completed courses to schedules
+    if (session?.user?.githubId && status === "authenticated") {
+      fetch(`/api/users/${session.user.githubId}/migrate-completed-courses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(response => {
+        if (response.ok) {
+          response.json().then(result => {
+            // Migration completed
+          });
+        }
+      }).catch(error => {
+        console.error('Migration failed:', error);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.githubId, status]);
 
   const getCurrentSemester = () => {
     const now = new Date()
@@ -46,8 +68,6 @@ export function useSemesterManagement() {
   }
 
   const setCurrentSemester = async (semester: string) => {
-    if (!session?.user?.githubId && !session?.user?.googleId) return
-
     const actualCurrentSemester = getCurrentSemester()
 
     if (semester < actualCurrentSemester) {
@@ -57,13 +77,16 @@ export function useSemesterManagement() {
     try {
       setCurrentSemesterState(semester)
 
-      const providerId = session?.user?.githubId || session?.user?.googleId
-      const activateResponse = await fetchWithAuth(`/api/users/${providerId}/activate-semester/${semester}`, {
-        method: 'POST'
-      })
+      // Only call API if we have a session
+      if (session?.user?.githubId || session?.user?.googleId) {
+        const providerId = session.user.githubId || session.user.googleId
+        const activateResponse = await fetchWithAuth(`/api/users/${providerId}/activate-semester/${semester}`, {
+          method: 'POST'
+        })
 
-      if (!activateResponse.ok) {
-        throw new Error('Failed to activate semester schedule')
+        if (!activateResponse.ok) {
+          throw new Error('Failed to activate semester schedule')
+        }
       }
     } catch (err) {
       console.error('Failed to switch semester:', err)

@@ -1,39 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { fetchWithAuth } from '@/lib/api-client'
-
-interface ScheduledClass {
-  id: string
-  subject: string
-  number: string
-  title: string
-  instructor: string
-  time: string
-  location: string
-  credits: number
-  type?: string
-  color: string
-  available_seats?: number
-  total_seats?: number
-  rating?: number
-  difficulty?: number
-  wouldTakeAgain?: number
-}
-
-interface Schedule {
-  schedule_id: number
-  schedule_name: string
-  semester: string
-  classes: ScheduledClass[]
-}
+import { fetchUserActiveSchedule, saveScheduleClasses } from '@/lib/schedule-api'
+import type { ScheduledClass, Schedule } from '@/lib/schedule-api'
 
 export function useScheduleData() {
   const { data: session, status } = useSession()
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [localClasses, setLocalClasses] = useState<ScheduledClass[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false)
 
@@ -53,28 +29,11 @@ export function useScheduleData() {
       return
     }
 
-    const targetSemester = semester || currentSemester
-
     try {
       setIsLoading(true)
-      const response = await fetchWithAuth(`/api/users/${session.user.githubId}/active-schedule`)
-
-      if (!response.ok) {
-        throw new Error('Failed to load schedule')
-      }
-
-      const data = await response.json()
-
-      const classMap = new Map<string, ScheduledClass>()
-      ;(data.classes || []).forEach((cls: ScheduledClass) => {
-        if (!classMap.has(cls.id)) {
-          classMap.set(cls.id, cls)
-        }
-      })
-      const uniqueClasses = Array.from(classMap.values())
-
-      setSchedule({ ...data, classes: uniqueClasses })
-      setLocalClasses(uniqueClasses)
+      const data = await fetchUserActiveSchedule(session.user.githubId)
+      setSchedule(data)
+      setLocalClasses(data.classes)
       setHasLoadedSchedule(true)
     } catch (err) {
       console.error('Failed to load schedule:', err)
@@ -96,15 +55,7 @@ export function useScheduleData() {
         colors[c.id] = c.color
       })
 
-      const response = await fetch(`/api/schedules/${schedule.schedule_id}/classes`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class_ids, colors }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to save schedule')
-      }
+      await saveScheduleClasses(schedule.schedule_id, class_ids, colors)
 
       setSchedule(prev => prev ? { ...prev, classes: localClasses } : null)
     } catch (err) {

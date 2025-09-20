@@ -3,9 +3,9 @@
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { semesterNameToCode } from "@/utils/semester-utils";
-import { useClassData } from "@/hooks/useClassData";
-import { useDepartments } from "@/hooks/useDepartments";
-import type { Course, ClassData, GroupedClass, Department } from "@/types/course";
+import { fetchDepartments, fetchMajorCourses } from "@/lib/department-api";
+import { fetchClassesForDepartment, processClasses } from "@/lib/class-api";
+import type { Course, Department } from "@/types/course";
 
 interface UseAddCoursesDataProps {
   semester: string;
@@ -16,118 +16,62 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
   const { data: session } = useSession();
   const currentSemester = semesterNameToCode(semester);
 
-  // Filtering state
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [userMajor, setUserMajor] = useState<string | null>(null);
-
-  // Course data state
   const [majorCourses, setMajorCourses] = useState<Course[]>([]);
-  const [majorLoading, setMajorLoading] = useState(false);
+  const [departmentClasses, setDepartmentClasses] = useState<Course[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Use existing hooks for department and class data
-  const { departments, isLoading: departmentsLoading } = useDepartments();
-  const {
-    groupedClasses,
-    isLoading: classDataLoading,
-    totalClassCount,
-    currentPage,
-    loadClassesForDepartment,
-    loadMoreClasses,
-    clearClasses
-  } = useClassData();
-
-  const isLoading = departmentsLoading || classDataLoading || majorLoading;
-
-  // Load user's major when modal opens
   const loadUserMajor = useCallback(async () => {
-    if (session?.user?.email && !userMajor) {
-      try {
-        const response = await fetch(`/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`);
-        if (response.ok) {
-          const data = await response.json();
-          setUserMajor(data.majorName);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user major:', error);
+    if (!session?.user?.email || userMajor) return;
+
+    try {
+      const response = await fetch(`/api/user/dashboard?user_email=${encodeURIComponent(session.user.email)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserMajor(data.majorName);
       }
+    } catch (error) {
+      console.error('Failed to fetch user major:', error);
     }
   }, [session?.user?.email, userMajor]);
 
-  // Load major-specific courses
-  const loadMajorCourses = useCallback(async () => {
+  const loadMajorCourses = async () => {
     if (!userMajor) {
       setMajorCourses([]);
       return;
     }
 
-    try {
-      setMajorLoading(true);
-      const response = await fetch(`/api/major-courses?major_name=${encodeURIComponent(userMajor)}`);
-      const data = await response.json();
+    setIsLoading(true);
+    const courses = await fetchMajorCourses(userMajor);
+    setMajorCourses(courses);
+    setIsLoading(false);
+  };
 
-      if (data && data.length > 0) {
-        const uniqueCourses = new Map();
-        data.forEach((course: any) => {
-          const courseKey = `${course.subject}-${course.courseNumber}`;
-          if (!uniqueCourses.has(courseKey)) {
-            uniqueCourses.set(courseKey, {
-              id: courseKey,
-              code: `${course.subject} ${course.courseNumber}`,
-              name: course.title,
-              credits: course.credits || 3,
-              category: course.category || course.subject
-            });
-          }
-        });
+  const loadClassesForDepartment = async (dept: string) => {
+    setIsLoading(true);
+    const { classes } = await fetchClassesForDepartment(dept, currentSemester);
+    const processed = processClasses(classes);
 
-        const courses = Array.from(uniqueCourses.values());
-        setMajorCourses(courses);
-      } else {
-        setMajorCourses([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch major courses:', error);
-      setMajorCourses([]);
-    } finally {
-      setMajorLoading(false);
-    }
-  }, [userMajor]);
-
-
-  // Convert grouped classes to Course format for department view
-  const getDepartmentCourses = useCallback((): Course[] => {
-    return groupedClasses.map(group => ({
+    const courses = processed.map(group => ({
       id: `${group.subject}-${group.number}`,
       code: `${group.subject} ${group.number}`,
       name: group.title,
       credits: group.credits || 3,
       category: group.subject
     }));
-  }, [groupedClasses]);
 
-  // Get displayed courses based on current view
-  const getDisplayedCourses = useCallback((): Course[] => {
-    if (selectedDepartment === "major") {
-      return majorCourses;
-    }
-    return getDepartmentCourses();
-  }, [selectedDepartment, majorCourses, getDepartmentCourses]);
+    setDepartmentClasses(courses);
+    setIsLoading(false);
+  };
 
-  // Reset function
-  const resetData = useCallback(() => {
-    setSelectedDepartment("");
-    setMajorCourses([]);
-    clearClasses();
-  }, [clearClasses]);
+  const loadDepartments = async () => {
+    const deptList = await fetchDepartments(currentSemester);
+    setDepartments(deptList);
+  };
 
-  // Wrapper functions with proper semester handling
-  const loadClassesForDepartmentWrapper = useCallback((dept: string) => {
-    return loadClassesForDepartment(dept, currentSemester);
-  }, [loadClassesForDepartment, currentSemester]);
-
-  const loadMoreClassesWrapper = useCallback(() => {
-    return loadMoreClasses(currentSemester);
-  }, [loadMoreClasses, currentSemester]);
+  const displayedCourses = selectedDepartment === "major" ? majorCourses : departmentClasses;
 
   return {
     isLoading,
@@ -136,14 +80,18 @@ export function useAddCoursesData({ semester, isOpen }: UseAddCoursesDataProps) 
     departments,
     userMajor,
     majorCourses,
-    departmentCourses: getDepartmentCourses(),
-    totalClassCount,
-    currentPage,
-    displayedCourses: getDisplayedCourses(),
+    departmentCourses: departmentClasses,
+    totalClassCount: displayedCourses.length,
+    currentPage: 1,
+    displayedCourses,
     loadUserMajor,
     loadMajorCourses,
-    loadClassesForDepartment: loadClassesForDepartmentWrapper,
-    loadMoreClasses: loadMoreClassesWrapper,
-    resetData
+    loadClassesForDepartment,
+    loadDepartments,
+    resetData: () => {
+      setSelectedDepartment("");
+      setMajorCourses([]);
+      setDepartmentClasses([]);
+    }
   };
 }

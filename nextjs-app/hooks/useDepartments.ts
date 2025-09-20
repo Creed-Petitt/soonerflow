@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
-import { fetchWithAuth } from "@/lib/api-client";
-import { getDepartmentsForMajor } from "@/lib/major-mappings";
-import type { Department } from "@/types/course";
+import { fetchDepartments, fetchUserMajorDepartments } from "@/lib/department-api";
+import type { Department } from "@/lib/department-api";
+
+export type { Department };
 
 interface UseDepartmentsReturn {
   departments: Department[];
@@ -26,37 +26,16 @@ export function useDepartments(): UseDepartmentsReturn {
     try {
       setIsLoading(true);
 
-      // Load departments list
-      const deptResponse = await fetch(`/api/classes/departments?semester=${currentSemester}`);
-      if (!deptResponse.ok) throw new Error('Failed to fetch departments');
+      const [departmentsList, majorDepts] = await Promise.all([
+        fetchDepartments(currentSemester),
+        session?.user?.githubId ? fetchUserMajorDepartments(session.user.githubId) : Promise.resolve([])
+      ]);
 
-      const deptData = await deptResponse.json();
-      const departmentsList = deptData.departments || [];
       setDepartments(departmentsList);
-
-      // Get user's major departments
-      let majorDepts: string[] = [];
-      if (session?.user?.githubId) {
-        const userResponse = await fetchWithAuth(`/api/users/${session.user.githubId}`);
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          if (userData.major) {
-            majorDepts = getDepartmentsForMajor(userData.major);
-          }
-        }
-      }
-
       setUserMajorDepts(majorDepts);
 
-      // Determine suggested department selection
-      let suggestedSelection = "";
-      if (majorDepts.length > 0) {
-        // If user has major departments, suggest "major"
-        suggestedSelection = "major";
-      } else if (departmentsList.length > 0) {
-        // Otherwise suggest first department
-        suggestedSelection = departmentsList[0].code;
-      }
+      const suggestedSelection = majorDepts.length > 0 ? "major" :
+                                departmentsList.length > 0 ? departmentsList[0].code : "";
 
       return {
         departments: departmentsList,
@@ -65,7 +44,6 @@ export function useDepartments(): UseDepartmentsReturn {
       };
     } catch (error) {
       console.error('Error loading departments:', error);
-      toast.error('Failed to load departments');
       return {
         departments: [],
         userMajorDepts: [],
