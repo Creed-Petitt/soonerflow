@@ -34,7 +34,7 @@ export function useProfessorData(): UseProfessorDataReturn {
       const searchName = nameParts.length > 1 ?
         `${nameParts[1]} ${nameParts[0]}` : instructorName;
 
-      const response = await fetch(`/api/professors/search?name=${encodeURIComponent(searchName)}`);
+      const response = await fetch(`http://127.0.0.1:8000/api/professors/search?name=${encodeURIComponent(searchName)}`);
       if (response.ok) {
         const prof = await response.json();
         if (prof && prof.id) {

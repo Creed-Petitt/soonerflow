@@ -1,8 +1,8 @@
 import { fetchWithAuth } from "@/lib/api-client";
 import type { ScheduledClass, Schedule } from "@/types/course";
 
-export async function fetchUserActiveSchedule(githubId: string): Promise<Schedule> {
-  const response = await fetchWithAuth(`/api/users/${githubId}/active-schedule`);
+export async function fetchUserActiveSchedule(scheduleId: number = 1): Promise<Schedule> {
+  const response = await fetchWithAuth(`/api/schedules/${scheduleId}`);
 
   if (!response.ok) {
     throw new Error('Failed to load schedule');
@@ -27,7 +27,7 @@ export async function saveScheduleClasses(
   classIds: string[],
   colors: Record<string, string>
 ): Promise<void> {
-  const response = await fetch(`/api/schedules/${scheduleId}/classes`, {
+  const response = await fetchWithAuth(`/api/schedules/${scheduleId}/classes`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ class_ids: classIds, colors }),

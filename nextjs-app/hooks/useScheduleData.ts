@@ -12,64 +12,26 @@ export function useScheduleData() {
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false)
 
   const loadSchedule = useCallback(async (semester?: string, currentSemester?: string) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // For now, just load without a specific user ID
-      // In the future, you can add user management here
-      const response = await fetchWithAuth('/api/schedules/1') // Using schedule ID 1 as default
-      const data = await response.json()
-
-      // Remove duplicates by ID
-      const classMap = new Map<string, ScheduledClass>()
-      ;(data.classes || []).forEach((cls: ScheduledClass) => {
-        if (!classMap.has(cls.id)) {
-          classMap.set(cls.id, cls)
-        }
-      })
-      const uniqueClasses = Array.from(classMap.values())
-
-      setSchedule({ ...data, classes: uniqueClasses })
-      setLocalClasses(uniqueClasses)
-      setHasLoadedSchedule(true)
-    } catch (err) {
-      console.error('Failed to load schedule:', err)
-      setError('Failed to load schedule')
-      // Set empty state for now
-      setSchedule(null)
-      setLocalClasses([])
-      setHasLoadedSchedule(true)
-    } finally {
-      setIsLoading(false)
-    }
+    // Just start with empty schedule - user creates their own by adding classes
+    setIsLoading(false)
+    setError(null)
+    setSchedule({
+      schedule_id: 1,
+      schedule_name: 'My Schedule',
+      semester: semester || '202510',
+      classes: []
+    })
+    setLocalClasses([])
+    setHasLoadedSchedule(true)
   }, [])
 
   const saveSchedule = useCallback(async () => {
-    if (!schedule || isLoading) return
-
-    try {
-      setIsLoading(true)
-
-      const class_ids = localClasses.map(c => c.id)
-      const colors: Record<string, string> = {}
-      localClasses.forEach(c => {
-        colors[c.id] = c.color
-      })
-
-      await fetchWithAuth(`/api/schedules/${schedule.schedule_id}/classes`, {
-        method: 'PUT',
-        body: JSON.stringify({ class_ids, colors })
-      })
-
+    // For now, just update local state - no need to save to backend
+    // User can add/remove classes and they'll persist in memory
+    if (schedule) {
       setSchedule(prev => prev ? { ...prev, classes: localClasses } : null)
-    } catch (err) {
-      console.error('Failed to save schedule:', err)
-      setError('Failed to save schedule')
-    } finally {
-      setIsLoading(false)
     }
-  }, [schedule, isLoading, localClasses])
+  }, [schedule, localClasses])
 
   // Auto-load schedule on mount
   useEffect(() => {
