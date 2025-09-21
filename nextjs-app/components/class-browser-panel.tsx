@@ -8,7 +8,6 @@ import { ClassDetailDialog } from "./class-detail-dialog";
 import { ClassBrowserFilters } from "./class-browser-filters";
 import { ClassBrowserTable } from "./class-browser-table";
 import { useSchedule } from "@/hooks/use-schedule";
-import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { fetchWithAuth } from "@/lib/api-client";
 import { useDepartments } from "@/hooks/useDepartments";
@@ -21,7 +20,6 @@ interface ClassBrowserPanelProps {
 }
 
 export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPanelProps) {
-  const { data: session } = useSession();
   const { scheduledClasses, addClass, isClassScheduled, currentSemester } = useSchedule();
 
   // State for filters and search
