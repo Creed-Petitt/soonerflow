@@ -9,7 +9,6 @@ import { ClassBrowserFilters } from "./class-browser-filters";
 import { ClassBrowserTable } from "./class-browser-table";
 import { useSchedule } from "@/hooks/use-schedule";
 import { toast } from "sonner";
-import { fetchWithAuth } from "@/lib/api-client";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useClassData, type GroupedClass } from "@/hooks/useClassData";
 
@@ -83,22 +82,8 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
 
 
   const handleAddToSchedule = async (section: any, labSection?: any) => {
-    // First validate the class before adding
-    try {
-      // Get the current schedule ID
-      const scheduleResponse = await fetchWithAuth(`/api/users/${session?.user?.githubId}/schedule/${currentSemester}`);
-      if (!scheduleResponse.ok) {
-        toast.error("Could not validate class - schedule not found");
-        return;
-      }
-
-      // If all validations pass, add the class
-      addClassToSchedule(section, labSection);
-    } catch (error) {
-      console.error("Error validating class:", error);
-      // If validation fails, add anyway (fallback behavior)
-      addClassToSchedule(section, labSection);
-    }
+    // Add the class directly - no validation needed after auth removal
+    addClassToSchedule(section, labSection);
   };
 
   const addClassToSchedule = (section: any, labSection?: any) => {
