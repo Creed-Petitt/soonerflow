@@ -20,7 +20,6 @@ from scrapers.clients.database_client import SQLAlchemyDatabaseClient
 # Constants
 GRAPHQL_URL = "https://www.ratemyprofessors.com/graphql"
 
-# The exact working query from my browser
 QUERY = '''
 query TeacherSearchResultsPageQuery(
   $query: TeacherSearchQuery!
@@ -71,24 +70,6 @@ fragment CardTeacherInfo_teacher on Teacher {
   ...TeacherBookmark_teacher
 }
 
-fragment NewSearchResultsPageQuery_search on newSearch {
-  teachers(query: $query, first: 8, after: "") {
-    didFallback
-    edges {
-      cursor
-      node {
-        ...CardTeacherInfo_teacher
-        id
-        __typename
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-    resultCount
-  }
-}
 
 fragment StickyHeaderContent_school on School {
   name
@@ -100,8 +81,8 @@ fragment TeacherBookmark_teacher on Teacher {
 }
 
 fragment TeacherSearchPagination_search_2MvZSr on newSearch {
-  ...NewSearchResultsPageQuery_search
   teachers(query: $query, first: 1000, after: "") {
+    didFallback
     edges {
       cursor
       node {
@@ -120,7 +101,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
 '''
 
 def setup_logging():
-    """Setup logging for the professor loader"""
     # Configure logging to stdout only (cloud providers will capture this)
     logging.basicConfig(
         level=logging.INFO,
@@ -133,26 +113,35 @@ def setup_logging():
     return logging.getLogger(__name__)
 
 def fetch_basic_professors():
-    """Fetch all professors from OU (School ID: U2Nob29sLTkyNA==)"""
-    
+        
     logger = setup_logging()
     logger.info("Fetching all OU professors from RateMyProfessors...")
     
     variables = {
         "query": {
             "text": "",
-            "schoolID": "U2Nob29sLTkyNA==",  # OU school ID
+            "schoolID": "U2Nob29sLTE1OTY=",  # OU school ID
             "fallback": True,
             "departmentID": None
         },
-        "schoolID": "U2Nob29sLTkyNA==",
+        "schoolID": "U2Nob29sLTE1OTY=",
         "includeSchoolFilter": True
     }
     
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Basic dGVzdDp0ZXN0',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Origin': 'https://www.ratemyprofessors.com',
+        'Referer': 'https://www.ratemyprofessors.com/school/924',
+        'Sec-CH-UA': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin'
     }
     
     response = requests.post(
@@ -163,21 +152,24 @@ def fetch_basic_professors():
     
     if response.status_code == 200:
         data = response.json()
-        
+
+        # Debug: Log the response structure
+        logger.info(f"Response data: {data}")
+
         # Navigate to the teachers array
-        if 'data' in data and 'search' in data['data']:
+        if data and 'data' in data and data['data'] and 'search' in data['data']:
             teachers = data['data']['search']['teachers']['edges']
             logger.info(f"Successfully fetched {len(teachers)} professors")
             return teachers
         else:
-            logger.error("Unexpected response structure")
+            logger.error(f"Unexpected response structure: {data}")
             return []
     else:
         logger.error(f"Request failed with status code: {response.status_code}")
+        logger.error(f"Response: {response.text}")
         return []
 
 def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = False):
-    """Load professors from RateMyProfessors to database"""
     
     # Setup clients and logging
     logger = setup_logging()

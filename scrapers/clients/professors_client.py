@@ -4,9 +4,7 @@ import time
 import logging
 from typing import Dict, List, Optional, Any
 
-class RateMyProfessorsAPIClient:
-    """Client for RateMyProfessors GraphQL API with pagination support"""
-    
+class RateMyProfessorsAPIClient:   
     # The exact working query from browser
     QUERY_ALL_PROFESSORS = '''
 query TeacherSearchResultsPageQuery(
@@ -90,12 +88,22 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
         self.base_url = "https://www.ratemyprofessors.com/graphql"
         self.headers = {
             'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
+            'Origin': 'https://www.ratemyprofessors.com',
+            'Referer': 'https://www.ratemyprofessors.com/school/924',
+            'Sec-CH-UA': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+            'Sec-CH-UA-Mobile': '?0',
+            'Sec-CH-UA-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin'
         }
         self.logger = logging.getLogger(__name__)
     
-    def fetch_all_professors(self, school_id: str = "U2Nob29sLTkyNA==") -> List[Dict[str, Any]]:
-        """Fetch all professors from a school (default: OU)"""
+    def fetch_all_professors(self, school_id: str = "U2Nob29sLTE1OTY=") -> List[Dict[str, Any]]:
         try:
             self.logger.info(f"Fetching all professors from school ID: {school_id}")
             
@@ -110,14 +118,11 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
                 "includeSchoolFilter": True
             }
             
-            # Add authorization header for this endpoint
-            headers = self.headers.copy()
-            headers['Authorization'] = 'Basic dGVzdDp0ZXN0'
-            
+            # Use the updated headers (no authorization needed)
             response = requests.post(
                 self.base_url,
                 json={'query': self.QUERY_ALL_PROFESSORS, 'variables': variables},
-                headers=headers
+                headers=self.headers
             )
             response.raise_for_status()
             
@@ -142,7 +147,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             return []
     
     def fetch_professor_details(self, professor_id: str, num_ratings: int = 10) -> Optional[Dict[str, Any]]:
-        """Fetch detailed professor data with configurable number of ratings"""
         try:
             # Determine how many ratings to fetch based on professor's total
             if num_ratings >= 15:
@@ -201,7 +205,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             return None
     
     def _fetch_additional_ratings(self, professor_id: str, num_additional: int, cursor: str) -> List[Dict[str, Any]]:
-        """Fetch additional ratings using pagination"""
         try:
             query = self._build_ratings_query(num_additional)
             
@@ -228,7 +231,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             return []
     
     def _build_professor_query(self, num_ratings: int) -> str:
-        """Build GraphQL query for professor details"""
         return f"""
 query TeacherRatingsPageQuery($id: ID!) {{
   node(id: $id) {{
@@ -327,7 +329,6 @@ query TeacherRatingsPageQuery($id: ID!) {{
 """
     
     def _build_ratings_query(self, num_ratings: int) -> str:
-        """Build GraphQL query for additional ratings"""
         return f"""
 query TeacherRatingsPageQuery($id: ID!, $cursor: String) {{
   node(id: $id) {{
