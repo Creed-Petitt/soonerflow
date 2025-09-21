@@ -105,7 +105,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
     
     def fetch_all_professors(self, school_id: str = "U2Nob29sLTE1OTY=") -> List[Dict[str, Any]]:
         try:
-            self.logger.info(f"Fetching all professors from school ID: {school_id}")
             
             variables = {
                 "query": {
@@ -136,7 +135,6 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             # Navigate to the teachers array
             if 'data' in data and data['data'] and 'search' in data['data']:
                 teachers = data['data']['search']['teachers']['edges']
-                self.logger.info(f"Successfully fetched {len(teachers)} professors")
                 return teachers
             else:
                 self.logger.error("Unexpected response structure from fetch_all_professors")

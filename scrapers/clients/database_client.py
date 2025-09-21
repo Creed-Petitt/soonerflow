@@ -49,7 +49,6 @@ class SQLAlchemyDatabaseClient:
                 if class_data.get('prerequisites'):
                     self._save_prerequisites(session, class_id_with_semester, class_data)
                 
-                self.logger.info(f"Updated existing class {class_id_with_semester} with seat data: {class_data.get('availableSeats', 0)}/{class_data.get('totalSeats', 0)}")
                 session.commit()
                 return True
             
@@ -83,7 +82,6 @@ class SQLAlchemyDatabaseClient:
             if class_data.get('prerequisites'):
                 self._save_prerequisites(session, class_id_with_semester, class_data)
             
-            self.logger.info(f"Successfully saved class: {class_data.get('subject', '')} {class_data.get('courseNumber', '')}")
             return True
             
         except IntegrityError as e:
@@ -119,8 +117,6 @@ class SQLAlchemyDatabaseClient:
             
             session.commit()
             
-            if prerequisites:
-                self.logger.info(f"Saved {len(prerequisites)} prerequisites for class {class_id}")
                 
         except Exception as e:
             self.logger.error(f"Error saving prerequisites for class {class_id}: {e}")
@@ -147,7 +143,6 @@ class SQLAlchemyDatabaseClient:
             session.add(new_meeting_time)
             session.commit()
             
-            self.logger.info(f"Successfully saved meeting time for class: {meeting_time_data.get('classId', '')}")
             return True
             
         except Exception as e:
@@ -205,7 +200,6 @@ class SQLAlchemyDatabaseClient:
             # Check if professor already exists and update with detailed data
             existing_professor = session.query(Professor).filter(Professor.id == professor_data['id']).first()
             if existing_professor:
-                self.logger.info(f"Professor {professor_data['id']} already exists, updating with detailed data...")
                 # Update existing professor with detailed data
                 existing_professor.avgRating = professor_data.get('avgRating', existing_professor.avgRating)
                 existing_professor.numRatings = professor_data.get('numRatings', existing_professor.numRatings)
@@ -220,7 +214,6 @@ class SQLAlchemyDatabaseClient:
                 existing_professor.teacherTags = professor_data.get('teacherTags', existing_professor.teacherTags)
                 existing_professor.courseCodes = professor_data.get('courseCodes', existing_professor.courseCodes)
                 session.commit()
-                self.logger.info(f"Successfully updated professor: {professor_data.get('firstName', '')} {professor_data.get('lastName', '')}")
                 return True
             
             # Create new professor
@@ -246,7 +239,6 @@ class SQLAlchemyDatabaseClient:
             session.add(new_professor)
             session.commit()
             
-            self.logger.info(f"Successfully saved professor: {professor_data.get('firstName', '')} {professor_data.get('lastName', '')}")
             return True
             
         except IntegrityError as e:
@@ -266,7 +258,6 @@ class SQLAlchemyDatabaseClient:
             # Check if rating already exists
             existing_rating = session.query(Rating).filter(Rating.id == rating_data['id']).first()
             if existing_rating:
-                self.logger.info(f"Rating {rating_data['id']} already exists, skipping...")
                 return True
             
             # Create new rating
@@ -295,7 +286,6 @@ class SQLAlchemyDatabaseClient:
             session.add(new_rating)
             session.commit()
             
-            self.logger.info(f"Successfully saved rating for professor: {rating_data.get('professorId', '')}")
             return True
             
         except Exception as e:

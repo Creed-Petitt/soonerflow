@@ -153,9 +153,6 @@ def fetch_basic_professors():
     if response.status_code == 200:
         data = response.json()
 
-        # Debug: Log the response structure
-        logger.info(f"Response data: {data}")
-
         # Navigate to the teachers array
         if data and 'data' in data and data['data'] and 'search' in data['data']:
             teachers = data['data']['search']['teachers']['edges']
@@ -189,9 +186,8 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
         return
     
     if test_mode:
-        logger.info("TEST MODE: Processing only first 5 professors")
         teachers = teachers[:5]
-    
+
     logger.info(f"Processing {len(teachers)} professors...")
     
     successful_saves = 0
@@ -208,12 +204,9 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
                 # Save to database
                 if db_client.save_professor(processed_prof):
                     successful_saves += 1
-                    logger.info(f"Saved professor {i}/{len(teachers)}: {processed_prof['firstName']} {processed_prof['lastName']}")
                 else:
                     failed_saves += 1
-                    logger.error(f"Failed to save professor: {processed_prof.get('id', 'Unknown')}")
             else:
-                logger.warning(f"Invalid professor data at index {i}")
                 failed_saves += 1
                 
         except Exception as e:
@@ -238,10 +231,9 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
             ).all()
             
             logger.info(f"Found {len(qualified_professors)} professors with >= 10 ratings")
-            
+
             if test_mode:
                 qualified_professors = qualified_professors[:3]
-                logger.info("TEST MODE: Processing only 3 professors for detailed data")
             
             detailed_success = 0
             detailed_failed = 0
@@ -249,8 +241,6 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
             
             for i, professor in enumerate(qualified_professors, 1):
                 try:
-                    logger.info(f"\nFetching detailed data for {professor.firstName} {professor.lastName}")
-                    
                     # Determine how many ratings to fetch
                     num_ratings = min(15, professor.numRatings)
                     
@@ -281,7 +271,6 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
                                         logger.error(f"Error saving rating: {e}")
                                 
                                 total_ratings_saved += ratings_saved
-                                logger.info(f"Saved {ratings_saved} ratings for {professor.firstName} {professor.lastName}")
                             else:
                                 detailed_failed += 1
                     

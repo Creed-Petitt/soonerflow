@@ -40,7 +40,6 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
         logger.info("Starting to load OU class data to database...")
         
         if test_mode:
-            logger.info("Running in TEST MODE - will only fetch a small sample")
             # Fetch a small sample for testing (offset 0 has classes with full meeting times)
             raw_classes = api_client.fetch_classes(0, 100, semester)
             if raw_classes and raw_classes.get('aaData'):
@@ -49,7 +48,6 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                 logger.error("Failed to fetch test data")
                 return
         else:
-            logger.info("Running in FULL MODE - will fetch all classes")
             # Fetch all classes
             classes_data = api_client.fetch_all_classes(semester)
         
@@ -70,10 +68,7 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                 if class_type in ['Lecture', 'Lab', 'Lecture/Lab Combined', 'Lab with No Credit']:
                     filtered_classes.append(class_data)
         
-        logger.info(f"Filtered to {len(filtered_classes)} classes that meet criteria")
         processed_classes = filtered_classes
-        
-        logger.info(f"Successfully processed {len(processed_classes)} classes")
         
         # Save classes to database
         successful_saves = 0
@@ -83,14 +78,12 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
             try:
                 # Validate class data
                 if not data_processor.validate_class_data(class_data):
-                    logger.warning(f"Skipping invalid class data: {class_data.get('id', 'Unknown')}")
                     failed_saves += 1
                     continue
-                
+
                 # Save class to database
                 if db_client.save_class(class_data, semester):
                     successful_saves += 1
-                    logger.info(f"Saved class {i}/{len(processed_classes)}: {class_data.get('subject', '')} {class_data.get('courseNumber', '')} ({semester})")
                     
                     # Save meeting times for this class
                     meeting_times = class_data.get('meetingTimes', [])
@@ -99,13 +92,8 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                             processed_meeting_time = data_processor.process_meeting_time_data(meeting_time, class_data['id'])
                             if processed_meeting_time and data_processor.validate_meeting_time_data(processed_meeting_time):
                                 if not db_client.save_meeting_time(processed_meeting_time, semester):
-                                    logger.error(f"Failed to save meeting time for class {class_data['id']}")
-                        logger.info(f"Saved {len(meeting_times)} meeting times for class {class_data['id']}")
-                    else:
-                        logger.warning(f"No meeting times found for class {class_data['id']}")
                 else:
                     failed_saves += 1
-                    logger.error(f"Failed to save class: {class_data.get('id', 'Unknown')}")
                     
             except Exception as e:
                 logger.error(f"Error processing class {class_data.get('id', 'Unknown')}: {e}")
@@ -118,12 +106,6 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
         
         # Get database stats
         stats = db_client.get_class_stats()
-        if stats:
-            logger.info(f"\n=== DATABASE STATS ===")
-            logger.info(f"Total classes in database: {stats.get('total_classes', 0)}")
-            logger.info(f"Total meeting times in database: {stats.get('total_meeting_times', 0)}")
-            logger.info(f"Unique subjects: {stats.get('unique_subjects', 0)}")
-            logger.info(f"Unique instructors: {stats.get('unique_instructors', 0)}")
         
     except Exception as e:
         logger.error(f"Error in load_classes_to_database: {e}")
@@ -134,8 +116,6 @@ def test_database_connection():
     db_client = SQLAlchemyDatabaseClient()
     
     try:
-        logger.info("Testing database connection...")
-        
         # Get database stats
         stats = db_client.get_class_stats()
         if stats:
@@ -144,16 +124,6 @@ def test_database_connection():
         else:
             logger.error("Failed to get database stats")
         
-        # Get sample classes
-        sample_classes = db_client.get_sample_classes(3)
-        if sample_classes:
-            logger.info("Sample classes from database:")
-            for i, class_data in enumerate(sample_classes, 1):
-                logger.info(f"{i}. {class_data.get('subject', '')} {class_data.get('courseNumber', '')}: {class_data.get('title', '')}")
-                logger.info(f"   Instructor: {class_data.get('instructor', 'N/A')}")
-                logger.info("")
-        else:
-            logger.info("No sample classes found in database")
             
     except Exception as e:
         logger.error(f"Error testing database connection: {e}")
