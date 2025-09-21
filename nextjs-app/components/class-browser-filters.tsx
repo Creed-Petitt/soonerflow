@@ -41,7 +41,6 @@ export function ClassBrowserFilters({
               <SelectValue placeholder="Select Department" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
               {departments.map(dept => (
                 <SelectItem key={dept.code} value={dept.code}>
                   {dept.code} ({dept.count})

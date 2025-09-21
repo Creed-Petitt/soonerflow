@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ import { ProfessorRatingBarChart } from "@/components/professor-rating-bar-chart
 import { useSchedule } from "@/hooks/use-schedule";
 import { cleanDescription, formatPrerequisites } from "@/utils/course-utils";
 import { useProfessorData } from "@/hooks/useProfessorData";
+import { fetchClassDetails } from "@/lib/class-api";
 
 interface ClassDetailDialogProps {
   isOpen: boolean;
@@ -53,6 +55,8 @@ export function ClassDetailDialog({
   const [currentView, setCurrentView] = React.useState<"class" | "professor">("class");
   const [currentSection, setCurrentSection] = React.useState<any>(null);
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
+  const [detailedClassData, setDetailedClassData] = React.useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = React.useState(false);
   const { professorData, isLoading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
   
   // Track original selections for change mode
@@ -92,6 +96,20 @@ export function ClassDetailDialog({
     }
   }, [currentSection?.instructor, loadProfessorData, clearProfessorData]);
 
+  // Load detailed class data when section changes
+  React.useEffect(() => {
+    if (currentSection?.id) {
+      setLoadingDetails(true);
+      fetchClassDetails(currentSection.id).then(details => {
+        setDetailedClassData(details);
+        setLoadingDetails(false);
+      }).catch(() => {
+        setDetailedClassData(null);
+        setLoadingDetails(false);
+      });
+    }
+  }, [currentSection?.id]);
+
   if (!groupedClass) return null;
 
   const totalSeats = currentSection?.total_seats ?? currentSection?.totalSeats;
@@ -125,8 +143,9 @@ export function ClassDetailDialog({
               <DialogTitle className="scroll-m-20 text-2xl font-bold tracking-tight sans-serif">
                 {groupedClass.subject} {groupedClass.number || groupedClass.courseNumber}
               </DialogTitle>
-              <p className="text-lg leading-6 sans-serif mt-3 whitespace-nowrap">{groupedClass.title}</p>
-              <p className="text-sm text-muted-foreground sans-serif mt-0 -mb-2">{groupedClass.credits || currentSection?.credits || 3} Credits</p>
+              <DialogDescription className="text-lg leading-6 sans-serif mt-3 whitespace-nowrap">
+                {groupedClass.title} - {groupedClass.credits || currentSection?.credits || 3} Credits
+              </DialogDescription>
             </div>
             <div className="flex gap-1 shrink-0">
               <Button
@@ -250,20 +269,20 @@ export function ClassDetailDialog({
                 )}
               </div>
               
-              {currentSection?.prerequisites && currentSection.prerequisites.length > 0 && (
+              {detailedClassData?.prerequisites && detailedClassData.prerequisites.length > 0 && (
                 <div className="space-y-2 pt-3 border-t">
                   <h4 className="text-sm font-medium sans-serif">Prerequisites</h4>
                   <p className="text-sm text-muted-foreground">
-                    {formatPrerequisites(currentSection.prerequisites)}
+                    {formatPrerequisites(detailedClassData.prerequisites)}
                   </p>
                 </div>
               )}
 
-              {currentSection?.description && (
+              {detailedClassData?.description && (
                 <div className="space-y-2 pt-3 border-t">
                   <h4 className="text-sm font-medium sans-serif">Course Description</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed max-h-[200px] overflow-y-auto scrollbar-thin pr-2">
-                    {cleanDescription(currentSection.description)}
+                    {cleanDescription(detailedClassData.description)}
                   </p>
                 </div>
               )}

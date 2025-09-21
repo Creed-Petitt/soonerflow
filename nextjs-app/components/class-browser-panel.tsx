@@ -22,7 +22,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   const { scheduledClasses, addClass, isClassScheduled, currentSemester } = useSchedule();
 
   // State for filters and search
-  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("C S");
   const [selectedLevel, setSelectedLevel] = useState("all");
 
   // Dialog state
@@ -51,13 +51,13 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     if (isOpen && departments.length === 0) {
       loadDepartments(currentSemester);
     }
-  }, [isOpen, departments.length, loadDepartments, currentSemester]);
+  }, [isOpen, departments.length, currentSemester]); // Remove loadDepartments from deps
 
   // Load classes when department changes
   useEffect(() => {
-    if (!selectedDepartment || selectedDepartment === "all") return;
+    if (!selectedDepartment) return;
     loadClassesForDepartment(selectedDepartment, currentSemester);
-  }, [selectedDepartment, currentSemester, loadClassesForDepartment]);
+  }, [selectedDepartment, currentSemester]); // Remove loadClassesForDepartment from deps
 
   // Filter classes by level
   let filteredGroupedClasses = [...groupedClasses];
@@ -92,6 +92,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
       id: section.id,
       subject: section.subject,
       number: section.number || section.courseNumber,
+      courseNumber: section.courseNumber || section.number,
       title: section.title,
       instructor: section.instructor || "TBA",
       time: section.meetingTimes?.[0] ?
@@ -113,6 +114,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
         id: labSection.id,
         subject: labSection.subject,
         number: labSection.number || labSection.courseNumber,
+        courseNumber: labSection.courseNumber || labSection.number,
         title: `Lab - ${section.title}`,
         instructor: labSection.instructor || "TBA",
         time: labSection.meetingTimes?.[0] ?

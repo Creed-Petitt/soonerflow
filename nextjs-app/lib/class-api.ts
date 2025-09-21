@@ -4,7 +4,7 @@ import type { ClassData, GroupedClass } from "@/types/course";
 export async function fetchClassesForDepartment(
   department: string,
   semester: string,
-  limit: number = 500
+  limit: number = 200
 ): Promise<{ classes: ClassData[]; total: number }> {
   try {
     const response = await fetch(
@@ -32,14 +32,18 @@ export function processClasses(allClasses: ClassData[]): GroupedClass[] {
   const grouped: Record<string, GroupedClass> = {};
 
   allClasses.forEach((cls: ClassData) => {
-    if (!cls.subject || (!cls.number && !cls.courseNumber)) return;
+    const courseNumber = cls.number || cls.courseNumber;
 
-    const key = `${cls.subject} ${cls.number || cls.courseNumber}`;
+    if (!cls.subject || !courseNumber) {
+      return;
+    }
+
+    const key = `${cls.subject} ${courseNumber}`;
 
     if (!grouped[key]) {
       grouped[key] = {
         subject: cls.subject,
-        number: cls.number || cls.courseNumber,
+        number: courseNumber,
         title: cls.title,
         credits: cls.credits,
         sections: [],
@@ -57,4 +61,20 @@ export function processClasses(allClasses: ClassData[]): GroupedClass[] {
   return Object.values(grouped).filter(g =>
     g.sections.length > 0 || g.labSections.length > 0
   );
+}
+
+export async function fetchClassDetails(classId: string): Promise<ClassData | null> {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/classes/${classId}`);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch class details');
+    }
+
+    const classData = await response.json();
+    return classData;
+  } catch (error) {
+    console.error('Error fetching class details:', error);
+    return null;
+  }
 }
