@@ -8,7 +8,7 @@ export async function fetchClassesForDepartment(
 ): Promise<{ classes: ClassData[]; total: number }> {
   try {
     const response = await fetch(
-      `/api/classes?subject=${department}&semester=${semester}&limit=${limit}&skip_ratings=true`
+      `http://127.0.0.1:8000/api/classes?subject=${department}&semester=${semester}&limit=${limit}&skip_ratings=true`
     );
 
     if (!response.ok) {

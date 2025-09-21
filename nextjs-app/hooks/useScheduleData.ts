@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
-import { fetchUserActiveSchedule, saveScheduleClasses } from '@/lib/schedule-api'
+import { fetchWithAuth } from '@/lib/api-client'
 import type { ScheduledClass, Schedule } from '@/types/course'
 
 export function useScheduleData() {
-  const { data: session, status } = useSession()
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [localClasses, setLocalClasses] = useState<ScheduledClass[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -14,37 +12,41 @@ export function useScheduleData() {
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false)
 
   const loadSchedule = useCallback(async (semester?: string, currentSemester?: string) => {
-    if (status === "loading") return
-
-    if (status === "unauthenticated") {
-      setSchedule(null)
-      setLocalClasses([])
-      setIsLoading(false)
-      setError(null)
-      return
-    }
-
-    if (!session?.user?.githubId) {
-      setIsLoading(false)
-      return
-    }
-
     try {
       setIsLoading(true)
-      const data = await fetchUserActiveSchedule(session.user.githubId)
-      setSchedule(data)
-      setLocalClasses(data.classes)
+      setError(null)
+
+      // For now, just load without a specific user ID
+      // In the future, you can add user management here
+      const response = await fetchWithAuth('/api/schedules/1') // Using schedule ID 1 as default
+      const data = await response.json()
+
+      // Remove duplicates by ID
+      const classMap = new Map<string, ScheduledClass>()
+      ;(data.classes || []).forEach((cls: ScheduledClass) => {
+        if (!classMap.has(cls.id)) {
+          classMap.set(cls.id, cls)
+        }
+      })
+      const uniqueClasses = Array.from(classMap.values())
+
+      setSchedule({ ...data, classes: uniqueClasses })
+      setLocalClasses(uniqueClasses)
       setHasLoadedSchedule(true)
     } catch (err) {
       console.error('Failed to load schedule:', err)
       setError('Failed to load schedule')
+      // Set empty state for now
+      setSchedule(null)
+      setLocalClasses([])
+      setHasLoadedSchedule(true)
     } finally {
       setIsLoading(false)
     }
-  }, [session?.user?.githubId, status])
+  }, [])
 
   const saveSchedule = useCallback(async () => {
-    if (!schedule || !session?.user?.githubId || isLoading) return
+    if (!schedule || isLoading) return
 
     try {
       setIsLoading(true)
@@ -55,7 +57,10 @@ export function useScheduleData() {
         colors[c.id] = c.color
       })
 
-      await saveScheduleClasses(schedule.schedule_id, class_ids, colors)
+      await fetchWithAuth(`/api/schedules/${schedule.schedule_id}/classes`, {
+        method: 'PUT',
+        body: JSON.stringify({ class_ids, colors })
+      })
 
       setSchedule(prev => prev ? { ...prev, classes: localClasses } : null)
     } catch (err) {
@@ -64,9 +69,9 @@ export function useScheduleData() {
     } finally {
       setIsLoading(false)
     }
-  }, [schedule, session?.user?.githubId, isLoading, localClasses])
+  }, [schedule, isLoading, localClasses])
 
-  // Auto-load schedule when session is ready
+  // Auto-load schedule on mount
   useEffect(() => {
     loadSchedule()
   }, [loadSchedule])

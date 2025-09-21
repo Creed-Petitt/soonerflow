@@ -1,25 +1,27 @@
+const BACKEND_URL = 'http://127.0.0.1:8000'
+
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  // Headers for the request (API key is added server-side)
+  // Convert /api/* URLs to direct backend calls
+  const backendUrl = url.startsWith('/api/')
+    ? `${BACKEND_URL}${url}`
+    : url.startsWith('http')
+    ? url
+    : `${BACKEND_URL}/api${url}`
+
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
   }
-  
-  // Make the request (authentication handled by proxy)
-  const response = await fetch(url, {
+
+  const response = await fetch(backendUrl, {
     ...options,
     headers,
   })
-  
-  // Handle auth errors
-  if (response.status === 401) {
-    throw new Error('Authentication required - invalid API key')
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
-  
-  if (response.status === 403) {
-    throw new Error('Access denied')
-  }
-  
+
   return response
 }
 
