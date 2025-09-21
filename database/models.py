@@ -291,22 +291,10 @@ def create_engine_and_session():
         )
     
     SessionLocal = sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
+        autocommit=False,
+        autoflush=False,
         bind=engine,
         expire_on_commit=False  # Prevent expired objects after transaction
     )
-    return engine, SessionLocal        connect_args={"check_same_thread": False, "timeout": 30},
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
-            pool_recycle=3600
-        )
-    
-    SessionLocal = sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
-        bind=engine,
-        expire_on_commit=False  # Prevent expired objects after transaction
-    )
-    return engine, SessionLocal 
+
+    return engine, SessionLocal
