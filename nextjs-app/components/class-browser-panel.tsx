@@ -46,12 +46,12 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
   // Combined loading state
   const isLoading = departmentsLoading || classDataLoading;
 
-  // Load departments when panel opens
+  // Load departments when panel opens or semester changes
   useEffect(() => {
-    if (isOpen && departments.length === 0) {
+    if (isOpen) {
       loadDepartments(currentSemester);
     }
-  }, [isOpen, departments.length, currentSemester]); // Remove loadDepartments from deps
+  }, [isOpen, currentSemester]);
 
   // Load classes when department changes
   useEffect(() => {

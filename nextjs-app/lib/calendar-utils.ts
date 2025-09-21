@@ -2,10 +2,22 @@ import { parseClassTime } from '@/lib/time-utils';
 import type { CalendarEvent } from '@/components/event-calendar/types';
 import type { ScheduledClass } from '@/types/course';
 
-function createTimeDate(hour: number, minute: number): Date {
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
-  return date;
+// Helper to get a date for a specific day of the week in a template week
+function getTemplateDateForDay(dayChar: string, hour: number, minute: number): Date {
+    const templateMonday = new Date(2025, 0, 6); // A fixed Monday: Jan 6, 2025
+    let dayOffset = 0;
+    switch (dayChar) {
+        case 'M': dayOffset = 0; break;
+        case 'T': dayOffset = 1; break;
+        case 'W': dayOffset = 2; break;
+        case 'R': dayOffset = 3; break; // 'R' for Thursday
+        case 'F': dayOffset = 4; break;
+        default: dayOffset = 0; // Default to Monday
+    }
+    const date = new Date(templateMonday);
+    date.setDate(templateMonday.getDate() + dayOffset);
+    date.setHours(hour, minute, 0, 0);
+    return date;
 }
 
 export function processCalendarEvents(classes: ScheduledClass[]): CalendarEvent[] {
@@ -15,12 +27,13 @@ export function processCalendarEvents(classes: ScheduledClass[]): CalendarEvent[
 
       if (!parsedTime) return [];
 
-      return parsedTime.days.map(day => ({
-        id: `${classData.id}-${day}`,
+      // The 'days' from parseClassTime is an array of characters like ['M', 'W', 'F']
+      return parsedTime.days.map(dayChar => ({
+        id: `${classData.id}-${dayChar}`,
         title: `${classData.subject} ${classData.number}`,
         description: `${classData.title}\n${classData.instructor}\n${classData.location}`,
-        start: createTimeDate(parsedTime.startTime.hour, parsedTime.startTime.min),
-        end: createTimeDate(parsedTime.endTime.hour, parsedTime.endTime.min),
+        start: getTemplateDateForDay(dayChar, parsedTime.startTime.hour, parsedTime.startTime.min),
+        end: getTemplateDateForDay(dayChar, parsedTime.endTime.hour, parsedTime.endTime.min),
         color: 'sky' as const
       }));
     })
