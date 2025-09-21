@@ -63,35 +63,39 @@ class ClassService:
         if semester:
             query = query.filter(ClassModel.semester == semester)
         
-        # Get total count for pagination
-        total_count = query.count()
-        
-        # Apply pagination
+        # Apply pagination without expensive count
         offset = (page - 1) * limit
         query = query.order_by(ClassModel.courseNumber, ClassModel.subject)
-        classes = query.offset(offset).limit(limit).all()
-        
+
+        # Add eager loading for meetingTimes to avoid N+1 queries
+        from sqlalchemy.orm import joinedload
+        query = query.options(joinedload(ClassModel.meetingTimes))
+
+        classes = query.offset(offset).limit(limit + 1).all()  # Get one extra to check hasNext
+
+        # Check if there are more results
+        has_next = len(classes) > limit
+        if has_next:
+            classes = classes[:limit]  # Remove the extra one
+
         # Determine if we should skip ratings based on threshold
         if not skip_ratings and limit > settings.skip_ratings_threshold:
             skip_ratings = True
-        
+
         # Format classes for response
         formatted_classes = [
             self.format_class_response(cls, skip_ratings)
             for cls in classes
         ]
-        
-        # Calculate pagination info
-        total_pages = max(1, (total_count + limit - 1) // limit)
-        
+
         return {
             "classes": formatted_classes,
             "pagination": {
                 "page": page,
                 "limit": limit,
-                "total": total_count,
-                "totalPages": total_pages,
-                "hasNext": offset + limit < total_count,
+                "total": -1,  # Don't calculate expensive total
+                "totalPages": -1,  # Unknown
+                "hasNext": has_next,
                 "hasPrev": page > 1
             }
         }
@@ -197,11 +201,12 @@ class ClassService:
         # Get prerequisites
         prerequisites = self.get_prerequisites(cls.id) if not skip_ratings else []
         
-        # Build base response
+        # Build base response with all data (we'll test if it's actually slow)
         response = {
             "id": cls.id,
             "subject": cls.subject,
             "number": cls.courseNumber,
+            "courseNumber": cls.courseNumber,  # Keep both for compatibility
             "title": clean_title,
             "instructor": cls.instructor or "TBA",
             "credits": cls.credits or 3,
@@ -213,6 +218,8 @@ class ClassService:
             "genEd": cls.genEd or "",
             "type": cls.type or "",
             "description": cls.description or "",  # Always include description
+            "prerequisites": prerequisites,
+            "sections": sections,
             # Ratings will be added by the controller if needed
             "rating": 0.0,
             "difficulty": 0.0,
@@ -220,19 +227,6 @@ class ClassService:
             "ratingDistribution": [0, 0, 0, 0, 0],
             "tags": []
         }
-        
-        # Add expensive fields only when not skipping
-        if not skip_ratings:
-            response.update({
-                "prerequisites": prerequisites,
-                "sections": sections
-            })
-        else:
-            # Lightweight response for lists
-            response.update({
-                "prerequisites": [],
-                "sections": []
-            })
         
         return response
     

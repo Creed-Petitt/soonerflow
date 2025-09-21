@@ -1,6 +1,3 @@
-"""
-Router module for class-related endpoints.
-"""
 from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -67,7 +64,6 @@ def get_db():
 
 @router.get("/departments")
 async def get_departments(semester: Optional[str] = "202510", db: Session = Depends(get_db)):
-    """Get all unique departments/subjects for a semester."""
     class_service = ClassService(db)
     departments = class_service.get_all_departments_with_counts(semester)
     return {"departments": departments}
@@ -83,7 +79,6 @@ async def get_classes(
     skip_ratings: Optional[bool] = False,
     db: Session = Depends(get_db)
 ):
-    """Get all classes with optional filtering."""
     # Use ClassService for data retrieval
     class_service = ClassService(db)
     
@@ -121,28 +116,15 @@ async def get_classes(
     
     # Convert to response objects
     response_classes = [ClassResponse(**cls_data) for cls_data in result["classes"]]
-    
-    # Get filter options
-    departments = class_service.get_departments()
-    levels = ["Undergraduate", "Graduate"]
-    creditOptions = [1, 2, 3, 4, 5, 6]
-    semesters = ["Spring", "Fall", "Summer"]
-    
+
     return {
         "classes": response_classes,
-        "pagination": result["pagination"],
-        "filters": {
-            "departments": departments,
-            "levels": levels,
-            "credits": creditOptions,
-            "semesters": semesters
-        }
+        "pagination": result["pagination"]
     }
 
 
 @router.get("/all")
 async def get_all_courses(db: Session = Depends(get_db)):
-    """Get all unique courses for course selection modal."""
     from sqlalchemy import text
     
     # Get all unique courses with their details
@@ -177,7 +159,6 @@ async def get_all_courses(db: Session = Depends(get_db)):
 
 @router.get("/{class_id}")
 async def get_class(class_id: str, db: Session = Depends(get_db)):
-    """Get a single class by ID."""
     class_service = ClassService(db)
     
     cls_data = class_service.get_class_by_id(class_id)
@@ -205,7 +186,6 @@ async def get_class(class_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{class_id}/labs")
 async def get_class_labs(class_id: str, db: Session = Depends(get_db)):
-    """Get lab sections for a lecture class."""
     class_service = ClassService(db)
     
     labs = class_service.get_lab_sections_for_lecture(class_id)
