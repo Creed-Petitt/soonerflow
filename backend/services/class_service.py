@@ -1,33 +1,20 @@
-"""
-Class service module for handling class-related business logic.
-Includes data processing, formatting, and department-based loading.
-"""
+
 from typing import List, Dict, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 import sys
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import Class as ClassModel, MeetingTime, Prerequisite, ScheduledClass, Schedule, CompletedCourse
+from database.models import Class as ClassModel, MeetingTime, Prerequisite, ScheduledClass, Schedule
 from backend.config import settings
 from datetime import datetime, time
 
-_department_cache: Dict[str, Dict[str, Any]] = {}
-_CACHE_TTL_SECONDS = 1800
-
 
 class ClassService:
-    """Service for managing class data and operations."""
-    
+
     def __init__(self, db: Session):
-        """
-        Initialize the class service.
-        
-        Args:
-            db: SQLAlchemy database session
-        """
+
         self.db = db
-        self._department_cache: Dict[str, List[ClassModel]] = {}
     
     def get_classes(
         self,
@@ -38,20 +25,7 @@ class ClassService:
         page: int = 1,
         skip_ratings: bool = False
     ) -> Dict[str, Any]:
-        """
-        Get classes with optional filtering and pagination.
         
-        Args:
-            subject: Filter by subject/department
-            search: Search term for title, subject, or course number
-            semester: Filter by semester code (e.g., "202510" for Fall 2025)
-            limit: Maximum number of classes to return
-            page: Page number for pagination
-            skip_ratings: Whether to skip professor ratings
-            
-        Returns:
-            Dictionary containing classes and pagination info
-        """
         # Build query
         query = self.db.query(ClassModel)
         
@@ -123,16 +97,7 @@ class ClassService:
         }
     
     def get_class_by_id(self, class_id: str, skip_ratings: bool = False) -> Optional[Dict[str, Any]]:
-        """
-        Get a single class by ID.
         
-        Args:
-            class_id: The class ID
-            skip_ratings: Whether to skip professor ratings
-            
-        Returns:
-            Formatted class data or None if not found
-        """
         cls = self.db.query(ClassModel).filter(ClassModel.id == class_id).first()
         
         if not cls:
@@ -141,85 +106,36 @@ class ClassService:
         return self.format_class_response(cls, skip_ratings)
     
     def get_departments(self) -> List[str]:
-        """
-        Get all unique departments/subjects.
         
-        Returns:
-            Sorted list of department codes
-        """
         subjects = self.db.query(ClassModel.subject).distinct().all()
         return sorted([s[0] for s in subjects if s[0]])
     
     def get_all_departments_with_counts(self, semester: str = "202510") -> List[Dict[str, Any]]:
-        global _department_cache
-        
-        cache_key = f"departments_{semester}"
-        now = datetime.now().timestamp()
-        
-        if cache_key in _department_cache:
-            cached_data = _department_cache[cache_key]
-            if now - cached_data["timestamp"] < _CACHE_TTL_SECONDS:
-                return cached_data["data"]
-        
         from sqlalchemy import func
-        
+
         departments = self.db.query(
             ClassModel.subject,
             func.count(ClassModel.id).label('count')
         ).filter(ClassModel.semester == semester).group_by(ClassModel.subject).order_by(ClassModel.subject).all()
-        
+
         result = [
             {"code": dept, "count": count}
             for dept, count in departments if dept
         ]
-        
-        _department_cache[cache_key] = {
-            "data": result,
-            "timestamp": now
-        }
-        
+
         return result
     
-    def get_classes_by_department(
-        self,
-        department: str,
-        use_cache: bool = True
-    ) -> List[ClassModel]:
-        """
-        Get all classes for a specific department.
-        
-        Args:
-            department: Department code (e.g., "ECE", "MATH")
-            use_cache: Whether to use cached results
-            
-        Returns:
-            List of class objects
-        """
-        # Check cache if enabled
-        if use_cache and department in self._department_cache:
-            return self._department_cache[department]
-        
+    def get_classes_by_department(self, department: str) -> List[ClassModel]:
+
         # Query database
         classes = self.db.query(ClassModel).filter(
             ClassModel.subject == department
         ).order_by(ClassModel.courseNumber).all()
-        
-        # Cache results
-        if use_cache:
-            self._department_cache[department] = classes
-        
+
         return classes
     
     def get_prerequisites(self, class_id: str) -> List[Dict[str, Any]]:
-        """
-        Get prerequisites for a specific class.
         
-        Args:
-            class_id: The class ID to get prerequisites for
-            
-        Returns:
-            List of prerequisite dictionaries
-        """
         prereqs = self.db.query(Prerequisite).filter(
             Prerequisite.class_id == class_id
         ).all()
@@ -257,16 +173,7 @@ class ClassService:
         cls: ClassModel,
         skip_ratings: bool = False
     ) -> Dict[str, Any]:
-        """
-        Format a class object for API response.
         
-        Args:
-            cls: Class model object
-            skip_ratings: Whether to skip professor ratings
-            
-        Returns:
-            Dictionary with formatted class data
-        """
         # Format meeting times
         time_str = self.format_meeting_times(cls.meetingTimes)
         
@@ -330,15 +237,7 @@ class ClassService:
         return response
     
     def format_meeting_times(self, meeting_times: List[MeetingTime]) -> str:
-        """
-        Format meeting times into a readable string.
         
-        Args:
-            meeting_times: List of MeetingTime objects
-            
-        Returns:
-            Formatted string like 'MWF 10:00-10:50'
-        """
         if not meeting_times:
             return "TBA"
         
@@ -365,15 +264,7 @@ class ClassService:
         return ", ".join(formatted_times) if formatted_times else "TBA"
     
     def extract_days(self, meeting_times: List[MeetingTime]) -> List[str]:
-        """
-        Extract unique days from meeting times.
         
-        Args:
-            meeting_times: List of MeetingTime objects
-            
-        Returns:
-            List of day strings
-        """
         days = []
         for mt in meeting_times:
             if mt.days:
@@ -381,16 +272,7 @@ class ClassService:
         return days
     
     def check_time_conflicts(self, class_id: str, schedule_id: int) -> Dict[str, Any]:
-        """
-        Check if a class has time conflicts with existing scheduled classes.
         
-        Args:
-            class_id: ID of the class to check
-            schedule_id: ID of the schedule to check against
-            
-        Returns:
-            Dictionary with conflict status and details
-        """
         # Get the class to check
         new_class = self.db.query(ClassModel).filter(ClassModel.id == class_id).first()
         if not new_class:
@@ -423,16 +305,7 @@ class ClassService:
         }
     
     def _classes_have_time_conflict(self, class1: ClassModel, class2: ClassModel) -> bool:
-        """
-        Check if two classes have overlapping meeting times.
         
-        Args:
-            class1: First class to compare
-            class2: Second class to compare
-            
-        Returns:
-            True if classes have time conflict, False otherwise
-        """
         # Get meeting times for both classes
         times1 = class1.meetingTimes
         times2 = class2.meetingTimes
@@ -450,16 +323,7 @@ class ClassService:
         return False
     
     def _meeting_times_overlap(self, mt1: MeetingTime, mt2: MeetingTime) -> bool:
-        """
-        Check if two meeting times overlap.
         
-        Args:
-            mt1: First meeting time
-            mt2: Second meeting time
-            
-        Returns:
-            True if meeting times overlap, False otherwise
-        """
         # Check if days overlap
         if not mt1.days or not mt2.days:
             return False
@@ -487,15 +351,7 @@ class ClassService:
         return not (end1 <= start2 or end2 <= start1)
     
     def _parse_time(self, time_str: str) -> time:
-        """
-        Parse a time string into a time object.
         
-        Args:
-            time_str: Time string (e.g., "10:30am", "2:45pm")
-            
-        Returns:
-            time object
-        """
         if not time_str:
             return time(0, 0)
         
@@ -516,19 +372,9 @@ class ClassService:
             hours = 0
         
         return time(hours, minutes)
-    
-    
-    
+
     def clean_title(self, title: str) -> str:
-        """
-        Clean up class title.
         
-        Args:
-            title: Original title string
-            
-        Returns:
-            Cleaned title
-        """
         if not title:
             return ""
         
@@ -543,15 +389,7 @@ class ClassService:
         return title.strip()
     
     def detect_linked_lab(self, cls: ClassModel) -> Optional[str]:
-        """
-        Detect if a class has a linked lab section.
         
-        Args:
-            cls: Class model object
-            
-        Returns:
-            Lab section ID if found, None otherwise
-        """
         if cls.type != "Lecture":
             return None
         
@@ -568,15 +406,7 @@ class ClassService:
         return lab.id if lab else None
     
     def get_lab_sections_for_lecture(self, lecture_id: str) -> List[Dict[str, Any]]:
-        """
-        Get all lab sections for a given lecture.
         
-        Args:
-            lecture_id: ID of the lecture class
-            
-        Returns:
-            List of formatted lab section data
-        """
         lecture = self.db.query(ClassModel).filter(ClassModel.id == lecture_id).first()
         
         if not lecture:
@@ -593,14 +423,3 @@ class ClassService:
         
         return [self.format_class_response(lab, skip_ratings=True) for lab in labs]
     
-    def clear_department_cache(self, department: Optional[str] = None):
-        """
-        Clear the department cache.
-        
-        Args:
-            department: Specific department to clear, or None to clear all
-        """
-        if department:
-            self._department_cache.pop(department, None)
-        else:
-            self._department_cache.clear()
