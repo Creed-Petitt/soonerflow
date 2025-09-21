@@ -6,21 +6,17 @@ from sqlalchemy.exc import IntegrityError
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database.models import create_engine_and_session, Class, MeetingTime, Professor, Rating, Major, Requirement, MajorCourse, Prerequisite
+from database.models import create_engine_and_session, Class, MeetingTime, Professor, Rating, Prerequisite
 
 class SQLAlchemyDatabaseClient:
-    """Database client using SQLAlchemy for all operations"""
-    
     def __init__(self):
         self.engine, self.SessionLocal = create_engine_and_session()
         self.logger = logging.getLogger(__name__)
     
     def get_session(self) -> Session:
-        """Get a database session"""
         return self.SessionLocal()
     
     def save_class(self, class_data: Dict[str, Any], semester: str = "202510") -> bool:
-        """Save class data to database using SQLAlchemy"""
         session = self.get_session()
         try:
             # Create ID with semester
@@ -102,7 +98,6 @@ class SQLAlchemyDatabaseClient:
             session.close()
     
     def _save_prerequisites(self, session: Session, class_id: str, class_data: Dict[str, Any]):
-        """Save already-parsed prerequisites for a class"""
         try:
             # Remove existing prerequisites for this class
             session.query(Prerequisite).filter(Prerequisite.class_id == class_id).delete()
@@ -161,120 +156,8 @@ class SQLAlchemyDatabaseClient:
             return False
         finally:
             session.close()
-    
-    def save_major(self, major_data: Dict[str, Any]) -> bool:
-        """Save major data to database using SQLAlchemy"""
-        session = self.get_session()
-        try:
-            # Check if major already exists
-            existing_major = session.query(Major).filter(Major.id == major_data['id']).first()
-            if existing_major:
-                self.logger.info(f"Major {major_data['id']} already exists, skipping...")
-                return True
-            
-            # Create new major
-            new_major = Major(
-                id=major_data['id'],
-                name=major_data['name'],
-                college=major_data['college'],
-                department=major_data.get('department'),
-                totalCredits=major_data.get('totalCredits', 120),
-                description=major_data.get('description'),
-                url=major_data.get('url')
-            )
-            
-            session.add(new_major)
-            session.commit()
-            
-            self.logger.info(f"Successfully saved major: {major_data.get('name', '')}")
-            return True
-            
-        except IntegrityError as e:
-            session.rollback()
-            self.logger.warning(f"Major {major_data.get('id', 'Unknown')} already exists: {e}")
-            return True
-        except Exception as e:
-            session.rollback()
-            self.logger.error(f"Error saving major: {e}")
-            return False
-        finally:
-            session.close()
-    
-    def save_requirement(self, requirement_data: Dict[str, Any]) -> bool:
-        """Save requirement data to database using SQLAlchemy"""
-        session = self.get_session()
-        try:
-            # Check if requirement already exists
-            existing_requirement = session.query(Requirement).filter(Requirement.id == requirement_data['id']).first()
-            if existing_requirement:
-                self.logger.info(f"Requirement {requirement_data['id']} already exists, skipping...")
-                return True
-            
-            # Create new requirement
-            new_requirement = Requirement(
-                id=requirement_data['id'],
-                majorId=requirement_data['majorId'],
-                categoryName=requirement_data['categoryName'],
-                creditsNeeded=requirement_data.get('creditsNeeded', 0),
-                description=requirement_data.get('description')
-            )
-            
-            session.add(new_requirement)
-            session.commit()
-            
-            self.logger.info(f"Successfully saved requirement: {requirement_data.get('categoryName', '')}")
-            return True
-            
-        except IntegrityError as e:
-            session.rollback()
-            self.logger.warning(f"Requirement {requirement_data.get('id', 'Unknown')} already exists: {e}")
-            return True
-        except Exception as e:
-            session.rollback()
-            self.logger.error(f"Error saving requirement: {e}")
-            return False
-        finally:
-            session.close()
-    
-    def save_major_course(self, course_data: Dict[str, Any]) -> bool:
-        """Save major course data to database using SQLAlchemy"""
-        session = self.get_session()
-        try:
-            # Check if course already exists
-            existing_course = session.query(MajorCourse).filter(MajorCourse.id == course_data['id']).first()
-            if existing_course:
-                self.logger.info(f"Major course {course_data['id']} already exists, skipping...")
-                return True
-            
-            # Create new major course
-            new_course = MajorCourse(
-                id=course_data['id'],
-                requirementId=course_data['requirementId'],
-                subject=course_data['subject'],
-                courseNumber=course_data['courseNumber'],
-                title=course_data.get('title'),
-                credits=course_data.get('credits', 3)
-            )
-            
-            session.add(new_course)
-            session.commit()
-            
-            self.logger.info(f"Successfully saved major course: {course_data.get('subject', '')} {course_data.get('courseNumber', '')}")
-            return True
-            
-        except IntegrityError as e:
-            session.rollback()
-            self.logger.warning(f"Major course {course_data.get('id', 'Unknown')} already exists: {e}")
-            return True
-        except Exception as e:
-            session.rollback()
-            self.logger.error(f"Error saving major course: {e}")
-            return False
-        finally:
-            session.close()
-    
+     
     def class_exists(self, class_id: str) -> bool:
-        """Check if a class exists in the database"""
         session = self.get_session()
         try:
             existing_class = session.query(Class).filter(Class.id == class_id).first()
@@ -282,17 +165,7 @@ class SQLAlchemyDatabaseClient:
         finally:
             session.close()
     
-    def major_exists(self, major_id: str) -> bool:
-        """Check if a major exists in the database"""
-        session = self.get_session()
-        try:
-            existing_major = session.query(Major).filter(Major.id == major_id).first()
-            return existing_major is not None
-        finally:
-            session.close()
-    
     def get_class_stats(self) -> Dict[str, Any]:
-        """Get database statistics for classes"""
         session = self.get_session()
         try:
             total_classes = session.query(Class).count()
@@ -309,24 +182,7 @@ class SQLAlchemyDatabaseClient:
         finally:
             session.close()
     
-    def get_major_stats(self) -> Dict[str, Any]:
-        """Get database statistics for majors"""
-        session = self.get_session()
-        try:
-            total_majors = session.query(Major).count()
-            total_requirements = session.query(Requirement).count()
-            total_courses = session.query(MajorCourse).count()
-            
-            return {
-                'total_majors': total_majors,
-                'total_requirements': total_requirements,
-                'total_courses': total_courses
-            }
-        finally:
-            session.close()
-    
     def get_sample_classes(self, limit: int = 5) -> List[Dict[str, Any]]:
-        """Get a sample of classes from the database"""
         session = self.get_session()
         try:
             classes = session.query(Class).limit(limit).all()
@@ -344,7 +200,6 @@ class SQLAlchemyDatabaseClient:
             session.close()
     
     def save_professor(self, professor_data: Dict[str, Any]) -> bool:
-        """Save professor data to database using SQLAlchemy"""
         session = self.get_session()
         try:
             # Check if professor already exists and update with detailed data
@@ -406,7 +261,6 @@ class SQLAlchemyDatabaseClient:
             session.close()
     
     def save_rating(self, rating_data: Dict[str, Any]) -> bool:
-        """Save rating data to database using SQLAlchemy"""
         session = self.get_session()
         try:
             # Check if rating already exists
