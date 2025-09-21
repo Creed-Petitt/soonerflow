@@ -50,40 +50,18 @@ class MeetingTime(Base):
 
 class User(Base):
     __tablename__ = 'users'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(String, unique=True, nullable=True, index=True)  # GitHub user ID
-    google_id = Column(String, unique=True, nullable=True, index=True)  # Google user ID
-    email = Column(String, nullable=False, index=True)  # Removed unique constraint - same email can exist for different providers
+    firebase_uid = Column(String, unique=True, nullable=False, index=True)  # Firebase user ID
+    email = Column(String, nullable=False, index=True)
     name = Column(String)
     avatar_url = Column(String)
-    major = Column(String)  # Selected major (e.g., "Computer Science")
-    major_id = Column(String, ForeignKey('majors.id'))  # Link to majors table
-    enrollment_year = Column(Integer)  # Year started (e.g., 2022)
-    graduation_year = Column(Integer)  # Expected graduation (e.g., 2027)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     schedules = relationship("Schedule", back_populates="user", cascade="all, delete-orphan")
-    major_info = relationship("Major", foreign_keys=[major_id])
-    completed_courses = relationship("CompletedCourse", back_populates="user", cascade="all, delete-orphan")
-    flowchart = relationship("UserFlowchart", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
-class CompletedCourse(Base):
-    __tablename__ = 'completed_courses'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    course_code = Column(String, nullable=False)  # e.g., "ECE 2214"
-    course_name = Column(String)  # Course title
-    credits = Column(Integer, nullable=False)  # Credits earned
-    grade = Column(String)  # Letter grade (A, B+, etc.)
-    semester_completed = Column(String)  # e.g., "Fall 2023"
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user = relationship("User", back_populates="completed_courses")
 
 class Schedule(Base):
     __tablename__ = 'schedules'
@@ -200,46 +178,6 @@ class Rating(Base):
     # Relationships
     professor = relationship("Professor", back_populates="ratings")
 
-# Major Requirements Models
-class Major(Base):
-    __tablename__ = 'majors'
-    
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)  # "Computer Engineering"
-    college = Column(String, nullable=False)  # "Gallogly College of Engineering"
-    department = Column(String)  # "Electrical and Computer Engineering"
-    totalCredits = Column(Integer, default=120)
-    description = Column(Text)
-    url = Column(String)  # Original CourseLeaf URL
-    
-    # Relationships
-    requirements = relationship("Requirement", back_populates="major", cascade="all, delete-orphan")
-
-class Requirement(Base):
-    __tablename__ = 'requirements'
-    
-    id = Column(String, primary_key=True)
-    majorId = Column(String, ForeignKey('majors.id', ondelete='CASCADE'), nullable=False)  # Foreign key to Major
-    categoryName = Column(String, nullable=False)  # "Major Requirements", "Gen Ed", etc.
-    creditsNeeded = Column(Integer, default=0)
-    description = Column(Text)
-    
-    # Relationships
-    major = relationship("Major", back_populates="requirements")
-    courses = relationship("MajorCourse", back_populates="requirement", cascade="all, delete-orphan")
-
-class MajorCourse(Base):
-    __tablename__ = 'major_courses'
-    
-    id = Column(String, primary_key=True)
-    requirementId = Column(String, ForeignKey('requirements.id', ondelete='CASCADE'), nullable=False, index=True)  # Foreign key to Requirement
-    subject = Column(String, nullable=False, index=True)  # "ECE", "MATH", etc. - indexed for joins
-    courseNumber = Column(String, nullable=False, index=True)  # "2214", "2924", etc. - indexed for joins
-    title = Column(String)  # "Digital Design", etc.
-    credits = Column(Integer, default=3)
-    
-    # Relationships
-    requirement = relationship("Requirement", back_populates="courses")
 
 
 
