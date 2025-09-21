@@ -38,12 +38,6 @@ export function formatPrerequisites(prerequisites: any[]): string {
   return groups.join(' and ');
 }
 
-export function formatMeetingTime(meetingTimes: any[]): string {
-  if (!meetingTimes || meetingTimes.length === 0) return "TBA";
-  const mt = meetingTimes[0];
-  if (!mt.startTime || !mt.endTime) return "TBA";
-  return `${mt.days || ""} ${mt.startTime}-${mt.endTime}`;
-}
 
 export function checkTimeConflict(classToCheck: any, existingClasses: any[]): boolean {
   // Simple conflict check - you can enhance this
