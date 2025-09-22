@@ -1,4 +1,6 @@
-const BACKEND_URL = 'http://127.0.0.1:8000'
+import { auth } from './firebase';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   // Convert /api/* URLs to direct backend calls
@@ -8,14 +10,14 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
     ? url
     : `${BACKEND_URL}/api${url}`
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  }
+  const headers = await getAuthHeaders();
 
   const response = await fetch(backendUrl, {
     ...options,
-    headers,
+    headers: {
+      ...headers,
+      ...options.headers,
+    },
   })
 
   if (!response.ok) {
@@ -25,8 +27,21 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   return response
 }
 
-export function getAuthHeaders() {
-  return {
+export async function getAuthHeaders() {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+  };
+
+  // Add Firebase ID token if user is authenticated
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  } catch (error) {
+    console.warn('Failed to get Firebase ID token:', error);
   }
+
+  return headers;
 }
