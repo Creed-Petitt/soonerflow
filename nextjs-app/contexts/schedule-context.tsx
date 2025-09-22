@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useScheduleData } from '@/hooks/useScheduleData';
 import { useSemesterManagement } from '@/hooks/useSemesterManagement';
+import { useAuth } from '@/contexts/auth-context';
 import type { ScheduledClass, Schedule } from '@/types/course';
 
 interface Semester {
@@ -35,6 +36,7 @@ interface ScheduleContextType {
 const ScheduleContext = createContext<ScheduleContextType | undefined>(undefined);
 
 export function ScheduleProvider({ children }: { children: ReactNode }) {
+  const { currentUser } = useAuth();
   const scheduleData = useScheduleData();
   const semesterData = useSemesterManagement();
 
@@ -58,6 +60,14 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     scheduleData.loadSchedule(semesterData.currentSemester, semesterData.currentSemester);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semesterData.currentSemester]);
+
+  // Clear schedule data when user signs out
+  useEffect(() => {
+    if (currentUser === null) {
+      // User signed out, clear all schedule data
+      scheduleData.setLocalClasses([]);
+    }
+  }, [currentUser, scheduleData.setLocalClasses]);
 
   const addClass = (classData: ScheduledClass) => {
     scheduleData.setLocalClasses(prev => {

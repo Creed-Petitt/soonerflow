@@ -22,6 +22,27 @@ export async function fetchUserActiveSchedule(scheduleId: number = 1): Promise<S
   return { ...data, classes: uniqueClasses };
 }
 
+export async function fetchScheduleForSemester(semester: string): Promise<Schedule> {
+  const response = await fetchWithAuth(`/api/schedules/semester/${semester}`);
+
+  if (!response.ok) {
+    throw new Error('Failed to load schedule for semester');
+  }
+
+  const data = await response.json();
+
+  // Remove duplicates by ID
+  const classMap = new Map<string, ScheduledClass>();
+  (data.classes || []).forEach((cls: ScheduledClass) => {
+    if (!classMap.has(cls.id)) {
+      classMap.set(cls.id, cls);
+    }
+  });
+  const uniqueClasses = Array.from(classMap.values());
+
+  return { ...data, classes: uniqueClasses };
+}
+
 export async function saveScheduleClasses(
   scheduleId: number,
   classIds: string[],
