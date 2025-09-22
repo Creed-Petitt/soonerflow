@@ -8,9 +8,10 @@ import sys
 sys.path.append('/home/highs/ou-class-manager')
 from database.models import (
     User, Schedule, ScheduledClass, Class as ClassModel,
-    create_engine_and_session
+    get_db
 )
 from backend.services import ClassService, ProfessorService
+from backend.auth.auth import get_current_user_optional
 
 
 router = APIRouter(prefix="/api", tags=["schedules"])
@@ -22,15 +23,7 @@ class ScheduleUpdate(BaseModel):
     colors: Optional[Dict[str, str]] = {}
 
 
-# Database dependency
-engine, SessionLocal = create_engine_and_session()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# The get_db dependency is now imported from database.models
 
 
 @router.get("/semesters")
@@ -93,8 +86,19 @@ async def get_available_semesters(
 
 
 @router.get("/schedules/{schedule_id}")
-async def get_schedule(schedule_id: int, db: Session = Depends(get_db)):
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+async def get_schedule(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_optional)
+):
+    if current_user:
+        schedule = db.query(Schedule).filter(
+            Schedule.id == schedule_id,
+            Schedule.user_id == current_user.id
+        ).first()
+    else:
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
 
@@ -153,9 +157,17 @@ async def get_schedule(schedule_id: int, db: Session = Depends(get_db)):
 async def update_schedule_classes(
     schedule_id: int,
     update: ScheduleUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_optional)
 ):
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if current_user:
+        schedule = db.query(Schedule).filter(
+            Schedule.id == schedule_id,
+            Schedule.user_id == current_user.id
+        ).first()
+    else:
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
 

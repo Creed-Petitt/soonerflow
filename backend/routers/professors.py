@@ -1,6 +1,3 @@
-"""
-Router module for professor-related endpoints.
-"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -8,7 +5,7 @@ from typing import List, Optional
 
 import sys
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import create_engine_and_session
+from database.models import get_db
 from backend.services import ProfessorService
 
 
@@ -34,20 +31,11 @@ class ProfessorResponse(BaseModel):
         from_attributes = True
 
 
-# Database dependency
-engine, SessionLocal = create_engine_and_session()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# The get_db dependency is now imported from database.models
 
 
 @router.get("/search")
 async def search_professor(name: str, db: Session = Depends(get_db)):
-    """Search for professor by name using fuzzy matching."""
     if not name or len(name.strip()) < 2:
         raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
     
@@ -62,7 +50,6 @@ async def search_professor(name: str, db: Session = Depends(get_db)):
 
 @router.get("/{professor_id}")
 async def get_professor(professor_id: str, db: Session = Depends(get_db)):
-    """Get professor details by ID."""
     from database.models import Professor, Rating
     
     professor = db.query(Professor).filter(Professor.id == professor_id).first()

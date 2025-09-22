@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 import sys
 sys.path.append('/home/highs/ou-class-manager')
-from database.models import get_database_url, create_engine_and_session
+from database.models import get_db, SessionLocal
 from backend.services import ClassService, ProfessorService
 from backend.config import settings
 
@@ -41,25 +41,7 @@ class ClassResponse(BaseModel):
         from_attributes = True
 
 
-# Database dependency
-engine, SessionLocal = create_engine_and_session()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    except Exception as e:
-        # Rollback failed transaction to prevent poisoning subsequent queries
-        try:
-            db.rollback()
-        except:
-            pass
-        raise e
-    finally:
-        try:
-            db.close()
-        except:
-            pass
+# The get_db dependency is now imported from database.models
 
 
 @router.get("/departments")
