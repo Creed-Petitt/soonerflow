@@ -3,34 +3,15 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import type { ClassData, ScheduledClass } from "@/types/course"
 
-interface ClassData {
-  id: string
-  subject: string
-  number: string
-  title: string
-  instructor: string
-  time: string
-  location: string
-  credits?: number
-  rating?: number
-  difficulty?: number
-  wouldTakeAgain?: number
-  available_seats?: number
-  total_seats?: number
-  description?: string
-  type?: string
-  grade?: string
-  semester?: string
-}
-
-interface ScheduledClass extends ClassData {
+interface EnhancedScheduledClass extends ScheduledClass {
   colorBg: string
   colorHex: string
 }
 
 interface EnrolledClassCardProps {
-  classData: ScheduledClass
+  classData: EnhancedScheduledClass
   onRemove: () => void
   onSwitchSection?: (newSection: ClassData) => void
   availableSections?: ClassData[]
@@ -43,16 +24,12 @@ interface EnrolledClassCardProps {
 export function EnrolledClassCard({
   classData,
   onRemove,
-  onSwitchSection,
   availableSections,
   availableLabSections,
   showRemoveButton = true,
   onClick,
   isCurrentSemester = true
 }: EnrolledClassCardProps) {
-  const hasMultipleSections = (availableSections && availableSections.length > 1) ||
-                              (classData.type === 'Lab with No Credit' && availableLabSections && availableLabSections.length > 1)
-
   const isCompleted = (classData.instructor === 'Completed' || classData.type === 'Completed Course') && !isCurrentSemester
 
   return (
@@ -66,7 +43,7 @@ export function EnrolledClassCard({
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-1">
-              <span className="font-semibold text-sm">{classData.subject} {classData.number}</span>
+              <span className="font-semibold text-sm">{classData.subject} {classData.number || classData.courseNumber}</span>
               {isCompleted && <span className="text-xs text-green-600">✓</span>}
             </div>
             <p className="text-xs text-muted-foreground line-clamp-1">

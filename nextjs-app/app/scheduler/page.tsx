@@ -13,7 +13,6 @@ import { useSchedule } from '@/hooks/use-schedule'
 import { useSchedulerData } from '@/hooks/useSchedulerData'
 import { useSchedulerActions } from '@/hooks/useSchedulerActions'
 import { SidebarCalendarButtons } from '@/components/scheduler/sidebar-calendar-buttons'
-import Link from 'next/link'
 
 export default function SchedulerPage() {
   // const { isLoading } = useSchedule()
@@ -85,7 +84,7 @@ export default function SchedulerPage() {
                       return (
                         <EnrolledClassCard
                           key={cls.id}
-                          classData={cls}
+                          classData={cls as any}
                           onRemove={() => handleRemoveFromSchedule(cls.id)}
                           onSwitchSection={newSection =>
                             handleSectionSwitch(cls, newSection)

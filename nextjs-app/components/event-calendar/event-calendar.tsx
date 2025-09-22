@@ -1,44 +1,22 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { RiCalendarCheckLine } from "@remixicon/react"
+import { useState } from "react"
 import {
-  addDays,
-  addMonths,
   addWeeks,
   endOfWeek,
   format,
   isSameMonth,
   startOfWeek,
-  subMonths,
   subWeeks,
 } from "date-fns"
 import { useSchedule } from "@/contexts/schedule-context"
-import {
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  PlusIcon,
-  X,
-  ChevronDown,
-} from "lucide-react"
 import { toast } from "sonner"
 
-import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "@/components/event-calendar/constants"
+import { EventGap, EventHeight, WeekCellsHeight } from "@/components/event-calendar/constants"
 import { addHoursToDate } from "@/components/event-calendar/utils"
 import { TimeGridView } from "@/components/event-calendar/time-grid-view"
 import { EventDialog } from "@/components/event-calendar/event-dialog"
 import type { CalendarEvent, CalendarView } from "@/components/event-calendar/types"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LabSwitchingDropdown } from "@/components/lab-switching-dropdown"
 
 export interface EventCalendarProps {
   events?: CalendarEvent[]
@@ -64,16 +42,9 @@ export function EventCalendar({
   onEventUpdate,
   onEventDelete,
   onEventSelect,
-  className,
-  initialView = "month",
   currentDate: externalDate,
   onDateChange,
-  scheduledClasses = [],
-  totalCredits = 0,
   isLoading = false,
-  groupedClasses = [],
-  onRemoveFromSchedule,
-  onLabSwitch,
 }: EventCalendarProps) {
   const { currentSemester, availableSemesters } = useSchedule()
   
@@ -87,7 +58,6 @@ export function EventCalendar({
     }
   }
   // Force week view only - no view switching
-  const view = "week"
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   
