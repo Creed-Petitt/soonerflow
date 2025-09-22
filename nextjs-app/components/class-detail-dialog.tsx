@@ -100,6 +100,7 @@ export function ClassDetailDialog({
   React.useEffect(() => {
     if (currentSection?.id) {
       setLoadingDetails(true);
+      setDetailedClassData(null);
       fetchClassDetails(currentSection.id).then(details => {
         setDetailedClassData(details);
         setLoadingDetails(false);

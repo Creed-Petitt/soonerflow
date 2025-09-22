@@ -28,6 +28,7 @@ export function useProfessorData(): UseProfessorDataReturn {
     }
 
     setIsLoading(true);
+    setProfessorData(null);
     try {
       // Parse instructor name (usually "Last, First")
       const nameParts = instructorName.split(',').map((p: string) => p.trim());

@@ -19,6 +19,8 @@ export function useClassData(): UseClassDataReturn {
 
   const loadClassesForDepartment = async (dept: string, semester: string) => {
     setIsLoading(true);
+    setClasses([]);
+    setGroupedClasses([]);
     const { classes: deptClasses } = await fetchClassesForDepartment(dept, semester);
     setClasses(deptClasses);
     setGroupedClasses(processClasses(deptClasses));
