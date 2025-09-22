@@ -166,7 +166,7 @@ def fetch_basic_professors():
         logger.error(f"Response: {response.text}")
         return []
 
-def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = False):
+def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = False, min_ratings: int = 10):
     
     # Setup clients and logging
     logger = setup_logging()
@@ -177,6 +177,7 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
     logger.info("=== STARTING PROFESSOR LOADER ===")
     logger.info(f"Test mode: {test_mode}")
     logger.info(f"Detailed mode: {detailed_mode}")
+    logger.info(f"Minimum ratings threshold: {min_ratings}")
     
     # Phase 1: Fetch and save basic professor data
     teachers = fetch_basic_professors()
@@ -225,12 +226,17 @@ def load_professors_to_database(test_mode: bool = True, detailed_mode: bool = Fa
         # Get professors with enough ratings for detailed fetching
         session = db_client.get_session()
         try:
-            from database.models import Professor
+            from database.models import Professor, Rating
+
+            # Get professors that meet the rating threshold BUT don't already have detailed ratings data
             qualified_professors = session.query(Professor).filter(
-                Professor.numRatings >= 10
+                Professor.numRatings >= min_ratings,
+                ~Professor.id.in_(
+                    session.query(Rating.professorId).distinct()
+                )
             ).all()
             
-            logger.info(f"Found {len(qualified_professors)} professors with >= 10 ratings")
+            logger.info(f"Found {len(qualified_professors)} professors with >= {min_ratings} ratings (excluding those with existing ratings data)")
 
             if test_mode:
                 qualified_professors = qualified_professors[:3]
@@ -298,11 +304,12 @@ if __name__ == "__main__":
     parser.add_argument('--test', action='store_true', help='Run in test mode (small sample)')
     parser.add_argument('--full', action='store_true', help='Run in full mode (all professors)')
     parser.add_argument('--detailed', action='store_true', help='Also fetch detailed ratings data')
+    parser.add_argument('--min-ratings', type=int, default=10, help='Minimum number of ratings for detailed fetch (default: 10)')
     
     args = parser.parse_args()
     
     if args.full:
-        load_professors_to_database(test_mode=False, detailed_mode=args.detailed)
+        load_professors_to_database(test_mode=False, detailed_mode=args.detailed, min_ratings=args.min_ratings)
     else:
         # Default to test mode
-        load_professors_to_database(test_mode=True, detailed_mode=args.detailed)
+        load_professors_to_database(test_mode=True, detailed_mode=args.detailed, min_ratings=args.min_ratings)
