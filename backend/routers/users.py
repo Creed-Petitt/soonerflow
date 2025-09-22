@@ -4,8 +4,6 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-import sys
-sys.path.append('/home/highs/ou-class-manager')
 from database.models import User, Schedule, get_db
 from backend.auth.auth import get_current_user
 

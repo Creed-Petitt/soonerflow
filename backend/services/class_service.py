@@ -3,8 +3,6 @@ from typing import List, Dict, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
-import sys
-sys.path.append('/home/highs/ou-class-manager')
 from database.models import Class as ClassModel, MeetingTime, Prerequisite, ScheduledClass, Schedule
 from backend.config import settings
 from datetime import datetime, time

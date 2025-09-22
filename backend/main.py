@@ -2,9 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import sys
-
-# Add the parent directory to the path
-sys.path.append('/home/highs/ou-class-manager')
+import os
 
 from backend.config import settings
 from backend.routers import (

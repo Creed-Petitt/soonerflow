@@ -4,8 +4,6 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict
 from datetime import datetime
 
-import sys
-sys.path.append('/home/highs/ou-class-manager')
 from database.models import (
     User, Schedule, ScheduledClass, Class as ClassModel,
     get_db

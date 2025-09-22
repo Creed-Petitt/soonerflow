@@ -3,8 +3,6 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-import sys
-sys.path.append('/home/highs/ou-class-manager')
 from database.models import get_db, SessionLocal
 from backend.services import ClassService, ProfessorService
 from backend.config import settings

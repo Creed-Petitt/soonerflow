@@ -5,8 +5,6 @@ from sqlalchemy import text
 from rapidfuzz import fuzz, process
 import re
 
-import sys
-sys.path.append('/home/highs/ou-class-manager')
 from database.models import Professor, Rating
 from backend.config import settings
 

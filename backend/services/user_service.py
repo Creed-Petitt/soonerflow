@@ -1,8 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional
 
-import sys
-sys.path.append('/home/highs/ou-class-manager')
 from database.models import User, Schedule
 
 class UserService:
