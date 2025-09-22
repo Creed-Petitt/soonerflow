@@ -34,7 +34,7 @@ export function processCalendarEvents(classes: ScheduledClass[]): CalendarEvent[
         description: `${classData.title}\n${classData.instructor}\n${classData.location}`,
         start: getTemplateDateForDay(dayChar, parsedTime.startTime.hour, parsedTime.startTime.min),
         end: getTemplateDateForDay(dayChar, parsedTime.endTime.hour, parsedTime.endTime.min),
-        color: 'sky' as const
+        color: classData.colorHex
       }));
     })
     .flat();

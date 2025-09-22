@@ -45,6 +45,8 @@ function EventWrapper({
 
   const isEventInPast = isPast(displayEnd)
 
+  const isHexColor = event.color && event.color.startsWith('#')
+
   return (
     <button
       className={cn(
@@ -53,6 +55,7 @@ function EventWrapper({
         getBorderRadiusClasses(isFirstDay, isLastDay),
         className
       )}
+      style={isHexColor ? { backgroundColor: event.color + 'CC' } : undefined} // Add some transparency
       data-past-event={isEventInPast || undefined}
       onClick={onClick}
     >
@@ -179,6 +182,8 @@ export function EventItem({
   }
 
   // Agenda view - kept separate since it's significantly different
+  const isAgendaHexColor = eventColor && eventColor.startsWith('#')
+
   return (
     <button
       className={cn(
@@ -186,6 +191,7 @@ export function EventItem({
         getEventColorClasses(eventColor),
         className
       )}
+      style={isAgendaHexColor ? { backgroundColor: eventColor + 'CC' } : undefined} // Add some transparency
       data-past-event={isPast(new Date(event.end)) || undefined}
       onClick={onClick}
     >

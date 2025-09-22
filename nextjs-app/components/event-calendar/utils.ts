@@ -6,8 +6,11 @@ import type {
 } from "@/components/event-calendar/types"
 
 export function getEventColorClasses(color?: EventColor | string): string {
-  const eventColor = color || "sky"
 
+  if (color && color.startsWith('#')) {
+    return `text-white backdrop-blur-md border border-white/20`
+  }
+  const eventColor = color || "sky"
   switch (eventColor) {
     case "sky":
       return "bg-sky-200/50 hover:bg-sky-200/40 text-sky-950/80 dark:bg-sky-400/25 dark:hover:bg-sky-400/20 dark:text-sky-200 shadow-sky-700/8"

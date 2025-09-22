@@ -7,7 +7,7 @@ export interface CalendarEvent {
   start: Date
   end: Date
   allDay?: boolean
-  color?: EventColor
+  color?: EventColor | string
   location?: string
 }
 
