@@ -78,22 +78,24 @@ async def get_classes(
     
     # Add professor ratings if not skipped
     if not skip_ratings and limit <= settings.skip_ratings_threshold:
-        # Use a separate database session for professor service to prevent session poisoning
-        professor_db = SessionLocal()
-        try:
-            isolated_professor_service = ProfessorService(professor_db)
-            for cls_data in result["classes"]:
-                ratings = isolated_professor_service.get_rating(cls_data["id"], cls_data["instructor"])
-                cls_data.update(ratings)
-        except Exception as e:
-            # Continue without ratings rather than failing the entire request
-            pass
-        finally:
-            try:
-                professor_db.close()
-            except:
-                pass
-    
+                    # Use a separate database session for professor service to prevent session poisoning
+                    professor_db = SessionLocal()
+                    try:
+                        isolated_professor_service = ProfessorService(professor_db)
+                        instructor_names = [cls["instructor"] for cls in result["classes"] if cls.get("instructor")]
+                        all_ratings = isolated_professor_service.get_ratings_for_instructors(instructor_names)
+        
+                        for cls_data in result["classes"]:
+                            ratings = all_ratings.get(cls_data["instructor"], {})
+                            cls_data.update(ratings)
+                    except Exception as e:
+                        # Continue without ratings rather than failing the entire request
+                        pass
+                    finally:
+                        try:
+                            professor_db.close()
+                        except:
+                            pass    
     # Convert to response objects
     response_classes = [ClassResponse(**cls_data) for cls_data in result["classes"]]
 

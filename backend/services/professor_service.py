@@ -79,6 +79,59 @@ class ProfessorService:
             "comments": comments
         }
     
+    def get_ratings_for_instructors(self, instructor_names: List[str]) -> Dict[str, dict]:
+        if not instructor_names:
+            return {}
+
+        # Get all professors with ratings once
+        try:
+            professors = self.db.query(Professor).filter(Professor.avgRating > 0).all()
+            if not professors:
+                return {}
+        except Exception:
+            try:
+                self.db.rollback()
+            except:
+                pass
+            return {}
+
+        # Build a list of professor names for fuzzy matching
+        professor_names_list = [f"{prof.firstName} {prof.lastName}".strip() for prof in professors]
+        professor_map = {f"{prof.firstName} {prof.lastName}".strip(): prof for prof in professors}
+
+        instructor_ratings = {}
+        unique_instructor_names = set(instructor_names)
+
+        for name in unique_instructor_names:
+            if not name or name.upper() == "TBA":
+                continue
+            
+            # Clean and prepare name variations
+            name_variations = self._generate_name_variations(name)
+
+            best_prof = None
+            highest_score = 0
+
+            for name_variant in name_variations:
+                # Use token sort ratio for better handling of name order variations
+                best_match = process.extractOne(
+                    name_variant,
+                    professor_names_list,
+                    scorer=fuzz.token_sort_ratio
+                )
+
+                if best_match and best_match[1] > highest_score:
+                    highest_score = best_match[1]
+                    if best_match[1] >= settings.fuzzy_match_threshold:
+                        best_prof = professor_map.get(best_match[0])
+
+            if best_prof:
+                instructor_ratings[name] = self._format_professor_rating(best_prof)
+            else:
+                instructor_ratings[name] = self._empty_rating()
+
+        return instructor_ratings
+
     def _find_professor(self, class_id: str, instructor_name: str) -> Optional[Professor]:
         
         # Only use name matching - no broken table lookups
