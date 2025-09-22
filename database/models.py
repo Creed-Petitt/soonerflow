@@ -30,7 +30,6 @@ class Class(Base):
     totalSeats = Column(Integer, default=0)  # Total seats
     semester = Column(String, nullable=False, index=True, default="202510")  # Semester code (e.g., "202510" for Fall 2025)
     
-    # Relationships
     meetingTimes = relationship("MeetingTime", back_populates="class_", cascade="all, delete-orphan")
 
 class MeetingTime(Base):
@@ -45,7 +44,6 @@ class MeetingTime(Base):
     building = Column(String)  # "Felgar Hall"
     room = Column(String)  # "300"
     
-    # Relationships
     class_ = relationship("Class", back_populates="meetingTimes")
 
 class User(Base):
@@ -59,7 +57,6 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     schedules = relationship("Schedule", back_populates="user", cascade="all, delete-orphan")
 
 
@@ -74,7 +71,6 @@ class Schedule(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships
     user = relationship("User", back_populates="schedules")
     scheduled_classes = relationship("ScheduledClass", back_populates="schedule", cascade="all, delete-orphan")
 
@@ -87,7 +83,6 @@ class ScheduledClass(Base):
     color = Column(String, default="#3b82f6")  # Hex color for calendar display
     added_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relationships
     schedule = relationship("Schedule", back_populates="scheduled_classes")
     class_ = relationship("Class")
 
@@ -102,7 +97,6 @@ class Prerequisite(Base):
     prerequisite_group = Column(Integer, default=1)  # For grouping OR conditions
     raw_text = Column(Text)  # Original prerequisite text for reference
     
-    # Relationships
     class_ = relationship("Class")
 
 class Department(Base):
@@ -119,7 +113,6 @@ class Professor(Base):
     lastName = Column(String, nullable=False, index=True)
     department = Column(String)
 
-    # Rating info
     avgRating = Column(Float, index=True)
     numRatings = Column(Integer, default=0)
     avgDifficulty = Column(Float)
@@ -139,7 +132,6 @@ class Professor(Base):
     # Course codes (stored as JSON)
     courseCodes = Column(String)  # JSON array of course objects
     
-    # Relationships
     ratings = relationship("Rating", back_populates="professor", cascade="all, delete-orphan")
 
 class Rating(Base):
@@ -175,64 +167,63 @@ class Rating(Base):
     thumbsUpTotal = Column(Integer, default=0)
     thumbsDownTotal = Column(Integer, default=0)
     
-    # Relationships
     professor = relationship("Professor", back_populates="ratings")
 
 
 
 
 def get_database_url():
-    """Get the database URL from environment variables or fallback to SQLite"""
     import os
     from dotenv import load_dotenv
-    
+
     # Load environment variables
     load_dotenv()
-    
-    # Check for DATABASE_URL environment variable first
+
+    # Get DATABASE_URL from environment
     database_url = os.getenv('DATABASE_URL')
-    if database_url:
-        return database_url
-    
-    # Fallback to SQLite for backward compatibility
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(current_dir, 'dev.db')
-    return f"sqlite:///{db_path}"
+    if not database_url:
+        raise ValueError("DATABASE_URL environment variable is required")
+
+    return database_url
 
 def create_engine_and_session():
-    """Create SQLAlchemy engine and session with connection pooling"""
     database_url = get_database_url()
-    
-    # Configure engine based on database type
-    if database_url.startswith('postgresql://'):
-        engine = create_engine(
-            database_url, 
-            echo=False,
-            pool_pre_ping=True,
-            pool_recycle=3600,  # Recycle connections every hour
-            pool_size=10,       # Connection pool size
-            max_overflow=20,    # Max overflow connections
-            pool_timeout=30,    # Connection timeout
-            # Remove problematic connection args for now
-            # connect_args={"options": "-c default_transaction_isolation='read committed'"}
-        )
-    else:
-        # SQLite configuration with connection pooling
-        engine = create_engine(
-            database_url, 
-            echo=False,
-            connect_args={"check_same_thread": False, "timeout": 30},
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
-            pool_recycle=3600
-        )
-    
+
+    engine = create_engine(
+        database_url,
+        echo=False,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        pool_size=10,
+        max_overflow=20,
+        pool_timeout=30
+    )
+
     SessionLocal = sessionmaker(
         autocommit=False,
         autoflush=False,
         bind=engine,
-        expire_on_commit=False  # Prevent expired objects after transaction
+        expire_on_commit=False
     )
 
     return engine, SessionLocal
+
+# Create a global session factory
+engine, SessionLocal = create_engine_and_session()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    except Exception as e:
+        # Rollback failed transaction to prevent poisoning subsequent queries
+        try:
+            db.rollback()
+        except:
+            pass
+        raise e
+    finally:
+        try:
+            db.close()
+        except:
+            pass
