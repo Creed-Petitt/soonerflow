@@ -1,6 +1,3 @@
-"""
-Refactored main FastAPI application using routers and services.
-"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -14,29 +11,27 @@ from backend.routers import (
     classes_router,
     professors_router,
     users_router,
-    schedules_router,
-    majors_router
+    schedules_router
 )
-from database.models import create_engine_and_session
+from database.models import create_engine_and_session, Base
+from backend.auth.firebase_config import initialize_firebase
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
+        print("Initializing Firebase...")
+        initialize_firebase()
+        print("Starting database initialization...")
         engine, SessionLocal = create_engine_and_session()
-        db = SessionLocal()
-        try:
-            from database.models import Class as ClassModel
-            db.query(ClassModel).first()
-        finally:
-            db.close()
-    except Exception:
-        pass
+        print("Engine created, creating tables...")
+        Base.metadata.create_all(bind=engine)
+        print("Tables created successfully!")
+    except Exception as e:
+        print(f"Initialization failed: {e}")
     yield
 
-# Create FastAPI app with settings
 app = FastAPI(title=settings.api_title, version=settings.api_version, lifespan=lifespan)
 
-# Enable CORS using settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -50,7 +45,6 @@ app.include_router(classes_router)
 app.include_router(professors_router)
 app.include_router(users_router)
 app.include_router(schedules_router)
-app.include_router(majors_router)
 
 # Root endpoint
 @app.get("/")
@@ -63,8 +57,7 @@ async def health_check():
     return {
         "status": "healthy",
         "debug_mode": settings.debug,
-        "fuzzy_match_enabled": settings.use_new_professor_service,
-        "cache_enabled": settings.enable_professor_cache
+        "fuzzy_match_threshold": settings.fuzzy_match_threshold
     }
 
 if __name__ == "__main__":
