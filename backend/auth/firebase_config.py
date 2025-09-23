@@ -4,7 +4,7 @@ import os
 
 def initialize_firebase():
     # Use an environment variable for the path, falling back to a default
-    cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY_PATH", "firebase-service-account.json")
+    cred_path = "backend/firebase-service-account.json"
 
     if not os.path.exists(cred_path):
         raise FileNotFoundError(f"Firebase service account key not found at {cred_path}")
