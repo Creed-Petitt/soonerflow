@@ -15,4 +15,6 @@ def initialize_firebase():
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
 
-    print("Firebase initialized successfully!")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Firebase initialized successfully!")

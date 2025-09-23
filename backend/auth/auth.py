@@ -63,8 +63,9 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
-        # Log the error for debugging but don't expose internal details
-        print(f"Authentication error: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Authentication error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during authentication",

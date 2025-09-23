@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import sys
 import os
+import logging
 
 from backend.config import settings
+from backend.logging_config import setup_logging
 from backend.routers import (
     classes_router,
     professors_router,
@@ -14,18 +16,20 @@ from backend.routers import (
 from database.models import create_engine_and_session, Base
 from backend.auth.firebase_config import initialize_firebase
 
+logger = setup_logging()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        print("Initializing Firebase...")
+        logger.info("Initializing Firebase...")
         initialize_firebase()
-        print("Starting database initialization...")
+        logger.info("Starting database initialization...")
         engine, SessionLocal = create_engine_and_session()
-        print("Engine created, creating tables...")
+        logger.info("Engine created, creating tables...")
         Base.metadata.create_all(bind=engine)
-        print("Tables created successfully!")
+        logger.info("Tables created successfully!")
     except Exception as e:
-        print(f"Initialization failed: {e}")
+        logger.error(f"Initialization failed: {e}")
     yield
 
 app = FastAPI(title=settings.api_title, version=settings.api_version, lifespan=lifespan)
