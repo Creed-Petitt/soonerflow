@@ -22,7 +22,7 @@ export function useSemesterManagement() {
 
   const loadSemesters = async () => {
     try {
-      const url = `http://127.0.0.1:8000/api/semesters?include_summers=${includeSummerSemesters}&include_historical=${includeHistoricalSemesters}`
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'}/api/semesters?include_summers=${includeSummerSemesters}&include_historical=${includeHistoricalSemesters}`
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()

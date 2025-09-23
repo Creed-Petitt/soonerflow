@@ -8,7 +8,7 @@ export async function fetchClassesForDepartment(
 ): Promise<{ classes: ClassData[]; total: number }> {
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/api/classes?subject=${department}&semester=${semester}&limit=${limit}&skip_ratings=true`
+      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'}/api/classes?subject=${department}&semester=${semester}&limit=${limit}&skip_ratings=true`
     );
 
     if (!response.ok) {
@@ -65,7 +65,7 @@ export function processClasses(allClasses: ClassData[]): GroupedClass[] {
 
 export async function fetchClassDetails(classId: string): Promise<ClassData | null> {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/classes/${classId}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'}/api/classes/${classId}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch class details');
