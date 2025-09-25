@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         env="CORS_ORIGINS"
     )
 
-    fuzzy_match_threshold: int = Field(default=100, ge=0, le=100)
+    fuzzy_match_threshold: int = Field(default=70, ge=0, le=100)
     max_classes_per_request: int = Field(default=50000)
     skip_ratings_threshold: int = Field(default=500)
     api_title: str = Field(default="OU Class Manager API")

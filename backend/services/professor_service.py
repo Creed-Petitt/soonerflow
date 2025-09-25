@@ -205,15 +205,45 @@ class ProfessorService:
         return None
     
     def _generate_name_variations(self, name: str) -> List[str]:
-        
+
         variations = [name]
-        
+
+        # Normalize extra spaces first
+        normalized_name = re.sub(r'\s+', ' ', name.strip())
+        if normalized_name != name:
+            variations.append(normalized_name)
+
+        # Remove common titles and suffixes
+        title_pattern = r'\b(Dr|Prof|Professor|Mr|Ms|Mrs|Jr|Sr|II|III|IV)\.?\b'
+        title_removed = re.sub(title_pattern, '', name, flags=re.IGNORECASE).strip()
+        title_removed = re.sub(r'\s+', ' ', title_removed)  # Clean up extra spaces
+        if title_removed and title_removed != name:
+            variations.append(title_removed)
+
         # Handle "Mc" names (e.g., "Mc Cann" vs "McCann")
         if 'Mc ' in name:
-            variations.append(name.replace('Mc ', 'Mc'))
+            mc_fixed = name.replace('Mc ', 'Mc')
+            variations.append(mc_fixed)
         elif 'Mc' in name and 'Mc ' not in name:
-            variations.append(re.sub(r'Mc([A-Z])', r'Mc \1', name))
-        
+            mc_spaced = re.sub(r'Mc([A-Z])', r'Mc \1', name)
+            variations.append(mc_spaced)
+
+        # Handle "Mac" names similarly
+        if 'Mac ' in name:
+            mac_fixed = name.replace('Mac ', 'Mac')
+            variations.append(mac_fixed)
+        elif 'Mac' in name and 'Mac ' not in name:
+            mac_spaced = re.sub(r'Mac([A-Z])', r'Mac \1', name)
+            variations.append(mac_spaced)
+
+        # Handle "O'" names (e.g., "O Sullivan" vs "O'Sullivan")
+        if 'O ' in name:
+            o_apostrophe = re.sub(r'\bO ([A-Z])', r"O'\1", name)
+            variations.append(o_apostrophe)
+        elif "O'" in name:
+            o_spaced = re.sub(r"\bO'([A-Z])", r'O \1', name)
+            variations.append(o_spaced)
+
         # Handle "Last, First" format
         if ',' in name:
             parts = name.split(',', 1)
@@ -221,13 +251,40 @@ class ProfessorService:
                 last, first = parts[0].strip(), parts[1].strip()
                 variations.append(f"{first} {last}")  # Convert to "First Last"
                 variations.append(f"{last} {first}")  # Keep "Last First"
-        
-        # Handle hyphenated names
+
+        # Handle hyphenated names (comprehensive)
         if '-' in name:
-            variations.append(name.replace('-', ' '))
-            variations.append(name.replace('-', ''))
-        
-        return variations
+            # Version with spaces instead of hyphens
+            space_version = name.replace('-', ' ')
+            variations.append(space_version)
+
+            # Version with no hyphens or spaces
+            no_hyphen = name.replace('-', '')
+            variations.append(no_hyphen)
+
+            # Version with normalized hyphen spacing
+            clean_hyphen = re.sub(r'\s*-\s*', '-', name)
+            if clean_hyphen != name:
+                variations.append(clean_hyphen)
+
+        # Handle names with spaces that might be hyphenated in database
+        elif ' ' in name and '-' not in name:
+            # Try hyphenated version
+            words = name.split()
+            if len(words) >= 2:
+                # Hyphenate the last two words (most common case)
+                if len(words) >= 2:
+                    hyphenated = ' '.join(words[:-2] + ['-'.join(words[-2:])])
+                    variations.append(hyphenated)
+
+        # Remove duplicates and empty strings, return unique variations
+        unique_variations = []
+        for var in variations:
+            clean_var = var.strip()
+            if clean_var and clean_var not in unique_variations:
+                unique_variations.append(clean_var)
+
+        return unique_variations
     
     def _fallback_word_matching(self, name: str) -> Optional[Professor]:
         

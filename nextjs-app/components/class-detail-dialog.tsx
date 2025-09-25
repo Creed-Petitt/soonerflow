@@ -57,7 +57,7 @@ export function ClassDetailDialog({
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
   const [detailedClassData, setDetailedClassData] = React.useState<any>(null);
   const [loadingDetails, setLoadingDetails] = React.useState(false);
-  const { professorData, isLoading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
+  const { professorData, professorError, isLoading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
   
   // Track original selections for change mode
   const [originalSection, setOriginalSection] = React.useState<any>(null);
@@ -322,15 +322,15 @@ export function ClassDetailDialog({
                       </div>
                       <p className="text-xs text-muted-foreground">Overall</p>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <p className="text-2xl font-bold">{professorData.difficulty.toFixed(1)}</p>
                       <div className="flex justify-center">
-                        <Gauge 
+                        <Gauge
                           className={`h-4 w-4 ${
-                            professorData.difficulty <= 2 
+                            professorData.difficulty <= 2
                               ? 'text-green-500'
-                              : professorData.difficulty <= 3.5 
+                              : professorData.difficulty <= 3.5
                               ? 'text-yellow-500'
                               : 'text-red-500'
                           }`}
@@ -338,15 +338,15 @@ export function ClassDetailDialog({
                       </div>
                       <p className="text-xs text-muted-foreground">Difficulty</p>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <p className="text-2xl font-bold">{Math.round(professorData.wouldTakeAgain)}%</p>
                       <div className="flex justify-center">
-                        <ThumbsUp 
+                        <ThumbsUp
                           className={`h-4 w-4 ${
-                            professorData.wouldTakeAgain >= 70 
+                            professorData.wouldTakeAgain >= 70
                               ? 'text-green-500 fill-green-500/20'
-                              : professorData.wouldTakeAgain >= 50 
+                              : professorData.wouldTakeAgain >= 50
                               ? 'text-yellow-500 fill-yellow-500/20'
                               : 'text-red-500 fill-red-500/20'
                           }`}
@@ -379,9 +379,47 @@ export function ClassDetailDialog({
                     Based on {professorData.totalRatings} ratings from RateMyProfessor
                   </p>
                 </>
+              ) : professorError ? (
+                <div className="py-8 text-center space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    {professorError.type === 'invalid_instructor' ? (
+                      <>
+                        <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="font-medium">No Instructor Assigned</p>
+                        <p className="text-xs">This section shows "TBA" for the instructor</p>
+                      </>
+                    ) : professorError.type === 'not_found' ? (
+                      <>
+                        <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="font-medium">No Rating Data Available</p>
+                        <p className="text-xs">
+                          {professorError.instructorName} doesn't have ratings on RateMyProfessor
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="font-medium">Unable to Load Rating Data</p>
+                        <p className="text-xs">Please check your connection and try again</p>
+                      </>
+                    )}
+                  </div>
+
+                  {currentSection?.instructor && currentSection.instructor !== 'TBA' && (
+                    <div className="pt-2 border-t">
+                      <p className="text-sm font-medium text-foreground">
+                        Instructor: {currentSection.instructor}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Course information is still available in the Class tab
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  No professor information available
+                  <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                  <p>No professor information available</p>
                 </div>
               )}
             </div>
