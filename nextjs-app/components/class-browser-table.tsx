@@ -12,6 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { GroupedClass } from "@/hooks/useClassData";
+import { hasTimeConflict } from "@/lib/time-conflict-utils";
+import type { ScheduledClass } from "@/types/course";
 
 interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
@@ -20,6 +22,7 @@ interface ClassBrowserTableProps {
   groupedClassesLength: number;
   handleClassClick: (grouped: GroupedClass) => void;
   isClassScheduled: (id: string) => boolean;
+  scheduledClasses: ScheduledClass[];
 }
 
 // Helper function to get display info for a grouped class
@@ -64,6 +67,7 @@ export function ClassBrowserTable({
   groupedClassesLength,
   handleClassClick,
   isClassScheduled,
+  scheduledClasses,
 }: ClassBrowserTableProps) {
 
   return (
@@ -97,11 +101,28 @@ export function ClassBrowserTable({
               const isScheduled = grouped.sections.some(s => isClassScheduled(s.id));
               const allFull = display.totalAvailable === 0 && display.totalSeats > 0;
 
+              // Check if any section of this class would have time conflicts
+              const hasConflicts = grouped.sections.some(section => {
+                const scheduledClass = {
+                  id: section.id,
+                  subject: grouped.subject,
+                  number: grouped.number,
+                  title: grouped.title,
+                  time: section.time || (section.meetingTimes?.[0] ?
+                    `${section.meetingTimes[0].days || ''} ${section.meetingTimes[0].startTime || ''}-${section.meetingTimes[0].endTime || ''}`.trim()
+                    : 'TBA'),
+                  instructor: section.instructor,
+                  location: section.location || section.meetingTimes?.[0]?.location,
+                  credits: grouped.credits || section.credits || 3,
+                };
+                return hasTimeConflict(scheduledClass, scheduledClasses);
+              });
+
               return (
                 <TableRow
                   key={`${grouped.subject}-${grouped.number}`}
                   className={`cursor-pointer hover:bg-muted/50 ${
-                    isScheduled ? 'opacity-50' : ''
+                    isScheduled ? 'opacity-50' : hasConflicts ? 'opacity-60 bg-red-500/5' : ''
                   }`}
                   onClick={() => handleClassClick(grouped)}
                 >
@@ -120,6 +141,8 @@ export function ClassBrowserTable({
                   <TableCell>
                     {isScheduled ? (
                       <Badge variant="secondary" className="text-xs">Added</Badge>
+                    ) : hasConflicts ? (
+                      <Badge variant="outline" className="text-xs text-destructive border-destructive">Conflict</Badge>
                     ) : (
                       <Button
                         size="sm"

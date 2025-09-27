@@ -171,6 +171,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
           groupedClassesLength={groupedClasses.length}
           handleClassClick={handleClassClick}
           isClassScheduled={isClassScheduled}
+          scheduledClasses={scheduledClasses}
         />
       </div>
 

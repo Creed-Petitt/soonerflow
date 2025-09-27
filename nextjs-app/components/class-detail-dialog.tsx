@@ -33,6 +33,7 @@ import { useSchedule } from "@/hooks/use-schedule";
 import { cleanDescription, formatPrerequisites } from "@/utils/course-utils";
 import { useProfessorData } from "@/hooks/useProfessorData";
 import { fetchClassDetails } from "@/lib/class-api";
+import { checkTimeConflict, formatConflictMessage } from "@/lib/time-conflict-utils";
 
 interface ClassDetailDialogProps {
   isOpen: boolean;
@@ -57,8 +58,10 @@ export function ClassDetailDialog({
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
   const [detailedClassData, setDetailedClassData] = React.useState<any>(null);
   const [loadingDetails, setLoadingDetails] = React.useState(false);
+  const [conflictError, setConflictError] = React.useState<string | null>(null);
   const { professorData, professorError, isLoading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
-  
+  const { scheduledClasses } = useSchedule();
+
   // Track original selections for change mode
   const [originalSection, setOriginalSection] = React.useState<any>(null);
   const [originalLabSection, setOriginalLabSection] = React.useState<any>(null);
@@ -69,13 +72,16 @@ export function ClassDetailDialog({
       // Set section - use selectedSection prop if provided, otherwise first section
       const initialSection = selectedSection || (groupedClass.sections && groupedClass.sections.length > 0 ? groupedClass.sections[0] : null);
       setCurrentSection(initialSection);
-      
+
       // Reset lab selection
       setCurrentLabSection(null);
-      
+
       // Reset view to class tab
       setCurrentView("class");
-      
+
+      // Reset conflict error
+      setConflictError(null);
+
       // Store original selections for change mode
       if (isChangeMode) {
         setOriginalSection(initialSection);
@@ -86,6 +92,11 @@ export function ClassDetailDialog({
       }
     }
   }, [isOpen, groupedClass, selectedSection, isChangeMode]);
+
+  // Clear conflict error when section changes
+  React.useEffect(() => {
+    setConflictError(null);
+  }, [currentSection, currentLabSection]);
 
   // Load professor data when section changes
   React.useEffect(() => {
@@ -426,13 +437,41 @@ export function ClassDetailDialog({
           )}
         </div>
         <div className="px-6 py-4 border-t shrink-0">
+          {conflictError && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg text-sm font-medium mb-4 text-center">
+              {conflictError}
+            </div>
+          )}
           {buttonText ? (
             <Button
               className="w-full"
               onClick={() => {
+                // Create a scheduled class object to check for conflicts
+                const newScheduledClass = {
+                  id: currentSection.id,
+                  subject: groupedClass.subject,
+                  number: groupedClass.number || groupedClass.courseNumber,
+                  title: groupedClass.title,
+                  time: currentSection.time || (currentSection.meetingTimes?.[0] ?
+                    `${currentSection.meetingTimes[0].days || ''} ${currentSection.meetingTimes[0].startTime || ''}-${currentSection.meetingTimes[0].endTime || ''}`.trim()
+                    : 'TBA'),
+                  instructor: currentSection.instructor,
+                  location: currentSection.location || currentSection.meetingTimes?.[0]?.location,
+                  credits: groupedClass.credits || currentSection.credits || 3,
+                };
+
+                // Check for time conflicts (skip if in change mode - we're replacing)
+                if (!isChangeMode) {
+                  const conflict = checkTimeConflict(newScheduledClass, scheduledClasses);
+                  if (conflict) {
+                    setConflictError(formatConflictMessage(conflict));
+                    return; // Don't proceed with adding
+                  }
+                }
+
                 // Pass both section and lab (if selected) to the handler
                 onAddToSchedule(currentSection, currentLabSection);
-                
+
                 onClose();
               }}
               disabled={
