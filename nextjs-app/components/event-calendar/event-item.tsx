@@ -43,7 +43,7 @@ function EventWrapper({
       )
     : new Date(event.end)
 
-  const isEventInPast = isPast(displayEnd)
+  const isEventInPast = false // Template events are never "past"
 
   const isHexColor = event.color && event.color.startsWith('#')
 
@@ -55,7 +55,10 @@ function EventWrapper({
         getBorderRadiusClasses(isFirstDay, isLastDay),
         className
       )}
-      style={isHexColor ? { backgroundColor: event.color + 'CC' } : undefined} // Add some transparency
+      style={isHexColor ? {
+        backgroundColor: event.color + 'CC',
+        opacity: event.id?.startsWith('demo-') ? 0.8 : 1
+      } : undefined}
       data-past-event={isEventInPast || undefined}
       onClick={onClick}
     >
@@ -130,13 +133,18 @@ export function EventItem({
         currentTime={currentTime}
       >
         {children || (
-          <span className="truncate">
+          <span className="truncate flex items-center gap-1">
             {!event.allDay && (
               <span className="truncate font-normal opacity-70 sm:text-[11px]">
                 {formatTimeWithOptionalMinutes(displayStart)}{" "}
               </span>
             )}
             {event.title}
+            {event.isDemo && (
+              <span className="text-[7px] px-1 py-0.5 bg-white/20 rounded text-white/70 font-normal flex-shrink-0">
+                DEMO
+              </span>
+            )}
           </span>
         )}
       </EventWrapper>
@@ -153,7 +161,7 @@ export function EventItem({
         className={cn(
           "py-1",
           durationMinutes < 45 ? "items-center" : "flex-col",
-          view === "week" ? "text-[10px] sm:text-xs" : "text-xs",
+          view === "week" ? "text-xs sm:text-sm" : "text-sm",
           className
         )}
         currentTime={currentTime}
@@ -161,6 +169,11 @@ export function EventItem({
         {durationMinutes < 45 ? (
           <div className="truncate">
             {event.title}{" "}
+            {event.isDemo && (
+              <span className="text-[8px] px-1 py-0.5 bg-white/20 rounded text-white/70 font-normal ml-1">
+                DEMO
+              </span>
+            )}
             {showTime && (
               <span className="opacity-70">
                 {formatTimeWithOptionalMinutes(displayStart)}
@@ -169,7 +182,14 @@ export function EventItem({
           </div>
         ) : (
           <>
-            <div className="truncate font-medium">{event.title}</div>
+            <div className="truncate font-medium flex items-center gap-1">
+              {event.title}
+              {event.isDemo && (
+                <span className="text-[8px] px-1 py-0.5 bg-white/20 rounded text-white/70 font-normal flex-shrink-0">
+                  DEMO
+                </span>
+              )}
+            </div>
             {showTime && (
               <div className="truncate font-normal opacity-70 sm:text-[11px]">
                 {getEventTime()}

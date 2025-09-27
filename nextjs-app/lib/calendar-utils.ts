@@ -30,7 +30,7 @@ export function processCalendarEvents(classes: ScheduledClass[]): CalendarEvent[
       // The 'days' from parseClassTime is an array of characters like ['M', 'W', 'F']
       return parsedTime.days.map(dayChar => ({
         id: `${classData.id}-${dayChar}`,
-        title: `${classData.subject} ${classData.number}`,
+        title: classData.id?.startsWith('demo-') ? classData.title : `${classData.subject} ${classData.number}`,
         description: `${classData.title}\n${classData.instructor}\n${classData.location}`,
         start: getTemplateDateForDay(dayChar, parsedTime.startTime.hour, parsedTime.startTime.min),
         end: getTemplateDateForDay(dayChar, parsedTime.endTime.hour, parsedTime.endTime.min),

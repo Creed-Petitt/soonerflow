@@ -26,7 +26,7 @@ export function parseClassDays(daysStr: string): string[] {
       classDays.push('R')
       i += 2
     } else if (daysStr[i] === 'R') {
-      classDays.push('R')
+      classDays.push('R') // R represents Thursday in our system
       i++
     } else if (['M', 'T', 'W', 'F'].includes(daysStr[i])) {
       classDays.push(daysStr[i])

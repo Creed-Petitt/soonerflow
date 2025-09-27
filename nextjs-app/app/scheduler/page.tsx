@@ -13,6 +13,7 @@ import { useSchedule } from '@/hooks/use-schedule'
 import { useSchedulerData } from '@/hooks/useSchedulerData'
 import { useSchedulerActions } from '@/hooks/useSchedulerActions'
 import { SidebarCalendarButtons } from '@/components/scheduler/sidebar-calendar-buttons'
+import { DemoBanner } from '@/components/demo-banner'
 
 export default function SchedulerPage() {
   // const { isLoading } = useSchedule()
@@ -26,6 +27,7 @@ export default function SchedulerPage() {
     groupedClasses,
     isInteractiveSemester,
     isLoading,
+    isDemoMode,
   } = useSchedulerData()
 
   const {
@@ -58,6 +60,9 @@ export default function SchedulerPage() {
           </div>
 
           <div className="flex-1 flex flex-col px-4 pb-4 min-h-0">
+            {isDemoMode && (
+              <DemoBanner onBrowseClasses={() => setIsClassBrowserOpen(true)} />
+            )}
             <div className="relative flex-1 min-h-0">
               <ScrollArea className="h-full">
                 <div className="space-y-2">

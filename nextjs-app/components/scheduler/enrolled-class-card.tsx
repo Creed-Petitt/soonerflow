@@ -31,10 +31,11 @@ export function EnrolledClassCard({
   isCurrentSemester = true
 }: EnrolledClassCardProps) {
   const isCompleted = (classData.instructor === 'Completed' || classData.type === 'Completed Course') && !isCurrentSemester
+  const isDemo = classData.id?.startsWith('demo-')
 
   return (
     <Card
-      className="p-2 relative group hover:shadow-md transition-shadow cursor-pointer"
+      className={`p-2 relative group hover:shadow-md transition-shadow cursor-pointer ${isDemo ? 'opacity-80' : ''}`}
       onClick={onClick}
     >
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${classData.colorBg} rounded-l`} />
@@ -45,6 +46,11 @@ export function EnrolledClassCard({
             <div className="flex items-center gap-1">
               <span className="font-semibold text-sm">{classData.subject} {classData.number || classData.courseNumber}</span>
               {isCompleted && <span className="text-xs text-green-600">✓</span>}
+              {isDemo && (
+                <span className="text-[10px] px-1 py-0.5 bg-muted rounded text-muted-foreground font-normal">
+                  DEMO
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground line-clamp-1">
               {classData.title}

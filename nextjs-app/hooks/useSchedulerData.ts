@@ -6,6 +6,7 @@ import { processCalendarEvents, groupClassesBySubject, getSemesterDates } from '
 import type { CalendarEvent } from '@/components/event-calendar/types'
 import type { ClassData, ScheduledClass, GroupedClass } from '@/types/course'
 import { classColors } from '@/constants/colors'
+import { demoClasses } from '@/lib/demo-classes'
 
 export function useSchedulerData() {
   const {
@@ -17,13 +18,16 @@ export function useSchedulerData() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
 
+  const isDemoMode = rawScheduledClasses.length === 0
+
   const scheduledClasses = useMemo(() => {
-    return rawScheduledClasses.map((cls, index) => ({
+    const classesToUse = isDemoMode ? demoClasses : rawScheduledClasses
+    return classesToUse.map((cls, index) => ({
       ...cls,
       colorBg: classColors[index % classColors.length].bg,
       colorHex: classColors[index % classColors.length].hex,
     }))
-  }, [rawScheduledClasses])
+  }, [rawScheduledClasses, isDemoMode])
 
   const calendarEvents = useMemo(() => {
     return processCalendarEvents(scheduledClasses)
@@ -52,5 +56,6 @@ export function useSchedulerData() {
     isCurrentSemester,
     isInteractiveSemester,
     semesterDates,
+    isDemoMode,
   }
 }
