@@ -49,9 +49,6 @@ class ProfessorService:
         if not professor:
             return None
         
-        # Get student comments
-        comments = self._get_professor_comments(professor)
-        
         # Parse tags
         tags = self._parse_tags(professor.teacherTags)
         
@@ -75,8 +72,7 @@ class ProfessorService:
             "numRatings": professor.numRatings or 0,
             "department": professor.department or "",
             "ratingDistribution": rating_distribution,
-            "tags": tags,
-            "comments": comments
+            "tags": tags
         }
     
     def get_ratings_for_instructors(self, instructor_names: List[str]) -> Dict[str, dict]:
@@ -337,18 +333,7 @@ class ProfessorService:
         
         return [tag.strip() for tag in tags_string.split(',') if tag.strip()]
     
-    def _get_professor_comments(self, professor: Professor) -> List[str]:
-        
-        if professor.numRatings < 10:  # Only get comments for professors with enough data
-            return []
-        
-        ratings = self.db.query(Rating).filter(
-            Rating.professorId == professor.id,
-            Rating.comment.isnot(None),
-            Rating.comment != ""
-        ).limit(5).all()
-        
-        return [r.comment for r in ratings if r.comment]
+
     
     def _empty_rating(self) -> dict:
         

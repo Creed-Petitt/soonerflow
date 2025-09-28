@@ -23,7 +23,6 @@ class ProfessorResponse(BaseModel):
     department: str
     ratingDistribution: List[int]
     tags: List[str]
-    comments: List[str] = []
     
     class Config:
         from_attributes = True
