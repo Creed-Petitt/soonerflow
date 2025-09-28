@@ -31,12 +31,9 @@ export async function fetchClassesForDepartment(
 export function processClasses(allClasses: ClassData[]): GroupedClass[] {
   const grouped: Record<string, GroupedClass> = {};
 
-  allClasses.forEach((cls: ClassData) => {
+  for (const cls of allClasses) {
     const courseNumber = cls.number || cls.courseNumber;
-
-    if (!cls.subject || !courseNumber) {
-      return;
-    }
+    if (!cls.subject || !courseNumber) continue;
 
     const key = `${cls.subject} ${courseNumber}`;
 
@@ -44,23 +41,30 @@ export function processClasses(allClasses: ClassData[]): GroupedClass[] {
       grouped[key] = {
         subject: cls.subject,
         number: courseNumber,
-        title: cls.title,
-        credits: cls.credits,
+        title: "",
+        credits: 0,
         sections: [],
-        labSections: []
+        labSections: [], // Always initialize labSections
       };
     }
 
-    if (cls.type === "Lab" || cls.type === "Lab with No Credit") {
-      grouped[key].labSections.push(cls);
-    } else {
-      grouped[key].sections.push(cls);
-    }
-  });
+    const group = grouped[key];
 
-  return Object.values(grouped).filter(g =>
-    g.sections.length > 0 || g.labSections.length > 0
-  );
+    if (cls.type === "Lab" || cls.type === "Lab with No Credit") {
+      // Since we initialize it, it will always be present.
+      group.labSections!.push(cls);
+    } else {
+      group.sections.push(cls);
+      if (!group.title) {
+        group.title = cls.title;
+      }
+      if (!group.credits || group.credits === 0) {
+        group.credits = cls.credits;
+      }
+    }
+  }
+
+  return Object.values(grouped);
 }
 
 export async function fetchClassDetails(classId: string): Promise<ClassData | null> {

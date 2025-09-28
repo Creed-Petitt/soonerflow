@@ -103,17 +103,19 @@ export function ClassBrowserTable({
 
               // Check if any section of this class would have time conflicts
               const hasConflicts = grouped.sections.some(section => {
-                const scheduledClass = {
+                const scheduledClass: ScheduledClass = {
                   id: section.id,
                   subject: grouped.subject,
                   number: grouped.number,
+                  courseNumber: grouped.number,
                   title: grouped.title,
                   time: section.time || (section.meetingTimes?.[0] ?
                     `${section.meetingTimes[0].days || ''} ${section.meetingTimes[0].startTime || ''}-${section.meetingTimes[0].endTime || ''}`.trim()
                     : 'TBA'),
-                  instructor: section.instructor,
+                  instructor: section.instructor || 'TBA',
                   location: section.location || section.meetingTimes?.[0]?.location,
                   credits: grouped.credits || section.credits || 3,
+                  color: 'blue',
                 };
                 return hasTimeConflict(scheduledClass, scheduledClasses);
               });
@@ -132,7 +134,7 @@ export function ClassBrowserTable({
                   <TableCell className="max-w-[200px] truncate">
                     <div>
                       <div>{grouped.title}</div>
-                      {grouped.labSections.length > 0 && (
+                      {grouped.labSections && grouped.labSections.length > 0 && (
                         <span className="text-xs text-muted-foreground">+Lab</span>
                       )}
                     </div>

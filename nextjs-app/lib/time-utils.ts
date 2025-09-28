@@ -19,7 +19,7 @@ export function parseTimeString(timeStr: string): ParsedTime {
 }
 
 export function parseClassDays(daysStr: string): string[] {
-  const classDays = []
+  const classDays: string[] = []
   let i = 0
   while (i < daysStr.length) {
     if (i < daysStr.length - 1 && daysStr.slice(i, i + 2) === 'Th') {

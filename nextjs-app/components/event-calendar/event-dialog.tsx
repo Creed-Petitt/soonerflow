@@ -50,7 +50,7 @@ interface EventDialogProps {
 
 // Generate time options once at the module level for performance.
 const timeOptions = (() => {
-  const options = []
+  const options: { value: string; label: string }[] = []
   for (let hour = StartHour; hour <= EndHour; hour++) {
     for (let minute = 0; minute < 60; minute += 15) {
       const formattedHour = hour.toString().padStart(2, "0")

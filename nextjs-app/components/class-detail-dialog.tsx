@@ -451,6 +451,7 @@ export function ClassDetailDialog({
                   id: currentSection.id,
                   subject: groupedClass.subject,
                   number: groupedClass.number || groupedClass.courseNumber,
+                  courseNumber: groupedClass.number || groupedClass.courseNumber,
                   title: groupedClass.title,
                   time: currentSection.time || (currentSection.meetingTimes?.[0] ?
                     `${currentSection.meetingTimes[0].days || ''} ${currentSection.meetingTimes[0].startTime || ''}-${currentSection.meetingTimes[0].endTime || ''}`.trim()
@@ -458,6 +459,7 @@ export function ClassDetailDialog({
                   instructor: currentSection.instructor,
                   location: currentSection.location || currentSection.meetingTimes?.[0]?.location,
                   credits: groupedClass.credits || currentSection.credits || 3,
+                  color: 'blue',
                 };
 
                 // Check for time conflicts (skip if in change mode - we're replacing)
