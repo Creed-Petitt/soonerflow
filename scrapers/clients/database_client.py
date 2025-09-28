@@ -3,9 +3,6 @@ from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.models import create_engine_and_session, Class, MeetingTime, Professor, Rating, Prerequisite
 
 class SQLAlchemyDatabaseClient:
