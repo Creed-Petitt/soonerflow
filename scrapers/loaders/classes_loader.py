@@ -1,34 +1,28 @@
-"""
-Class Loader - Fetches and loads OU class data from ClassNav API
-"""
-
 import os
 import sys
 import logging
 from datetime import datetime
 from typing import List, Dict, Any
+from dotenv import load_dotenv
 
-# Import our modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv('./scrapers/.env')
+
 from scrapers.clients.classes_client import ClassNavAPIClient
 from scrapers.processors.classes_processor import ClassDataProcessor
 from scrapers.clients.database_client import SQLAlchemyDatabaseClient
 
 def setup_logging():
-    """Set up logging for the class loader"""
-    # Configure logging to stdout only (cloud providers will capture this)
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.StreamHandler()  # Only print to console/stdout
+            logging.StreamHandler()
         ]
     )
     
     return logging.getLogger(__name__)
 
 def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
-    """Load classes from OU API to database"""
     
     # Set up logging and clients
     logger = setup_logging()
@@ -53,7 +47,6 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
         
         logger.info(f"Processing {len(classes_data)} classes...")
         
-        # Process the raw class data
         processed_classes = data_processor.process_classes_batch(classes_data)
         
         # Filter classes based on criteria
@@ -92,14 +85,13 @@ def load_classes_to_database(test_mode: bool = True, semester: str = '202510'):
                             processed_meeting_time = data_processor.process_meeting_time_data(meeting_time, class_data['id'])
                             if processed_meeting_time and data_processor.validate_meeting_time_data(processed_meeting_time):
                                 if not db_client.save_meeting_time(processed_meeting_time, semester):
+                                    logger.error(f"Failed to save meeting time for class {class_data['id']}")
                 else:
                     failed_saves += 1
                     
             except Exception as e:
                 logger.error(f"Error processing class {class_data.get('id', 'Unknown')}: {e}")
                 failed_saves += 1
-        
-        logger.info(f"\n=== LOADING RESULTS ===")
         logger.info(f"Total classes processed: {len(processed_classes)}")
         logger.info(f"Successfully saved: {successful_saves}")
         logger.info(f"Failed to save: {failed_saves}")
