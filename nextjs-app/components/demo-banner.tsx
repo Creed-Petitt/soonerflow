@@ -9,12 +9,20 @@ interface DemoBannerProps {
 }
 
 export function DemoBanner({ onBrowseClasses }: DemoBannerProps) {
-  const [isVisible, setIsVisible] = useState(false)
+  const [isVisible, setIsVisible] = useState(() => {
+    // Check localStorage synchronously during initial render to prevent flash
+    if (typeof window !== 'undefined') {
+      const dismissed = localStorage.getItem('demo-banner-dismissed')
+      return !dismissed
+    }
+    return false
+  })
 
+  // Still keep the useEffect for hydration safety in SSR
   useEffect(() => {
-    const dismissed = localStorage.getItem('demo-banner-dismissed')
-    if (!dismissed) {
-      setIsVisible(true)
+    if (typeof window !== 'undefined') {
+      const dismissed = localStorage.getItem('demo-banner-dismissed')
+      setIsVisible(!dismissed)
     }
   }, [])
 

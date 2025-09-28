@@ -14,6 +14,7 @@ import {
 import { GroupedClass } from "@/hooks/useClassData";
 import { hasTimeConflict } from "@/lib/time-conflict-utils";
 import type { ScheduledClass } from "@/types/course";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
@@ -84,11 +85,27 @@ export function ClassBrowserTable({
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-8">
-                Loading classes...
-              </TableCell>
-            </TableRow>
+            <>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-8" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-8 w-8 rounded" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </>
           ) : filteredGroupedClasses.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">

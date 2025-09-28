@@ -14,6 +14,7 @@ import { useSchedulerData } from '@/hooks/useSchedulerData'
 import { useSchedulerActions } from '@/hooks/useSchedulerActions'
 import { SidebarCalendarButtons } from '@/components/scheduler/sidebar-calendar-buttons'
 import { DemoBanner } from '@/components/demo-banner'
+import { ClassCardSkeletonList } from '@/components/ui/class-card-skeleton'
 
 export default function SchedulerPage() {
   // const { isLoading } = useSchedule()
@@ -67,10 +68,7 @@ export default function SchedulerPage() {
               <ScrollArea className="h-full">
                 <div className="space-y-2">
                   {isLoading ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-                      <p className="text-sm font-medium">Loading classes...</p>
-                    </div>
+                    <ClassCardSkeletonList count={4} />
                   ) : scheduledClasses.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <GraduationCap className="h-12 w-12 mx-auto mb-3 opacity-30" />
