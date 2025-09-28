@@ -3,124 +3,29 @@ import json
 import time
 import logging
 from typing import Dict, List, Optional, Any
+from scrapers.config.api_config import APIConfig, EndpointConfig
+from scrapers.config.queries import QueryTemplates
 
-class RateMyProfessorsAPIClient:   
-    # The exact working query from browser
-    QUERY_ALL_PROFESSORS = '''
-query TeacherSearchResultsPageQuery(
-  $query: TeacherSearchQuery!
-  $schoolID: ID
-  $includeSchoolFilter: Boolean!
-) {
-  search: newSearch {
-    ...TeacherSearchPagination_search_2MvZSr
-  }
-  school: node(id: $schoolID) @include(if: $includeSchoolFilter) {
-    __typename
-    ... on School {
-      name
-      ...StickyHeaderContent_school
-    }
-    id
-  }
-}
+class RateMyProfessorsAPIClient:
 
-fragment CardFeedback_teacher on Teacher {
-  wouldTakeAgainPercent
-  avgDifficulty
-}
-
-fragment CardName_teacher on Teacher {
-  firstName
-  lastName
-}
-
-fragment CardRatings_teacher on Teacher {
-  avgRating
-  numRatings
-  ...CardFeedback_teacher
-}
-
-fragment CardSchool_teacher on Teacher {
-  department
-  school {
-    name
-    id
-  }
-}
-
-fragment CardTeacherInfo_teacher on Teacher {
-  ...CardName_teacher
-  ...CardRatings_teacher
-  ...CardSchool_teacher
-  ...TeacherBookmark_teacher
-}
-
-fragment StickyHeaderContent_school on School {
-  name
-}
-
-fragment TeacherBookmark_teacher on Teacher {
-  id
-  isSaved
-}
-
-fragment TeacherSearchPagination_search_2MvZSr on newSearch {
-  teachers(query: $query, first: 1000, after: "") {
-    edges {
-      cursor
-      node {
-        ...CardTeacherInfo_teacher
-        id
-        __typename
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-    resultCount
-  }
-}
-'''
-    
     def __init__(self):
-        self.base_url = "https://www.ratemyprofessors.com/graphql"
-        self.headers = {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br, zstd',
-            'Origin': 'https://www.ratemyprofessors.com',
-            'Referer': 'https://www.ratemyprofessors.com/school/924',
-            'Sec-CH-UA': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-            'Sec-CH-UA-Mobile': '?0',
-            'Sec-CH-UA-Platform': '"Windows"',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin'
-        }
+        self.base_url = EndpointConfig.RATING_API
+        self.headers = APIConfig.get_browser_headers()
+        self.school_id = EndpointConfig.SCHOOL_ID
         self.logger = logging.getLogger(__name__)
     
-    def fetch_all_professors(self, school_id: str = "U2Nob29sLTE1OTY=") -> List[Dict[str, Any]]:
+    def fetch_all_professors(self, school_id: str = None) -> List[Dict[str, Any]]:
         try:
-            
-            variables = {
-                "query": {
-                    "text": "",
-                    "schoolID": school_id,
-                    "fallback": True,
-                    "departmentID": None
-                },
-                "schoolID": school_id,
-                "includeSchoolFilter": True
-            }
-            
-            # Use the updated headers (no authorization needed)
+            if school_id is None:
+                school_id = self.school_id
+
+            # Get abstracted query and variables
+            query = QueryTemplates.get_professors_search_query()
+            variables = QueryTemplates.get_search_variables(school_id)
+
             response = requests.post(
                 self.base_url,
-                json={'query': self.QUERY_ALL_PROFESSORS, 'variables': variables},
+                json={'query': query, 'variables': variables},
                 headers=self.headers
             )
             response.raise_for_status()
@@ -154,7 +59,7 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             else:
                 ratings_to_fetch = 5
             
-            query = self._build_professor_query(ratings_to_fetch)
+            query = QueryTemplates.get_professor_details_query(ratings_to_fetch)
             
             payload = {
                 "query": query,
@@ -204,7 +109,7 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
     
     def _fetch_additional_ratings(self, professor_id: str, num_additional: int, cursor: str) -> List[Dict[str, Any]]:
         try:
-            query = self._build_ratings_query(num_additional)
+            query = QueryTemplates.get_ratings_pagination_query(num_additional)
             
             payload = {
                 "query": query,
@@ -228,141 +133,4 @@ fragment TeacherSearchPagination_search_2MvZSr on newSearch {
             self.logger.error(f"Error fetching additional ratings: {e}")
             return []
     
-    def _build_professor_query(self, num_ratings: int) -> str:
-        return f"""
-query TeacherRatingsPageQuery($id: ID!) {{
-  node(id: $id) {{
-    __typename
-    ... on Teacher {{
-      id
-      legacyId
-      firstName
-      lastName
-      department
-      departmentId
-      lockStatus
-      isSaved
-      isProfCurrentUser
-      
-      school {{
-        id
-        legacyId
-        name
-        city
-        state
-        avgRating
-        numRatings
-      }}
-      
-      avgRating
-      numRatings
-      avgDifficulty
-      wouldTakeAgainPercent
-      
-      ratingsDistribution {{
-        total
-        r1
-        r2
-        r3
-        r4
-        r5
-      }}
-      
-      teacherRatingTags {{
-        id
-        legacyId
-        tagCount
-        tagName
-      }}
-      
-      courseCodes {{
-        courseName
-        courseCount
-      }}
-      
-      relatedTeachers {{
-        id
-        legacyId
-        firstName
-        lastName
-        avgRating
-      }}
-      
-      ratings(first: {num_ratings}) {{
-        edges {{
-          cursor
-          node {{
-            id
-            legacyId
-            comment
-            date
-            class
-            difficultyRating
-            clarityRating
-            helpfulRating
-            wouldTakeAgain
-            grade
-            attendanceMandatory
-            textbookUse
-            isForOnlineClass
-            isForCredit
-            ratingTags
-            flagStatus
-            createdByUser
-            thumbsUpTotal
-            thumbsDownTotal
-            teacherNote {{
-              id
-            }}
-          }}
-        }}
-        pageInfo {{
-          hasNextPage
-          endCursor
-        }}
-      }}
-    }}
-  }}
-}}
-"""
-    
-    def _build_ratings_query(self, num_ratings: int) -> str:
-        return f"""
-query TeacherRatingsPageQuery($id: ID!, $cursor: String) {{
-  node(id: $id) {{
-    ratings(first: {num_ratings}, after: $cursor) {{
-      edges {{
-        cursor
-        node {{
-          id
-          legacyId
-          comment
-          date
-          class
-          difficultyRating
-          clarityRating
-          helpfulRating
-          wouldTakeAgain
-          grade
-          attendanceMandatory
-          textbookUse
-          isForOnlineClass
-          isForCredit
-          ratingTags
-          flagStatus
-          createdByUser
-          thumbsUpTotal
-          thumbsDownTotal
-          teacherNote {{
-            id
-          }}
-        }}
-      }}
-      pageInfo {{
-        hasNextPage
-        endCursor
-      }}
-    }}
-  }}
-}}
-""" 
+ 
