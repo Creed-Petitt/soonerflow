@@ -1,34 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 from database.models import get_db
 from backend.services import ProfessorService
+from backend.schemas import ProfessorResponse
 
 
 router = APIRouter(prefix="/api/professors", tags=["professors"])
-
-
-# Pydantic models
-class ProfessorResponse(BaseModel):
-    id: str
-    firstName: str
-    lastName: str
-    name: str
-    avgRating: float
-    avgDifficulty: float
-    wouldTakeAgainPercent: float
-    numRatings: int
-    department: str
-    ratingDistribution: List[int]
-    tags: List[str]
-    
-    class Config:
-        from_attributes = True
-
-
-# The get_db dependency is now imported from database.models
 
 
 @router.get("/search")

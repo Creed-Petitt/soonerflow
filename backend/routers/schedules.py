@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List
 from datetime import datetime
 
 from database.models import (
@@ -10,18 +9,10 @@ from database.models import (
 )
 from backend.services import ClassService, ProfessorService
 from backend.auth.auth import get_current_user_optional
+from backend.schemas import ScheduleUpdate, SemesterResponse
 
 
 router = APIRouter(prefix="/api", tags=["schedules"])
-
-
-# Pydantic models
-class ScheduleUpdate(BaseModel):
-    class_ids: List[str]
-    colors: Optional[Dict[str, str]] = {}
-
-
-# The get_db dependency is now imported from database.models
 
 
 @router.get("/semesters")

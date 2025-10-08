@@ -1,24 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
 
-from database.models import User, Schedule, get_db
+from database.models import User, get_db
 from backend.auth.auth import get_current_user
+from backend.schemas import UserResponse
 
 
 router = APIRouter(prefix="/api", tags=["users"])
-
-
-# Pydantic models
-class UserResponse(BaseModel):
-    id: int
-    firebase_uid: str
-    email: str
-    name: str
-    avatar_url: Optional[str]
-    created_at: datetime
 
 
 @router.get("/users/me", response_model=UserResponse)

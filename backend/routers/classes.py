@@ -1,45 +1,14 @@
 from fastapi import APIRouter, Depends, Query
-from typing import List, Optional
+from typing import Optional
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 
 from database.models import get_db, SessionLocal
 from backend.services import ClassService, ProfessorService
 from backend.config import settings
+from backend.schemas import ClassResponse, DepartmentListResponse, CourseResponse
 
 
 router = APIRouter(prefix="/api/classes", tags=["classes"])
-
-
-# Pydantic models
-class ClassResponse(BaseModel):
-    id: str
-    subject: str
-    number: str = ""
-    title: str
-    instructor: str
-    credits: int = 3
-    time: str
-    location: str
-    days: List[str]
-    available_seats: int = 0
-    total_seats: int = 0
-    rating: float = 0.0
-    difficulty: float = 0.0
-    wouldTakeAgain: float = 0.0
-    description: str = ""
-    prerequisites: List[dict] = []
-    genEd: str = ""
-    type: str = ""
-    sections: List[dict] = []
-    ratingDistribution: List[int] = []
-    tags: List[str] = []
-    
-    class Config:
-        from_attributes = True
-
-
-# The get_db dependency is now imported from database.models
 
 
 @router.get("/departments")
