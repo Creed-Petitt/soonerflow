@@ -1,30 +1,30 @@
-
 from typing import Optional, Dict, List, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from rapidfuzz import fuzz, process
 import re
 
-from database.models import Professor, Rating
+import logging
+
+from database.models import Professor
 from backend.config import settings
+from backend.repositories import ProfessorRepository
 
 class ProfessorService:
 
     def __init__(self, db: Session):
-
         self.db = db
+        self.professor_repo = ProfessorRepository()
     
     def get_rating(self, class_id: str, instructor_name: str) -> dict:
         
         try:
             return self._get_rating_internal(class_id, instructor_name)
         except Exception as e:
-            # If professor rating fails, rollback and return empty ratings
-            pass  # Professor rating failed
+            logging.getLogger(__name__).error(f"Error getting rating for '{instructor_name}': {e}")
             try:
                 self.db.rollback()
-            except:
-                pass
+            except Exception as rollback_e:
+                logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
             return self._empty_rating()
     
     def _get_rating_internal(self, class_id: str, instructor_name: str) -> dict:
@@ -81,14 +81,15 @@ class ProfessorService:
 
         # Get all professors with ratings once
         try:
-            professors = self.db.query(Professor).filter(Professor.avgRating > 0).all()
+            professors = self.professor_repo.get_all_with_ratings(self.db)
             if not professors:
                 return {}
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error getting all professors with ratings: {e}")
             try:
                 self.db.rollback()
-            except:
-                pass
+            except Exception as rollback_e:
+                logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
             return {}
 
         # Build a list of professor names for fuzzy matching
@@ -133,34 +134,11 @@ class ProfessorService:
         # Only use name matching - no broken table lookups
         return self._find_professor_by_name(instructor_name)
     
-    def _find_by_class_mapping(self, class_id: str) -> Optional[Professor]:
-        
-        try:
-            mapping = self.db.execute(text(), {"class_id": class_id}).first()
-            
-            if mapping:
-                try:
-                    return self.db.query(Professor).filter(
-                        Professor.id == mapping[0]
-                    ).first()
-                except Exception as e:
-                    pass  # Failed to query professor by ID
-                    try:
-                        self.db.rollback()
-                    except:
-                        pass
-        except Exception:
-            pass
-        
-        return None
-    
     def _find_professor_by_name(self, name: str) -> Optional[Professor]:
 
         # Get all professors with ratings
         try:
-            professors = self.db.query(Professor).filter(
-                Professor.avgRating > 0
-            ).all()
+            professors = self.professor_repo.get_all_with_ratings(self.db)
 
             if not professors:
                 return None
@@ -174,11 +152,11 @@ class ProfessorService:
                 professor_map[i] = prof
 
         except Exception as e:
-            # If database query fails, return None
+            logging.getLogger(__name__).error(f"Error finding professor by name '{name}': {e}")
             try:
                 self.db.rollback()
-            except:
-                pass
+            except Exception as rollback_e:
+                logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
             return None
 
         # Clean and prepare name variations
@@ -289,16 +267,13 @@ class ProfessorService:
         
         for word in significant_words:
             try:
-                professors = self.db.query(Professor).filter(
-                    (Professor.lastName.ilike(f"%{word}%")) |
-                    (Professor.firstName.ilike(f"%{word}%"))
-                ).filter(Professor.avgRating > 0).all()
+                professors = self.professor_repo.find_by_name_with_ratings(self.db, word)
             except Exception as e:
-                pass  # Failed to query professors by name
+                logging.getLogger(__name__).error(f"Error in fallback matching for word '{word}': {e}")
                 try:
                     self.db.rollback()
-                except:
-                    pass
+                except Exception as rollback_e:
+                    logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
                 continue
             
             if professors:
@@ -344,4 +319,3 @@ class ProfessorService:
             "ratingDistribution": [0, 0, 0, 0, 0],
             "tags": []
         }
-    
