@@ -26,7 +26,7 @@ export function useSemesterManagement() {
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        setAvailableSemesters(data)
+        setAvailableSemesters(data.semesters || data)
       }
     } catch (err) {
       console.error('Failed to load semesters:', err)

@@ -18,16 +18,15 @@ export function useSchedulerData() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
 
-  const isDemoMode = rawScheduledClasses.length === 0
-
   const scheduledClasses = useMemo(() => {
-    const classesToUse = isDemoMode ? demoClasses : rawScheduledClasses
+    // Show demo classes when schedule is empty
+    const classesToUse = rawScheduledClasses.length === 0 ? demoClasses : rawScheduledClasses
     return classesToUse.map((cls, index) => ({
       ...cls,
       colorBg: classColors[index % classColors.length].bg,
       colorHex: classColors[index % classColors.length].hex,
     }))
-  }, [rawScheduledClasses, isDemoMode])
+  }, [rawScheduledClasses])
 
   const calendarEvents = useMemo(() => {
     return processCalendarEvents(scheduledClasses)
@@ -56,6 +55,5 @@ export function useSchedulerData() {
     isCurrentSemester,
     isInteractiveSemester,
     semesterDates,
-    isDemoMode,
   }
 }

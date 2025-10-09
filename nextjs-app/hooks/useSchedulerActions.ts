@@ -53,7 +53,7 @@ export function useSchedulerActions(
   }
 
   const handleEventSelect = async (event: CalendarEvent) => {
-    const classId = event.id.split('-')[0]
+    const classId = event.id.slice(0, -2)
     const scheduledClass = scheduledClasses.find(cls => cls.id === classId)
 
     if (!scheduledClass) {
@@ -69,7 +69,7 @@ export function useSchedulerActions(
       setShowClassDetailModal(true)
       setClassDetailData(null)
 
-      const apiUrl = `/api/classes?subject=${scheduledClass.subject}&search=${scheduledClass.number}&semester=${currentSemester}&limit=50`
+      const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'}/api/classes?subject=${scheduledClass.subject}&search=${scheduledClass.number}&semester=${currentSemester}&limit=50`
 
       const response = await fetch(apiUrl)
 

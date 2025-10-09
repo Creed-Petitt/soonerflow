@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { saveScheduleClasses, fetchUserActiveSchedule, fetchScheduleForSemester } from '@/lib/schedule-api'
 import { useAuth } from '@/contexts/auth-context'
@@ -14,31 +14,29 @@ export function useScheduleData() {
   const [error, setError] = useState<string | null>(null)
   const [hasLoadedSchedule, setHasLoadedSchedule] = useState(false)
 
-  // Local storage for anonymous users - separate schedules per semester
-  const [anonymousSchedules, setAnonymousSchedules] = useState<Record<string, ScheduledClass[]>>({})
+  // Track the last loaded semester to prevent unnecessary reloads
+  const lastLoadedSemesterRef = useRef<string | null>(null)
 
-  const loadSchedule = useCallback(async (semester?: string, currentSemester?: string) => {
-    setIsLoading(true)
-    setError(null)
-    const targetSemester = semester || currentSemester || '202510'
-
+  const loadSchedule = useCallback(async (semester?: string) => {
     if (!currentUser) {
-      // Anonymous user - use local state only
-      const semesterClasses = anonymousSchedules[targetSemester] || []
-      setSchedule({
-        schedule_id: 0, // Use 0 for anonymous
-        schedule_name: `My Schedule - ${targetSemester}`,
-        semester: targetSemester,
-        classes: semesterClasses
-      })
-      setLocalClasses(semesterClasses)
+      // Wait for auth to initialize
       setIsLoading(false)
-      setHasLoadedSchedule(true)
       return
     }
 
+    const targetSemester = semester || '202510'
+
+    // Prevent loading the same semester twice
+    if (lastLoadedSemesterRef.current === targetSemester && hasLoadedSchedule) {
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    lastLoadedSemesterRef.current = targetSemester
+
     try {
-      // Logged in user - use backend
+      // All users (including anonymous) use backend
       const userSchedule = await fetchScheduleForSemester(targetSemester)
       setSchedule(userSchedule)
       setLocalClasses(userSchedule.classes || [])
@@ -55,23 +53,13 @@ export function useScheduleData() {
       setIsLoading(false)
       setHasLoadedSchedule(true)
     }
-  }, [currentUser, anonymousSchedules])
+  }, [currentUser, hasLoadedSchedule])
 
   const saveSchedule = useCallback(async () => {
-    if (!schedule) return
-
-    if (!currentUser) {
-      // Anonymous user - save to local state only
-      setAnonymousSchedules(prev => ({
-        ...prev,
-        [schedule.semester]: localClasses
-      }))
-      setSchedule(prev => prev ? { ...prev, classes: localClasses } : null)
-      return
-    }
+    if (!schedule || !currentUser) return
 
     try {
-      // Logged in user - save to backend
+      // All users save to backend the same way
       const classIds = localClasses.map(cls => cls.id)
       const colors = localClasses.reduce((acc, cls) => {
         if (cls.color) {
@@ -88,11 +76,6 @@ export function useScheduleData() {
     }
   }, [schedule, localClasses, currentUser])
 
-  // Auto-load schedule on mount
-  useEffect(() => {
-    loadSchedule()
-  }, [loadSchedule])
-
   return {
     schedule,
     localClasses,
@@ -100,6 +83,7 @@ export function useScheduleData() {
     isLoading,
     error,
     hasLoadedSchedule,
+    setHasLoadedSchedule,
     loadSchedule,
     saveSchedule,
   }
