@@ -57,17 +57,25 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
   // Load schedule when semester changes
   useEffect(() => {
-    scheduleData.loadSchedule(semesterData.currentSemester, semesterData.currentSemester);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [semesterData.currentSemester]);
-
-  // Clear schedule data when user signs out
-  useEffect(() => {
-    if (currentUser === null) {
-      // User signed out, clear all schedule data
-      scheduleData.setLocalClasses([]);
+    if (semesterData.currentSemester) {
+      scheduleData.loadSchedule(semesterData.currentSemester);
     }
-  }, [currentUser, scheduleData.setLocalClasses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesterData.currentSemester, scheduleData.loadSchedule]);
+
+  // Reload schedule when user changes (login/logout)
+  useEffect(() => {
+    if (currentUser) {
+      // Clear local state on user change
+      scheduleData.setLocalClasses([]);
+      scheduleData.setHasLoadedSchedule(false);
+
+      if (semesterData.currentSemester) {
+        scheduleData.loadSchedule(semesterData.currentSemester);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   const addClass = (classData: ScheduledClass) => {
     scheduleData.setLocalClasses(prev => {
@@ -99,6 +107,13 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     return scheduleData.localClasses.some(c => c.id === classId);
   };
 
+  const refreshSchedule = () => {
+    if (semesterData.currentSemester) {
+      return scheduleData.loadSchedule(semesterData.currentSemester);
+    }
+    return scheduleData.loadSchedule();
+  };
+
   const value: ScheduleContextType = {
     scheduledClasses: scheduleData.localClasses,
     schedule: scheduleData.schedule,
@@ -116,10 +131,10 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     updateClass,
     clearSchedule,
     isClassScheduled,
-    refreshSchedule: () => scheduleData.loadSchedule(),
+    refreshSchedule,
   };
 
-  // Auto-save when classes change (immediate)
+  // Auto-save when classes change (with debouncing)
   useEffect(() => {
     if (!scheduleData.hasLoadedSchedule || !scheduleData.schedule || scheduleData.isLoading) return;
 
@@ -141,10 +156,14 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       if (uniqueLocalClasses.length !== scheduleData.localClasses.length) {
         scheduleData.setLocalClasses(uniqueLocalClasses);
       } else {
-        scheduleData.saveSchedule();
+        // Debounce the save to prevent too many API calls
+        const timer = setTimeout(() => {
+          scheduleData.saveSchedule();
+        }, 500);
+        return () => clearTimeout(timer);
       }
     }
-  }, [scheduleData.localClasses, scheduleData.hasLoadedSchedule, scheduleData.schedule, scheduleData.isLoading]);
+  }, [scheduleData.localClasses, scheduleData.hasLoadedSchedule, scheduleData.schedule, scheduleData.isLoading, scheduleData.saveSchedule, scheduleData.setLocalClasses]);
 
   return (
     <ScheduleContext.Provider value={value}>
