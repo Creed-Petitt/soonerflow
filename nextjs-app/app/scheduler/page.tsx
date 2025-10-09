@@ -13,7 +13,6 @@ import { useSchedule } from '@/hooks/use-schedule'
 import { useSchedulerData } from '@/hooks/useSchedulerData'
 import { useSchedulerActions } from '@/hooks/useSchedulerActions'
 import { SidebarCalendarButtons } from '@/components/scheduler/sidebar-calendar-buttons'
-import { DemoBanner } from '@/components/demo-banner'
 import { ClassCardSkeletonList } from '@/components/ui/class-card-skeleton'
 
 export default function SchedulerPage() {
@@ -28,7 +27,6 @@ export default function SchedulerPage() {
     groupedClasses,
     isInteractiveSemester,
     isLoading,
-    isDemoMode,
   } = useSchedulerData()
 
   const {
@@ -61,9 +59,23 @@ export default function SchedulerPage() {
           </div>
 
           <div className="flex-1 flex flex-col px-4 pb-4 min-h-0">
-            {isDemoMode && (
-              <DemoBanner onBrowseClasses={() => setIsClassBrowserOpen(true)} />
-            )}
+            <div className="space-y-2 mb-3 flex-shrink-0">
+              
+                <>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    className="w-full justify-start shadow-sm hover:shadow-md transition-shadow"
+                    onClick={() => setIsClassBrowserOpen(true)}
+                  >
+                    <BookOpen className="h-5 w-5 mr-2" />
+                    Browse & Add Classes
+                  </Button>
+                </>
+            
+              <SidebarCalendarButtons />
+            </div>
+
             <div className="relative flex-1 min-h-0">
               <ScrollArea className="h-full">
                 <div className="space-y-2">
@@ -76,7 +88,7 @@ export default function SchedulerPage() {
                         No classes scheduled
                       </p>
                       <p className="text-xs">
-                        Use "Browse & Add Classes" below to get started
+                        Use "Browse & Add Classes" above to get started
                       </p>
                     </div>
                   ) : (
@@ -87,7 +99,7 @@ export default function SchedulerPage() {
                       return (
                         <EnrolledClassCard
                           key={cls.id}
-                          classData={cls as any}
+                          classData={cls}
                           onRemove={() => handleRemoveFromSchedule(cls.id)}
                           onSwitchSection={newSection =>
                             handleSectionSwitch(cls, newSection)
@@ -104,33 +116,6 @@ export default function SchedulerPage() {
                 </div>
               </ScrollArea>
               <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-            </div>
-
-            <div className="pt-3 mt-3 space-y-2 flex-shrink-0">
-              <SidebarCalendarButtons />
-              {isInteractiveSemester ? (
-                <>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => setIsClassBrowserOpen(true)}
-                  >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Browse & Add Classes
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <div className="text-center py-3 px-2 bg-muted/50 rounded-md">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      📚 Historical View
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Past semester - read only
-                    </p>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>
