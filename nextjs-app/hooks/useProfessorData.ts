@@ -52,33 +52,34 @@ export function useProfessorData(): UseProfessorDataReturn {
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'}/api/professors/search?name=${encodeURIComponent(searchName)}`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const prof = await response.json();
-
-      if (prof && prof.id) {
-        // Successfully found professor data
-        setProfessorData({
-          name: `${prof.firstName} ${prof.lastName}`,
-          rating: prof.avgRating || 0,
-          difficulty: prof.avgDifficulty || 0,
-          wouldTakeAgain: prof.wouldTakeAgainPercent || 0,
-          totalRatings: prof.numRatings || 0,
-          tags: prof.tags || [],
-          ratingDistribution: prof.ratingDistribution || [0, 0, 0, 0, 0]
-        });
-        setProfessorError(null);
-      } else {
-        // Professor not found in database
+      if (response.status === 404) {
+        // Professor not found - this is normal, not all professors are on RMP
         setProfessorData(null);
         setProfessorError({
           type: 'not_found',
           message: 'No ratings available for this professor',
           instructorName: searchName
         });
+        return;
       }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const prof = await response.json();
+
+      // Successfully found professor data
+      setProfessorData({
+        name: `${prof.firstName} ${prof.lastName}`,
+        rating: prof.avgRating || 0,
+        difficulty: prof.avgDifficulty || 0,
+        wouldTakeAgain: prof.wouldTakeAgainPercent || 0,
+        totalRatings: prof.numRatings || 0,
+        tags: prof.tags || [],
+        ratingDistribution: prof.ratingDistribution || [0, 0, 0, 0, 0]
+      });
+      setProfessorError(null);
     } catch (error) {
       console.error('Error loading professor data:', error);
       setProfessorData(null);
