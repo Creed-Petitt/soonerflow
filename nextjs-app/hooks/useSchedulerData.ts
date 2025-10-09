@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, Dispatch, SetStateAction } from 'react'
+import { useState, useMemo } from 'react'
 import { useSchedule } from '@/hooks/use-schedule'
 import { processCalendarEvents, groupClassesBySubject, getSemesterDates } from '@/lib/calendar-utils'
 import type { CalendarEvent } from '@/components/event-calendar/types'
@@ -17,16 +17,21 @@ export function useSchedulerData() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([])
+  const [hideDemoClasses, setHideDemoClasses] = useState(false)
 
   const scheduledClasses = useMemo(() => {
-    // Show demo classes when schedule is empty
-    const classesToUse = rawScheduledClasses.length === 0 ? demoClasses : rawScheduledClasses
+    // Show demo classes when schedule is empty and not hidden
+    const classesToUse = (rawScheduledClasses.length === 0 && !hideDemoClasses) ? demoClasses : rawScheduledClasses
     return classesToUse.map((cls, index) => ({
       ...cls,
       colorBg: classColors[index % classColors.length].bg,
       colorHex: classColors[index % classColors.length].hex,
     }))
-  }, [rawScheduledClasses])
+  }, [rawScheduledClasses, hideDemoClasses])
+
+  const clearDemoClasses = () => {
+    setHideDemoClasses(true)
+  }
 
   const calendarEvents = useMemo(() => {
     return processCalendarEvents(scheduledClasses)
@@ -55,5 +60,6 @@ export function useSchedulerData() {
     isCurrentSemester,
     isInteractiveSemester,
     semesterDates,
+    clearDemoClasses,
   }
 }

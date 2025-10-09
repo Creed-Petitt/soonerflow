@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { SemesterPicker } from '@/components/semester-picker'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import CustomNavbar from '@/components/custom-navbar'
-import { BookOpen, GraduationCap } from 'lucide-react'
+import { BookOpen, GraduationCap, Sparkles } from 'lucide-react'
 import { ClassBrowserPanel } from '@/components/class-browser-panel'
 import { ClassDetailDialog } from '@/components/class-detail-dialog'
 import { EnrolledClassCard } from '@/components/scheduler/enrolled-class-card'
@@ -27,7 +27,11 @@ export default function SchedulerPage() {
     groupedClasses,
     isInteractiveSemester,
     isLoading,
+    clearDemoClasses,
   } = useSchedulerData()
+
+  const { scheduledClasses: rawScheduledClasses } = useSchedule()
+  const isDemoClass = (classId: string) => rawScheduledClasses.length === 0
 
   const {
     isClassBrowserOpen,
@@ -79,6 +83,17 @@ export default function SchedulerPage() {
             <div className="relative flex-1 min-h-0">
               <ScrollArea className="h-full">
                 <div className="space-y-2">
+                  {rawScheduledClasses.length === 0 && scheduledClasses.length > 0 && (
+                    <div className="mb-3 p-3 bg-muted/50 border border-border rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="text-xs text-muted-foreground">
+                          <p className="font-medium mb-1">Viewing demo classes</p>
+                          <p>Click "Browse & Add Classes" above to start your real schedule</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {isLoading ? (
                     <ClassCardSkeletonList count={4} />
                   ) : scheduledClasses.length === 0 ? (
@@ -97,7 +112,13 @@ export default function SchedulerPage() {
                         <EnrolledClassCard
                           key={cls.id}
                           classData={cls}
-                          onRemove={() => handleRemoveFromSchedule(cls.id)}
+                          onRemove={() => {
+                            if (isDemoClass(cls.id)) {
+                              clearDemoClasses()
+                            } else {
+                              handleRemoveFromSchedule(cls.id)
+                            }
+                          }}
                           onSwitchSection={newSection =>
                             handleSectionSwitch(cls, newSection)
                           }
