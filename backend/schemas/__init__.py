@@ -1,8 +1,9 @@
 from .common_schemas import PaginationResponse, ErrorResponse
 from .class_schemas import (
-    ClassResponse,
+    BaseClassDTO,
+    ClassDetail,
+    ClassScheduleItem,
     ClassListResponse,
-    CourseResponse,
     DepartmentResponse,
     DepartmentListResponse,
 )
@@ -10,7 +11,6 @@ from .professor_schemas import ProfessorResponse, ProfessorSearchRequest
 from .user_schemas import UserResponse, UserCreate
 from .schedule_schemas import (
     ScheduleUpdate,
-    ScheduledClassResponse,
     ScheduleResponse,
     SemesterResponse,
     SemesterListResponse,
@@ -21,9 +21,10 @@ __all__ = [
     "PaginationResponse",
     "ErrorResponse",
     # Classes
-    "ClassResponse",
+    "BaseClassDTO",
+    "ClassDetail",
+    "ClassScheduleItem",
     "ClassListResponse",
-    "CourseResponse",
     "DepartmentResponse",
     "DepartmentListResponse",
     # Professors
@@ -34,7 +35,6 @@ __all__ = [
     "UserCreate",
     # Schedules
     "ScheduleUpdate",
-    "ScheduledClassResponse",
     "ScheduleResponse",
     "SemesterResponse",
     "SemesterListResponse",
