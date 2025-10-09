@@ -130,7 +130,7 @@ export function ClassBrowserTable({
                     `${section.meetingTimes[0].days || ''} ${section.meetingTimes[0].startTime || ''}-${section.meetingTimes[0].endTime || ''}`.trim()
                     : 'TBA'),
                   instructor: section.instructor || 'TBA',
-                  location: section.location || section.meetingTimes?.[0]?.location,
+                  location: section.location || section.meetingTimes?.[0]?.location || 'TBA',
                   credits: grouped.credits || section.credits || 3,
                   color: 'blue',
                 };
