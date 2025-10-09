@@ -1,18 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-import sys
-import os
 import logging
 
 from backend.config import settings
 from backend.logging_config import setup_logging
-from backend.routers import (
-    classes_router,
-    professors_router,
-    users_router,
-    schedules_router
+from backend.api.v1 import (
+    classes as classes_v1,
+    professors as professors_v1,
+    schedules as schedules_v1
 )
+from backend.core.exceptions import NotFoundException, ConflictException, ValidationException
 from database.models import create_engine_and_session, Base
 from backend.auth.firebase_config import initialize_firebase
 
@@ -42,11 +41,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(classes_router)
-app.include_router(professors_router)
-app.include_router(users_router)
-app.include_router(schedules_router)
+# Global exception handlers
+@app.exception_handler(NotFoundException)
+async def not_found_handler(request: Request, exc: NotFoundException):
+    return JSONResponse(status_code=404, content={"detail": exc.message})
+
+@app.exception_handler(ConflictException)
+async def conflict_handler(request: Request, exc: ConflictException):
+    return JSONResponse(status_code=409, content={"detail": exc.message})
+
+@app.exception_handler(ValidationException)
+async def validation_handler(request: Request, exc: ValidationException):
+    return JSONResponse(status_code=400, content={"detail": exc.message})
+
+# API v1 Routers
+app.include_router(classes_v1.router, prefix="/api")
+app.include_router(professors_v1.router, prefix="/api")
+app.include_router(schedules_v1.router, prefix="/api")
 
 # Root endpoint
 @app.get("/")
