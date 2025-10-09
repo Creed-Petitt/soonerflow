@@ -4,6 +4,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { auth, googleProvider, githubProvider } from '../lib/firebase';
 import {
     signInWithPopup,
+    signInAnonymously,
     signOut,
     onAuthStateChanged,
     User
@@ -66,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             setError('');
             await signOut(auth);
+            // After sign out, create a new anonymous user
+            await signInAnonymously(auth);
         } catch (error: any) {
             setError(getErrorMessage(error.code));
             throw error;
@@ -110,9 +113,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, user => {
-            setCurrentUser(user);
-            setLoading(false);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                // No user logged in - create anonymous user automatically
+                try {
+                    await signInAnonymously(auth);
+                    // onAuthStateChanged will be called again with the new anonymous user
+                } catch (error) {
+                    console.error('Failed to create anonymous user:', error);
+                    setCurrentUser(null);
+                    setLoading(false);
+                }
+            } else {
+                setCurrentUser(user);
+                setLoading(false);
+            }
         });
 
         return unsubscribe;

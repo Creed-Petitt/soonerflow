@@ -33,7 +33,11 @@ export function AuthButton() {
     }
   };
 
-  if (currentUser) {
+  // Check if user is anonymous (not a real authenticated user)
+  const isAnonymous = currentUser?.isAnonymous;
+
+  if (currentUser && !isAnonymous) {
+    // Real authenticated user - show profile dropdown with sign out
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -74,6 +78,7 @@ export function AuthButton() {
     );
   }
 
+  // Anonymous user or no user - show sign-in button
   return (
     <>
       <UserProfileIcon
