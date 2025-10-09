@@ -1,58 +1,28 @@
 from typing import Optional, Dict, List, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from rapidfuzz import fuzz, process
 import re
-
 import logging
 
 from database.models import Professor
 from backend.config import settings
-from backend.repositories import ProfessorRepository
+from backend.core.exceptions import NotFoundException
 
 class ProfessorService:
+    def __init__(self):
+        pass
 
-    def __init__(self, db: Session):
-        self.db = db
-        self.professor_repo = ProfessorRepository()
-    
-    def get_rating(self, class_id: str, instructor_name: str) -> dict:
-        
-        try:
-            return self._get_rating_internal(class_id, instructor_name)
-        except Exception as e:
-            logging.getLogger(__name__).error(f"Error getting rating for '{instructor_name}': {e}")
-            try:
-                self.db.rollback()
-            except Exception as rollback_e:
-                logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
-            return self._empty_rating()
-    
-    def _get_rating_internal(self, class_id: str, instructor_name: str) -> dict:
-
-        # Return empty ratings for TBA or empty instructors
-        if not instructor_name or instructor_name.upper() == "TBA":
-            return self._empty_rating()
-
-        # Find professor and get rating
-        professor = self._find_professor(class_id, instructor_name)
-        result = self._format_professor_rating(professor) if professor else self._empty_rating()
-
-        return result
-    
-    def search_professor(self, name: str) -> Optional[Dict[str, Any]]:
-        
+    def search_professor(self, db: Session, name: str) -> Dict[str, Any]:
         if not name or len(name.strip()) < 2:
-            return None
-        
-        professor = self._find_professor_by_name(name.strip())
-        
+            raise NotFoundException("Name must be at least 2 characters")
+
+        professor = self._find_professor_by_name(db, name.strip())
+
         if not professor:
-            return None
-        
-        # Parse tags
+            raise NotFoundException(f"Professor '{name}' not found")
+
         tags = self._parse_tags(professor.teacherTags)
-        
-        # Build rating distribution
         rating_distribution = [
             professor.ratingR1 or 0,
             professor.ratingR2 or 0,
@@ -60,7 +30,7 @@ class ProfessorService:
             professor.ratingR4 or 0,
             professor.ratingR5 or 0
         ]
-        
+
         return {
             "id": professor.id,
             "firstName": professor.firstName or "",
@@ -74,76 +44,22 @@ class ProfessorService:
             "ratingDistribution": rating_distribution,
             "tags": tags
         }
-    
-    def get_ratings_for_instructors(self, instructor_names: List[str]) -> Dict[str, dict]:
-        if not instructor_names:
-            return {}
 
-        # Get all professors with ratings once
+    def _find_professor_by_name(self, db: Session, name: str) -> Optional[Professor]:
         try:
-            professors = self.professor_repo.get_all_with_ratings(self.db)
-            if not professors:
-                return {}
-        except Exception as e:
-            logging.getLogger(__name__).error(f"Error getting all professors with ratings: {e}")
-            try:
-                self.db.rollback()
-            except Exception as rollback_e:
-                logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
-            return {}
-
-        # Build a list of professor names for fuzzy matching
-        professor_names_list = [f"{prof.firstName} {prof.lastName}".strip() for prof in professors]
-        professor_map = {f"{prof.firstName} {prof.lastName}".strip(): prof for prof in professors}
-
-        instructor_ratings = {}
-        unique_instructor_names = set(instructor_names)
-
-        for name in unique_instructor_names:
-            if not name or name.upper() == "TBA":
-                continue
-            
-            # Clean and prepare name variations
             name_variations = self._generate_name_variations(name)
+            search_terms = list(set([term for variation in name_variations for term in variation.split()]))
 
-            best_prof = None
-            highest_score = 0
-
-            for name_variant in name_variations:
-                # Use token sort ratio for better handling of name order variations
-                best_match = process.extractOne(
-                    name_variant,
-                    professor_names_list,
-                    scorer=fuzz.token_sort_ratio
-                )
-
-                if best_match and best_match[1] > highest_score:
-                    highest_score = best_match[1]
-                    if best_match[1] >= settings.fuzzy_match_threshold:
-                        best_prof = professor_map.get(best_match[0])
-
-            if best_prof:
-                instructor_ratings[name] = self._format_professor_rating(best_prof)
-            else:
-                instructor_ratings[name] = self._empty_rating()
-
-        return instructor_ratings
-
-    def _find_professor(self, class_id: str, instructor_name: str) -> Optional[Professor]:
-        
-        # Only use name matching - no broken table lookups
-        return self._find_professor_by_name(instructor_name)
-    
-    def _find_professor_by_name(self, name: str) -> Optional[Professor]:
-
-        # Get all professors with ratings
-        try:
-            professors = self.professor_repo.get_all_with_ratings(self.db)
+            query = db.query(Professor).filter(Professor.avgRating > 0)
+            conditions = []
+            for term in search_terms:
+                conditions.append(Professor.lastName.ilike(f"%{term}%"))
+                conditions.append(Professor.firstName.ilike(f"%{term}%"))
+            professors = query.filter(or_(*conditions)).limit(100).all()
 
             if not professors:
                 return None
 
-            # Build list of professor names for fuzzy matching
             professor_names = []
             professor_map = {}
             for i, prof in enumerate(professors):
@@ -154,17 +70,12 @@ class ProfessorService:
         except Exception as e:
             logging.getLogger(__name__).error(f"Error finding professor by name '{name}': {e}")
             try:
-                self.db.rollback()
+                db.rollback()
             except Exception as rollback_e:
                 logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
             return None
 
-        # Clean and prepare name variations
-        name_variations = self._generate_name_variations(name)
-
-        # Try each name variation with fuzzy matching
         for name_variant in name_variations:
-            # Use token sort ratio for better handling of name order variations
             best_match = process.extractOne(
                 name_variant,
                 professor_names,
@@ -172,86 +83,57 @@ class ProfessorService:
             )
 
             if best_match and best_match[1] >= settings.fuzzy_match_threshold:
-                # Return the professor object corresponding to the best match
                 return professor_map[best_match[2]]
 
-        # No fallback - if no exact match, return None
         return None
-    
-    def _generate_name_variations(self, name: str) -> List[str]:
 
+    def _generate_name_variations(self, name: str) -> List[str]:
         variations = [name]
 
-        # Normalize extra spaces first
         normalized_name = re.sub(r'\s+', ' ', name.strip())
         if normalized_name != name:
             variations.append(normalized_name)
 
-        # Remove common titles and suffixes
         title_pattern = r'\b(Dr|Prof|Professor|Mr|Ms|Mrs|Jr|Sr|II|III|IV)\.?\b'
         title_removed = re.sub(title_pattern, '', name, flags=re.IGNORECASE).strip()
-        title_removed = re.sub(r'\s+', ' ', title_removed)  # Clean up extra spaces
+        title_removed = re.sub(r'\s+', ' ', title_removed)
         if title_removed and title_removed != name:
             variations.append(title_removed)
 
-        # Handle "Mc" names (e.g., "Mc Cann" vs "McCann")
         if 'Mc ' in name:
-            mc_fixed = name.replace('Mc ', 'Mc')
-            variations.append(mc_fixed)
+            variations.append(name.replace('Mc ', 'Mc'))
         elif 'Mc' in name and 'Mc ' not in name:
-            mc_spaced = re.sub(r'Mc([A-Z])', r'Mc \1', name)
-            variations.append(mc_spaced)
+            variations.append(re.sub(r'Mc([A-Z])', r'Mc \1', name))
 
-        # Handle "Mac" names similarly
         if 'Mac ' in name:
-            mac_fixed = name.replace('Mac ', 'Mac')
-            variations.append(mac_fixed)
+            variations.append(name.replace('Mac ', 'Mac'))
         elif 'Mac' in name and 'Mac ' not in name:
-            mac_spaced = re.sub(r'Mac([A-Z])', r'Mac \1', name)
-            variations.append(mac_spaced)
+            variations.append(re.sub(r'Mac([A-Z])', r'Mac \1', name))
 
-        # Handle "O'" names (e.g., "O Sullivan" vs "O'Sullivan")
         if 'O ' in name:
-            o_apostrophe = re.sub(r'\bO ([A-Z])', r"O'\1", name)
-            variations.append(o_apostrophe)
+            variations.append(re.sub(r'\bO ([A-Z])', r"O'\1", name))
         elif "O'" in name:
-            o_spaced = re.sub(r"\bO'([A-Z])", r'O \1', name)
-            variations.append(o_spaced)
+            variations.append(re.sub(r"\bO'([A-Z])", r'O \1', name))
 
-        # Handle "Last, First" format
         if ',' in name:
             parts = name.split(',', 1)
             if len(parts) == 2:
                 last, first = parts[0].strip(), parts[1].strip()
-                variations.append(f"{first} {last}")  # Convert to "First Last"
-                variations.append(f"{last} {first}")  # Keep "Last First"
+                variations.append(f"{first} {last}")
+                variations.append(f"{last} {first}")
 
-        # Handle hyphenated names (comprehensive)
         if '-' in name:
-            # Version with spaces instead of hyphens
-            space_version = name.replace('-', ' ')
-            variations.append(space_version)
-
-            # Version with no hyphens or spaces
-            no_hyphen = name.replace('-', '')
-            variations.append(no_hyphen)
-
-            # Version with normalized hyphen spacing
+            variations.append(name.replace('-', ' '))
+            variations.append(name.replace('-', ''))
             clean_hyphen = re.sub(r'\s*-\s*', '-', name)
             if clean_hyphen != name:
                 variations.append(clean_hyphen)
-
-        # Handle names with spaces that might be hyphenated in database
         elif ' ' in name and '-' not in name:
-            # Try hyphenated version
             words = name.split()
             if len(words) >= 2:
-                # Hyphenate the last two words (most common case)
-                if len(words) >= 2:
-                    hyphenated = ' '.join(words[:-2] + ['-'.join(words[-2:])])
-                    variations.append(hyphenated)
+                hyphenated = ' '.join(words[:-2] + ['-'.join(words[-2:])])
+                variations.append(hyphenated)
 
-        # Remove duplicates and empty strings, return unique variations
         unique_variations = []
         for var in variations:
             clean_var = var.strip()
@@ -259,63 +141,8 @@ class ProfessorService:
                 unique_variations.append(clean_var)
 
         return unique_variations
-    
-    def _fallback_word_matching(self, name: str) -> Optional[Professor]:
-        
-        words = name.replace(',', ' ').split()
-        significant_words = [w for w in words if len(w) > 2]
-        
-        for word in significant_words:
-            try:
-                professors = self.professor_repo.find_by_name_with_ratings(self.db, word)
-            except Exception as e:
-                logging.getLogger(__name__).error(f"Error in fallback matching for word '{word}': {e}")
-                try:
-                    self.db.rollback()
-                except Exception as rollback_e:
-                    logging.getLogger(__name__).error(f"Error during rollback: {rollback_e}")
-                continue
-            
-            if professors:
-                # Return the professor with the highest number of ratings
-                return max(professors, key=lambda p: p.numRatings or 0)
-        
-        return None
-    
-    
-    def _format_professor_rating(self, professor: Professor) -> dict:
-        
-        tags = self._parse_tags(professor.teacherTags)
-        
-        return {
-            "rating": professor.avgRating or 0.0,
-            "difficulty": professor.avgDifficulty or 0.0,
-            "wouldTakeAgain": professor.wouldTakeAgainPercent or 0.0,
-            "ratingDistribution": [
-                professor.ratingR1 or 0,
-                professor.ratingR2 or 0,
-                professor.ratingR3 or 0,
-                professor.ratingR4 or 0,
-                professor.ratingR5 or 0
-            ],
-            "tags": tags
-        }
-    
+
     def _parse_tags(self, tags_string: Optional[str]) -> List[str]:
-        
         if not tags_string:
             return []
-        
         return [tag.strip() for tag in tags_string.split(',') if tag.strip()]
-    
-
-    
-    def _empty_rating(self) -> dict:
-        
-        return {
-            "rating": 0.0,
-            "difficulty": 0.0,
-            "wouldTakeAgain": 0.0,
-            "ratingDistribution": [0, 0, 0, 0, 0],
-            "tags": []
-        }
