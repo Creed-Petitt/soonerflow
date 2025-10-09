@@ -1,8 +1,10 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ProfessorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     firstName: str
     lastName: str
@@ -15,13 +17,9 @@ class ProfessorResponse(BaseModel):
     ratingDistribution: List[int]
     tags: List[str]
     comments: Optional[List[str]] = []
-    
-    class Config:
-        from_attributes = True
 
 
 class ProfessorSearchRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
-    
-    class Config:
-        from_attributes = True
