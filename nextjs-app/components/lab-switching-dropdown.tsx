@@ -14,8 +14,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Clock, MapPin, Users, AlertTriangle, Check, ChevronDown } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 
 interface ClassData {
   id: string

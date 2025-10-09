@@ -75,18 +75,6 @@ export function SimpleDropdown({
     width: 'max-content'
   }
 
-
-  const optionStyle = (isSelected: boolean, isHovered: boolean) => ({
-    padding: '8px 12px',
-    backgroundColor: isHovered ? 'rgb(39, 39, 42)' : 'rgb(24, 24, 27)',
-    color: 'rgb(244, 244, 245)',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '14px'
-  })
-
   return (
     <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
       <button

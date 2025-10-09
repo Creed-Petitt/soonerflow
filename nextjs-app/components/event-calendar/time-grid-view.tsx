@@ -6,9 +6,7 @@ import {
   addHours,
   areIntervalsOverlapping,
   differenceInMinutes,
-  eachDayOfInterval,
   eachHourOfInterval,
-  endOfWeek,
   format,
   getHours,
   getMinutes,
@@ -16,12 +14,10 @@ import {
   isSameDay,
   isToday,
   startOfDay,
-  startOfWeek,
 } from "date-fns"
 
 import { EventItem } from "@/components/event-calendar/event-item"
 import { isMultiDayEvent } from "@/components/event-calendar/utils"
-import { useCurrentTimeIndicator } from "@/components/event-calendar/hooks/use-current-time-indicator"
 import { WeekCellsHeight } from "@/components/event-calendar/constants"
 import type { CalendarEvent } from "@/components/event-calendar/types"
 import {
@@ -52,7 +48,6 @@ export function TimeGridView({
   events,
   onEventSelect,
   onEventCreate,
-  days = 5, // Default to weekdays only
 }: TimeGridViewProps) {
   const daysToDisplay = useMemo(() => {
     // Always show a static Monday-Friday template regardless of actual dates
@@ -104,9 +99,7 @@ export function TimeGridView({
     const result = daysToDisplay.map((day, dayIndex) => {
       // Template day matching: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday
       const templateDayOfWeek = dayIndex + 1 // Convert to 1=Monday, 2=Tuesday, etc.
-      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-      
-      
+
       const dayEvents = events.filter((event) => {
         // Skip all-day events and multi-day events
         if (event.allDay || isMultiDayEvent(event)) return false
@@ -222,10 +215,6 @@ export function TimeGridView({
   }
 
   const showAllDaySection = allDayEvents.length > 0
-  const { currentTimePosition, currentTimeVisible } = useCurrentTimeIndicator(
-    currentDate,
-    "week"
-  )
 
   return (
     <div data-slot="week-view" className="flex h-full flex-col">
@@ -356,7 +345,6 @@ export function TimeGridView({
                     view="week"
                     onClick={(e) => handleEventClick(positionedEvent.event, e)}
                     showTime
-                    height={positionedEvent.height}
                   />
                 </div>
               </div>
@@ -371,9 +359,7 @@ export function TimeGridView({
                   className="border-border/70 relative min-h-[var(--week-cells-height)] border-b last:border-b-0"
                 >
                   {/* Quarter-hour intervals */}
-                  {[0, 1, 2, 3].map((quarter) => {
-                    const quarterHourTime = hourValue + quarter * 0.25
-                    return (
+                  {[0, 1, 2, 3].map((quarter) => (
                       <div
                         key={`${hour.toString()}-${quarter}`}
                         className={cn(
@@ -393,8 +379,7 @@ export function TimeGridView({
                           onEventCreate(startTime)
                         }}
                       />
-                    )
-                  })}
+                  ))}
                 </div>
               )
             })}

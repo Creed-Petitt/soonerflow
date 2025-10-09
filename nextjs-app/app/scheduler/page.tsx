@@ -93,9 +93,6 @@ export default function SchedulerPage() {
                     </div>
                   ) : (
                     scheduledClasses.map(cls => {
-                      const groupedClass = groupedClasses.find(
-                        g => g.subject === cls.subject && g.number === cls.number
-                      )
                       return (
                         <EnrolledClassCard
                           key={cls.id}
@@ -104,8 +101,6 @@ export default function SchedulerPage() {
                           onSwitchSection={newSection =>
                             handleSectionSwitch(cls, newSection)
                           }
-                          availableSections={groupedClass?.sections}
-                          availableLabSections={groupedClass?.labSections}
                           showRemoveButton={isInteractiveSemester}
                           onClick={() => openClassDetailModal(cls)}
                           isCurrentSemester={isInteractiveSemester}

@@ -15,10 +15,9 @@ import { useClassData, type GroupedClass } from "@/hooks/useClassData";
 interface ClassBrowserPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  userMajor?: string;
 }
 
-export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPanelProps) {
+export function ClassBrowserPanel({ isOpen, onClose }: ClassBrowserPanelProps) {
   const { scheduledClasses, addClass, isClassScheduled, currentSemester } = useSchedule();
 
   // State for filters and search
@@ -40,7 +39,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
     groupedClasses,
     isLoading: classDataLoading,
     loadClassesForDepartment,
-    clearClasses,
   } = useClassData();
 
   // Combined loading state
@@ -168,8 +166,6 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
         <ClassBrowserTable
           filteredGroupedClasses={filteredGroupedClasses}
           isLoading={isLoading}
-          selectedDepartment={selectedDepartment}
-          groupedClassesLength={groupedClasses.length}
           handleClassClick={handleClassClick}
           isClassScheduled={isClassScheduled}
           scheduledClasses={scheduledClasses}

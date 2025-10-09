@@ -9,8 +9,6 @@ interface EnrolledClassCardProps {
   classData: ScheduledClass
   onRemove: () => void
   onSwitchSection?: (newSection: ClassData) => void
-  availableSections?: ClassData[]
-  availableLabSections?: ClassData[]
   showRemoveButton?: boolean
   onClick?: () => void
   isCurrentSemester?: boolean
@@ -19,8 +17,6 @@ interface EnrolledClassCardProps {
 export function EnrolledClassCard({
   classData,
   onRemove,
-  availableSections,
-  availableLabSections,
   showRemoveButton = true,
   onClick,
   isCurrentSemester = true

@@ -22,9 +22,6 @@ import {
   MapPin,
   User,
   Star,
-  TrendingUp,
-  Award,
-  Users,
   Gauge,
   ThumbsUp,
 } from "lucide-react";
@@ -57,7 +54,6 @@ export function ClassDetailDialog({
   const [currentSection, setCurrentSection] = React.useState<any>(null);
   const [currentLabSection, setCurrentLabSection] = React.useState<any>(null);
   const [detailedClassData, setDetailedClassData] = React.useState<any>(null);
-  const [loadingDetails, setLoadingDetails] = React.useState(false);
   const [conflictError, setConflictError] = React.useState<string | null>(null);
   const { professorData, professorError, isLoading: loadingProfessor, loadProfessorData, clearProfessorData } = useProfessorData();
   const { scheduledClasses } = useSchedule();
@@ -110,14 +106,11 @@ export function ClassDetailDialog({
   // Load detailed class data when section changes
   React.useEffect(() => {
     if (currentSection?.id) {
-      setLoadingDetails(true);
       setDetailedClassData(null);
       fetchClassDetails(currentSection.id).then(details => {
         setDetailedClassData(details);
-        setLoadingDetails(false);
       }).catch(() => {
         setDetailedClassData(null);
-        setLoadingDetails(false);
       });
     }
   }, [currentSection?.id]);

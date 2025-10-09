@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, BookOpen } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export type ScheduleErrorType = "time_conflict" | "missing_prerequisites";
 

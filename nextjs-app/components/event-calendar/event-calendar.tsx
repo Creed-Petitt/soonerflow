@@ -1,19 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import {
-  addWeeks,
-  endOfWeek,
-  format,
-  isSameMonth,
-  startOfWeek,
-  subWeeks,
-} from "date-fns"
-import { useSchedule } from "@/contexts/schedule-context"
+import { format } from "date-fns"
 import { toast } from "sonner"
 
 import { EventGap, EventHeight, WeekCellsHeight } from "@/components/event-calendar/constants"
-import { addHoursToDate } from "@/components/event-calendar/utils"
 import { TimeGridView } from "@/components/event-calendar/time-grid-view"
 import { EventDialog } from "@/components/event-calendar/event-dialog"
 import type { CalendarEvent, CalendarView } from "@/components/event-calendar/types"
@@ -44,44 +35,18 @@ export function EventCalendar({
   onEventDelete,
   onEventSelect,
   currentDate: externalDate,
-  onDateChange,
   isLoading = false,
 }: EventCalendarProps) {
-  const { currentSemester, availableSemesters } = useSchedule()
-  
-  const [internalDate, setInternalDate] = useState(new Date())
-  const currentDate = externalDate || internalDate
-  const setCurrentDate = (date: Date) => {
-    if (onDateChange) {
-      onDateChange(date)
-    } else {
-      setInternalDate(date)
-    }
-  }
+  const currentDate = externalDate || new Date()
+
   // Force week view only - no view switching
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  
-  // Get current semester details
-  const currentSemesterDetails = availableSemesters.find(
-    sem => sem.code === currentSemester
-  )
 
   // Removed keyboard shortcuts - calendar is now week-only
 
-  const handlePrevious = () => {
-    // Week view only
-    setCurrentDate(subWeeks(currentDate, 1))
-  }
-
-  const handleNext = () => {
-    // Week view only
-    setCurrentDate(addWeeks(currentDate, 1))
-  }
-
-
   const handleEventSelect = (event: CalendarEvent) => {
-    
+
     // Use custom event handler if provided, otherwise fallback to default dialog
     if (onEventSelect) {
       onEventSelect(event)
@@ -89,34 +54,6 @@ export function EventCalendar({
       setSelectedEvent(event)
       setIsEventDialogOpen(true)
     }
-  }
-
-  const handleEventCreate = (startTime: Date) => {
-
-    // Snap to 15-minute intervals
-    const minutes = startTime.getMinutes()
-    const remainder = minutes % 15
-    if (remainder !== 0) {
-      if (remainder < 7.5) {
-        // Round down to nearest 15 min
-        startTime.setMinutes(minutes - remainder)
-      } else {
-        // Round up to nearest 15 min
-        startTime.setMinutes(minutes + (15 - remainder))
-      }
-      startTime.setSeconds(0)
-      startTime.setMilliseconds(0)
-    }
-
-    const newEvent: CalendarEvent = {
-      id: "",
-      title: "",
-      start: startTime,
-      end: addHoursToDate(startTime, 1),
-      allDay: false,
-    }
-    setSelectedEvent(newEvent)
-    setIsEventDialogOpen(true)
   }
 
   const handleEventSave = (event: CalendarEvent) => {
@@ -156,30 +93,6 @@ export function EventCalendar({
       })
     }
   }
-
-  const handleEventUpdate = (updatedEvent: CalendarEvent) => {
-    onEventUpdate?.(updatedEvent)
-
-    // Show toast notification when an event is updated via drag and drop
-    toast(`Event "${updatedEvent.title}" moved`, {
-      description: format(new Date(updatedEvent.start), "MMM d, yyyy"),
-      position: "bottom-left",
-    })
-  }
-
-  const viewTitle = (() => {
-    // Show semester name instead of month/year navigation
-    const semesterName = currentSemesterDetails?.name || currentSemester;
-    
-    // Since view is always "week", we only need this logic
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
-    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
-    if (isSameMonth(start, end)) {
-      return `${semesterName} - ${format(start, "MMMM d")}`;
-    } else {
-      return `${semesterName} - ${format(start, "MMM d")} - ${format(end, "MMM d")}`;
-    }
-  })();
 
   return (
     <div

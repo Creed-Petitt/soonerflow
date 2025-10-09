@@ -1,5 +1,3 @@
-import { isSameDay } from "date-fns"
-
 import type {
   CalendarEvent,
   EventColor,

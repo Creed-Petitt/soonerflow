@@ -22,7 +22,6 @@ interface EventWrapperProps {
   onClick?: (e: React.MouseEvent) => void
   className?: string
   children: React.ReactNode
-  currentTime?: Date
 }
 
 // Shared wrapper component for event styling
@@ -33,16 +32,7 @@ function EventWrapper({
   onClick,
   className,
   children,
-  currentTime,
 }: EventWrapperProps) {
-  // Always use the currentTime (if provided) to determine if the event is in the past
-  const displayEnd = currentTime
-    ? new Date(
-        new Date(currentTime).getTime() +
-          (new Date(event.end).getTime() - new Date(event.start).getTime())
-      )
-    : new Date(event.end)
-
   const isEventInPast = false // Template events are never "past"
 
   const isHexColor = event.color && event.color.startsWith('#')
@@ -77,7 +67,6 @@ interface EventItemProps {
   isLastDay?: boolean
   children?: React.ReactNode
   className?: string
-  height?: number
 }
 
 export function EventItem({
@@ -90,7 +79,6 @@ export function EventItem({
   isLastDay = true,
   children,
   className,
-  height,
 }: EventItemProps) {
   const eventColor = event.color
 
@@ -130,7 +118,6 @@ export function EventItem({
           "mt-[var(--event-gap)] h-[var(--event-height)] items-center text-[10px] sm:text-xs",
           className
         )}
-        currentTime={currentTime}
       >
         {children || (
           <span className="truncate flex items-center gap-1">
@@ -164,7 +151,6 @@ export function EventItem({
           view === "week" ? "text-xs sm:text-sm" : "text-sm",
           className
         )}
-        currentTime={currentTime}
       >
         {durationMinutes < 45 ? (
           <div className="truncate">

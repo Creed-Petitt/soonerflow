@@ -19,8 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
   isLoading: boolean;
-  selectedDepartment: string;
-  groupedClassesLength: number;
   handleClassClick: (grouped: GroupedClass) => void;
   isClassScheduled: (id: string) => boolean;
   scheduledClasses: ScheduledClass[];
@@ -64,8 +62,6 @@ function getGroupedClassDisplay(grouped: GroupedClass) {
 export function ClassBrowserTable({
   filteredGroupedClasses,
   isLoading,
-  selectedDepartment,
-  groupedClassesLength,
   handleClassClick,
   isClassScheduled,
   scheduledClasses,
