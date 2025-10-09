@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -12,9 +12,9 @@ class Class(Base):
     
     id = Column(String, primary_key=True)  # class_id from API (e.g., "13384-202510")
     subject = Column(String, nullable=False, index=True)  # Subject code (e.g., "ECE")
-    courseNumber = Column(String, nullable=False, index=True)  # Course number (e.g., "2214") 
+    courseNumber = Column(String, nullable=False, index=True)  # Course number (e.g., "2214")
     section = Column(String, nullable=False)  # Section (e.g., "010")
-    title = Column(String, nullable=False, index=True)  # Course title
+    title = Column(Text)  # Clean course title
     description = Column(Text)  # Course description
     instructor = Column(String, index=True)  # Primary instructor name
     allInstructors = Column(String)  # All instructors (comma-separated)
@@ -29,8 +29,17 @@ class Class(Base):
     availableSeats = Column(Integer, default=0, index=True)  # Available seats - indexed for filtering
     totalSeats = Column(Integer, default=0)  # Total seats
     semester = Column(String, nullable=False, index=True, default="202510")  # Semester code (e.g., "202510" for Fall 2025)
-    
+    time = Column(Text)  # Formatted meeting time
+    location = Column(Text)  # Primary location
+    days = Column(Text)  # Days as JSON array
+
     meetingTimes = relationship("MeetingTime", back_populates="class_", cascade="all, delete-orphan")
+
+    # Composite indexes for common queries
+    __table_args__ = (
+        Index('idx_subject_semester', 'subject', 'semester'),  # Most common: filter by subject + semester
+        Index('idx_semester_subject', 'semester', 'subject'),  # Also common
+    )
 
 class MeetingTime(Base):
     __tablename__ = 'meeting_times'
@@ -62,17 +71,22 @@ class User(Base):
 
 class Schedule(Base):
     __tablename__ = 'schedules'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
     name = Column(String, default="My Schedule")  # Schedule name
     is_active = Column(Boolean, default=True)  # Currently active schedule
     semester = Column(String, default="202510")  # Semester code
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     user = relationship("User", back_populates="schedules")
     scheduled_classes = relationship("ScheduledClass", back_populates="schedule", cascade="all, delete-orphan")
+
+    # Composite index for finding user's schedule for a specific semester
+    __table_args__ = (
+        Index('idx_user_semester', 'user_id', 'semester'),
+    )
 
 class ScheduledClass(Base):
     __tablename__ = 'scheduled_classes'
