@@ -132,6 +132,7 @@ export function ClassBrowserPanel({ isOpen, onClose, userMajor }: ClassBrowserPa
 
     toast.success(`Added ${section.subject} ${section.number || section.courseNumber} to schedule`);
     setIsDialogOpen(false);
+    onClose();
   };
 
 
