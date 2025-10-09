@@ -58,7 +58,7 @@ export function parseClassTime(timeStr: string): { days: string[], startTime: Pa
     const classDays = parseClassDays(days)
 
     return { days: classDays, startTime, endTime }
-  } catch (error) {
+  } catch {
     return null
   }
 }
