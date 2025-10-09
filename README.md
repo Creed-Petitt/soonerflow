@@ -1,102 +1,44 @@
-# OU Class Manager (SoonerFlow)
+# SoonerFlow: A Full-Stack Class Scheduler
 
-This repository contains the full-stack source code for SoonerFlow, a comprehensive web application designed to help University of Oklahoma students browse courses, view professor ratings, and build their class schedules with ease. The project features a React/Next.js frontend, a Python/FastAPI backend, and a PostgreSQL database, all containerized with Docker and configured for automated deployment on Google Cloud Run.
+*A modern, scalable web application for course browsing and schedule building, featuring a FastAPI backend, React.js frontend, and an automated CI/CD pipeline to Google Cloud.*
+
+**[Live Demo](https://soonerflow.vercel.app/scheduler) • [Watch the CI/CD Pipeline in Action]([YOUR-GITHUB-ACTIONS-URL])**
+
+![SoonerFlow Demo](./demo.gif)
+
+## About This Project
+
+SoonerFlow was built to solve a common problem for university students: the frustrating process of browsing thousands of courses and building a conflict-free schedule. This full-stack application provides a fast, intuitive, and modern interface for students to visually plan their semester.
+
+This project is more than just a functional application; it's a demonstration of what I consider clean and professional software engineering practices. It featrues a layered backend architecture, a CI/CD pipeline, and a scalable, cloud-native design.
 
 ## Key Features
 
-- **Advanced Course Browser:** Search, filter, and browse thousands of courses with detailed information, including descriptions, meeting times, and available seats.
-- **Professor Insights:** Integrates Rate My Professors data to show instructor ratings, difficulty scores, and student feedback directly within the course browser.
-- **Visual Schedule Builder:** Interactively add and remove classes from a visual calendar to build the perfect schedule.
-- **Multi-Schedule Management:** Create, save, and switch between multiple schedule variations for different semesters.
-- **User Authentication:** Secure user accounts with Firebase for saving schedules and personal preferences.
-- **Automated Data Scraping:** A suite of Python scripts automates the process of scraping and updating course and professor data to keep the application current.
-- **Cloud-Native Architecture:** Designed for serverless deployment on Google Cloud Run, using Cloud SQL for the database and Artifact Registry for container storage.
-- **Automated CI/CD:** A GitHub Actions workflow automates testing, building, and deploying the backend application on every push to the `main` branch.
+- **🚀 Advanced Course Browser:** Instantly search and filter thousands of courses.
+- **📊 Integrated Professor Ratings:** Make informed decisions with Rate My Professors data shown directly in the UI.
+- **🗓️ Visual Schedule Builder:** Interactively add and remove classes from a visual calendar to see your week at a glance.
+- **🔐 User Authentication:** Securely save and manage multiple schedules with Firebase-powered accounts.
 
-## Architecture Overview
+## Engineering Highlights
 
-The application is composed of three main components: a Next.js frontend, a FastAPI backend, and a set of data scraping scripts.
+This project was built with a focus on quality, scalability, and automation.
 
-- **Frontend (Next.js):** A modern, responsive user interface built with React and Next.js. It provides all the client-facing features, including the class browser, schedule calendar, and user authentication. It communicates with the backend via a REST API.
-- **Backend (FastAPI):** A robust RESTful API built with Python and FastAPI. It handles business logic, serves data to the frontend, manages user authentication, and interacts with the PostgreSQL database.
-- **Database (PostgreSQL):** A PostgreSQL database, hosted on Google Cloud SQL in production, persists all application data, including courses, professors, users, and schedules. The schema is managed by SQLAlchemy.
-- **Scrapers:** A collection of Python scripts responsible for fetching course data from the university's public catalog and professor ratings from Rate My Professors. This data is then processed and loaded into the database.
+- **Clean Backend Architecture:** The FastAPI backend uses a **3-tier architecture (API → Service → Repository)** to ensure a clean separation of concerns, making the code maintainable and testable.
+- **Automated CI/CD Pipeline:** Every push to `main` automatically triggers a **GitHub Actions** workflow that builds a Docker image, pushes it to Google Artifact Registry, and deploys it to **Google Cloud Run** with zero downtime.
+- **Automated Data Management:** A suite of Python scripts regularly scrapes and updates all course and professor data, ensuring the application stays current without manual intervention.
 
-## API Endpoints
+## Tech Stack
 
-All endpoints are prefixed with `/api/v1`.
+- **Backend:** **Python**, **FastAPI**, SQLAlchemy
+- **Frontend:** **Next.js**, **React**, **TypeScript**, Tailwind CSS
+- **Database:** **PostgreSQL** (hosted on Google Cloud SQL)
+- **Auth:** **Firebase Authentication**
+- **Deployment:** **Docker**, **Google Cloud Run**, GitHub Actions
 
-### Classes
+## Running Locally
 
-- `GET /classes`: Retrieve a paginated and filtered list of classes.
-- `GET /classes/{class_id}`: Retrieve details for a specific class by its ID.
-- `GET /subjects`: Retrieve a list of all course subjects.
-- `GET /semesters`: Retrieve a list of all available semesters.
-
-### Professors
-
-- `GET /professors`: Retrieve a paginated list of professors.
-- `GET /professors/{professor_id}`: Retrieve details for a specific professor by ID.
-
-### Schedules
-
-- `POST /schedules`: Create a new schedule for the authenticated user.
-- `GET /schedules`: Get all schedules for the authenticated user for a given semester.
-- `GET /schedules/active`: Get the active schedule for the user for a given semester.
-- `PUT /schedules/{schedule_id}/active`: Set a specific schedule as active.
-- `POST /schedules/{schedule_id}/classes`: Add a class to a schedule.
-- `DELETE /schedules/{schedule_id}/classes/{class_id}`: Remove a class from a schedule.
-
-### Users
-
-- `GET /users/me`: Get the profile of the currently authenticated user.
-
-## Deployment & CI/CD
-
-This project is configured for automated deployment to Google Cloud Run.
-
-### Backend Deployment
-
-The backend is containerized using the provided `Dockerfile`. The deployment process is as follows:
-
-1.  **Build the Docker Image:** The `Dockerfile` uses a multi-stage build to create a lightweight Python 3.11 image with all necessary dependencies.
-2.  **Push to Artifact Registry:** The built Docker image is pushed to Google Artifact Registry.
-3.  **Deploy to Cloud Run:** The container is deployed as a Cloud Run service, configured with environment variables, secrets from Secret Manager (like the database URL), and a connection to the Cloud SQL instance.
-
-### Zero-Downtime CI/CD with GitHub Actions
-
-The `.github/workflows/deploy.yml` file defines the CI/CD pipeline for the backend. On every push to the `main` branch, the workflow automatically:
-
-1.  Checks out the code.
-2.  Authenticates with Google Cloud.
-3.  Builds and pushes the Docker image to Artifact Registry.
-4.  Deploys the new image to the `soonerflow-backend` Cloud Run service, ensuring zero-downtime updates.
-
-## Project Structure
-
-```
-.
-├── .github/workflows/deploy.yml  # GitHub Actions CI/CD pipeline for backend
-├── Dockerfile                    # Defines the backend container image
-├── backend/                      # FastAPI backend source code
-│   ├── main.py                   # FastAPI application entrypoint
-│   ├── routers/                  # API endpoint definitions
-│   ├── services/                 # Business logic
-│   └── auth/                     # Firebase authentication
-├── nextjs-app/                   # Next.js frontend source code
-│   ├── app/                      # Next.js 13 app directory
-│   ├── components/               # React components
-│   ├── lib/                      # API clients and utility functions
-│   └── package.json              # Frontend dependencies
-├── scrapers/                     # Data scraping and processing scripts
-│   ├── clients/                  # Clients for fetching raw data
-│   ├── processors/               # Data cleaning and transformation
-│   └── loaders/                  # Scripts to load data into the database
-└── database/
-    └── models.py                 # SQLAlchemy database models
-```
-
-## Quick Start
+<details>
+<summary>Click to view local setup instructions</summary>
 
 ### Prerequisites
 
@@ -151,11 +93,4 @@ The `.github/workflows/deploy.yml` file defines the CI/CD pipeline for the backe
     npm run dev
     ```
 
-## Technology Stack
-
-- **Backend:** FastAPI, Python 3.11, SQLAlchemy
-- **Frontend:** React, Next.js, TypeScript, Tailwind CSS
-- **Database:** PostgreSQL
-- **Authentication:** Firebase Authentication
-- **Deployment:** Docker, Google Cloud Run, Google Cloud SQL, Artifact Registry
-- **CI/CD:** GitHub Actions
+</details>
