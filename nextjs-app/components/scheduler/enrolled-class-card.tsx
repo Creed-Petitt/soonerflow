@@ -5,13 +5,8 @@ import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import type { ClassData, ScheduledClass } from "@/types/course"
 
-interface EnhancedScheduledClass extends ScheduledClass {
-  colorBg: string
-  colorHex: string
-}
-
 interface EnrolledClassCardProps {
-  classData: EnhancedScheduledClass
+  classData: ScheduledClass
   onRemove: () => void
   onSwitchSection?: (newSection: ClassData) => void
   availableSections?: ClassData[]
@@ -44,7 +39,7 @@ export function EnrolledClassCard({
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-1">
-              <span className="font-semibold text-sm">{classData.subject} {classData.number || classData.courseNumber}</span>
+              <span className="font-semibold text-sm">{classData.subject} {classData.courseNumber}</span>
               {isCompleted && <span className="text-xs text-green-600">✓</span>}
               {isDemo && (
                 <span className="text-[10px] px-1 py-0.5 bg-muted rounded text-muted-foreground font-normal">
