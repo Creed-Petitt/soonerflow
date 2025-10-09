@@ -8,22 +8,47 @@ export interface Course {
   category?: string;
 }
 
+export interface MeetingTime {
+  days?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  building?: string;
+  room?: string;
+}
+
+export interface Lab {
+  id: string;
+  subject: string;
+  courseNumber: string;
+  number: string;
+  title: string;
+  instructor?: string;
+  time?: string;
+  location?: string;
+  meetingTimes?: MeetingTime[];
+  available_seats?: number;
+  total_seats?: number;
+  availableSeats?: number;
+  totalSeats?: number;
+}
+
 // Basic class information from API
 export interface ClassData {
   id: string;
   subject: string;
   courseNumber: string;
-  number?: string; // API returns "number" not "courseNumber"
+  number: string; // Same as courseNumber, for backwards compatibility
   title: string;
   credits: number;
   instructor?: string;
   time?: string;
   location?: string;
-  meetingTimes?: any[];
+  meetingTimes?: MeetingTime[];
   available_seats?: number; // API uses underscore
   total_seats?: number; // API uses underscore
   type?: string;
-  labs?: any[];
+  labs?: Lab[];
   description?: string;
   rating?: number;
   difficulty?: number;
