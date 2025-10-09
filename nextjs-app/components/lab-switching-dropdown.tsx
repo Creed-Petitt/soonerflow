@@ -194,7 +194,7 @@ export function LabSwitchingDropdown({
 
       // Prioritize labs with available seats
       if (a.seatStatus.status !== b.seatStatus.status) {
-        const statusOrder = { 'open': 0, 'limited': 1, 'full': 2, 'unknown': 3 }
+        const statusOrder: Record<string, number> = { 'open': 0, 'limited': 1, 'full': 2, 'unknown': 3 }
         return statusOrder[a.seatStatus.status] - statusOrder[b.seatStatus.status]
       }
 
