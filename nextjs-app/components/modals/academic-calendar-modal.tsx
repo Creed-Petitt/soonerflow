@@ -53,7 +53,7 @@ const calendarEvents = {
   ]
 }
 
-const categoryColors = {
+const categoryColors: Record<string, string> = {
   registration: "bg-blue-500/10 text-blue-500 border-blue-500/20",
   important: "bg-red-500/10 text-red-500 border-red-500/20",
   holiday: "bg-green-500/10 text-green-500 border-green-500/20",
@@ -63,7 +63,7 @@ const categoryColors = {
   graduation: "bg-pink-500/10 text-pink-500 border-pink-500/20",
 }
 
-const categoryLabels = {
+const categoryLabels: Record<string, string> = {
   registration: "Registration",
   important: "Important",
   holiday: "Holiday",
