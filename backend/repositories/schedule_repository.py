@@ -21,17 +21,13 @@ class ScheduleRepository(BaseRepository):
             Schedule.user_id == user_id
         ).first()
 
-    def create(self, db: Session, *, user_id: Optional[int], name: str, semester: str, is_active: bool = True, schedule_id: Optional[int] = None) -> Schedule:
-        params = {
-            "user_id": user_id,
-            "name": name,
-            "semester": semester,
-            "is_active": is_active
-        }
-        if schedule_id:
-            params["id"] = schedule_id
-
-        db_obj = Schedule(**params)
+    def create(self, db: Session, *, user_id: Optional[int], name: str, semester: str, is_active: bool = True) -> Schedule:
+        db_obj = Schedule(
+            user_id=user_id,
+            name=name,
+            semester=semester,
+            is_active=is_active
+        )
         db.add(db_obj)
         db.flush() # Use flush to get ID without committing
         db.refresh(db_obj)
@@ -50,5 +46,3 @@ class ScheduleRepository(BaseRepository):
         if schedule:
             schedule.updated_at = datetime.utcnow()
 
-    def get_scheduled_classes(self, db: Session, schedule_id: int) -> List[ScheduledClass]:
-        return db.query(ScheduledClass).filter(ScheduledClass.schedule_id == schedule_id).all()

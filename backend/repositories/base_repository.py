@@ -8,6 +8,3 @@ class BaseRepository:
 
     def get_by_id(self, db: Session, id: Any) -> Optional[Base]:
         return db.query(self.model).filter(self.model.id == id).first()
-
-    def get_all(self, db: Session) -> List[Base]:
-        return db.query(self.model).all()
