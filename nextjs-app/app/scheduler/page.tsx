@@ -31,7 +31,7 @@ export default function SchedulerPage() {
   } = useSchedulerData()
 
   const { scheduledClasses: rawScheduledClasses } = useSchedule()
-  const isDemoClass = (classId: string) => rawScheduledClasses.length === 0
+  const isDemoClass = () => rawScheduledClasses.length === 0
 
   const {
     isClassBrowserOpen,
@@ -113,7 +113,7 @@ export default function SchedulerPage() {
                           key={cls.id}
                           classData={cls}
                           onRemove={() => {
-                            if (isDemoClass(cls.id)) {
+                            if (isDemoClass()) {
                               clearDemoClasses()
                             } else {
                               handleRemoveFromSchedule(cls.id)
