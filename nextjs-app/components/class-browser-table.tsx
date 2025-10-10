@@ -15,6 +15,7 @@ import { GroupedClass } from "@/hooks/useClassData";
 import { hasTimeConflict } from "@/lib/time-conflict-utils";
 import type { ScheduledClass } from "@/types/course";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface ClassBrowserTableProps {
   filteredGroupedClasses: GroupedClass[];
@@ -71,12 +72,12 @@ export function ClassBrowserTable({
     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
       <div>
       <Table>
-        <TableHeader className="sticky top-0 bg-background z-10">
-          <TableRow>
-            <TableHead className="w-[120px]">Course</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead className="w-[80px]">Credits</TableHead>
-            <TableHead className="w-[80px]">Action</TableHead>
+        <TableHeader className="sticky top-0 bg-background z-10 border-b border-border shadow-sm">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[120px] font-semibold">Course</TableHead>
+            <TableHead className="font-semibold">Title</TableHead>
+            <TableHead className="w-[80px] font-semibold">Credits</TableHead>
+            <TableHead className="w-[80px] font-semibold">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -136,40 +137,50 @@ export function ClassBrowserTable({
               return (
                 <TableRow
                   key={`${grouped.subject}-${grouped.number}`}
-                  className={`cursor-pointer hover:bg-muted/50 ${
-                    isScheduled ? 'opacity-50' : hasConflicts ? 'opacity-60 bg-red-500/5' : ''
-                  }`}
+                  className={cn(
+                    "cursor-pointer transition-colors border-b border-border/10",
+                    "odd:bg-muted/30 hover:bg-muted/40",
+                    isScheduled && "opacity-50",
+                    hasConflicts && "opacity-60 bg-red-500/5"
+                  )}
                   onClick={() => handleClassClick(grouped)}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell className="font-normal text-muted-foreground">
                     {grouped.subject} {grouped.number}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    <div>
-                      <div>{grouped.title}</div>
-                      {grouped.labSections && grouped.labSections.length > 0 && (
-                        <span className="text-xs text-muted-foreground">+Lab</span>
-                      )}
-                    </div>
+                  <TableCell className="max-w-[200px]">
+                    <div className="font-medium">{grouped.title}</div>
+                    {grouped.labSections && grouped.labSections.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground/70">+Lab</span>
+                    )}
                   </TableCell>
-                  <TableCell>{grouped.credits || 3}</TableCell>
+                  <TableCell>{grouped.credits || 3} cr</TableCell>
                   <TableCell>
                     {isScheduled ? (
                       <Badge variant="secondary" className="text-xs">Added</Badge>
                     ) : hasConflicts ? (
                       <Badge variant="outline" className="text-xs text-destructive border-destructive">Conflict</Badge>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={allFull}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleClassClick(grouped);
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={allFull}
+                          className={cn(
+                            "h-8 w-8 p-0",
+                            !allFull && "hover:bg-green-500/10 hover:text-green-500"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClassClick(grouped);
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                        {allFull && (
+                          <span className="h-2 w-2 rounded-full bg-red-500" title="No seats available" />
+                        )}
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>

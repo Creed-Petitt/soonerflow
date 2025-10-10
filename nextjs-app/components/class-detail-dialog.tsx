@@ -18,6 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Clock,
   MapPin,
   User,
@@ -62,23 +67,19 @@ export function ClassDetailDialog({
   const [originalSection, setOriginalSection] = React.useState<any>(null);
   const [originalLabSection, setOriginalLabSection] = React.useState<any>(null);
 
+  const prevIsOpenRef = React.useRef(false);
+
   React.useEffect(() => {
-    // Reset state when dialog opens with new class
-    if (isOpen && groupedClass) {
-      // Set section - use selectedSection prop if provided, otherwise first section
+    const dialogJustOpened = isOpen && !prevIsOpenRef.current;
+
+    if (dialogJustOpened && groupedClass) {
       const initialSection = selectedSection || (groupedClass.sections && groupedClass.sections.length > 0 ? groupedClass.sections[0] : null);
       setCurrentSection(initialSection);
 
-      // Reset lab selection
       setCurrentLabSection(null);
 
-      // Reset view to class tab
-      setCurrentView("class");
-
-      // Reset conflict error
       setConflictError(null);
 
-      // Store original selections for change mode
       if (isChangeMode) {
         setOriginalSection(initialSection);
         setOriginalLabSection(null);
@@ -87,6 +88,8 @@ export function ClassDetailDialog({
         setOriginalLabSection(null);
       }
     }
+
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, groupedClass, selectedSection, isChangeMode]);
 
   // Clear conflict error when section changes
@@ -152,24 +155,12 @@ export function ClassDetailDialog({
                 {groupedClass.title} - {groupedClass.credits || currentSection?.credits || 3} Credits
               </DialogDescription>
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button
-                variant={currentView === "class" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCurrentView("class")}
-                className="text-sm h-8 px-2 sm:px-4 sans-serif min-w-0"
-              >
-                Class
-              </Button>
-              <Button
-                variant={currentView === "professor" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCurrentView("professor")}
-                className="text-sm h-8 px-2 sm:px-4 sans-serif min-w-0"
-              >
-                Professor
-              </Button>
-            </div>
+            <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as "class" | "professor")}>
+              <TabsList>
+                <TabsTrigger value="class">Class</TabsTrigger>
+                <TabsTrigger value="professor">Professor</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
         <div className="flex-1 px-6 py-2 space-y-3 overflow-hidden">

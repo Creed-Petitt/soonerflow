@@ -1,8 +1,6 @@
-"use client";
-
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClassDetailDialog } from "./class-detail-dialog";
 import { ClassBrowserFilters } from "./class-browser-filters";
@@ -49,13 +47,13 @@ export function ClassBrowserPanel({ isOpen, onClose }: ClassBrowserPanelProps) {
     if (isOpen) {
       loadDepartments(currentSemester);
     }
-  }, [isOpen, currentSemester]);
+  }, [isOpen, currentSemester, loadDepartments]);
 
   // Load classes when department changes
   useEffect(() => {
     if (!selectedDepartment) return;
     loadClassesForDepartment(selectedDepartment, currentSemester);
-  }, [selectedDepartment, currentSemester]); // Remove loadClassesForDepartment from deps
+  }, [selectedDepartment, currentSemester, loadClassesForDepartment]);
 
   // Filter classes by level
   let filteredGroupedClasses = [...groupedClasses];
@@ -72,6 +70,7 @@ export function ClassBrowserPanel({ isOpen, onClose }: ClassBrowserPanelProps) {
       }
     });
   }
+
 
   const handleClassClick = (groupedClass: GroupedClass) => {
     setSelectedClass(groupedClass);
@@ -144,7 +143,10 @@ export function ClassBrowserPanel({ isOpen, onClose }: ClassBrowserPanelProps) {
       />
       <div className="fixed left-0 top-0 h-full w-[600px] bg-background border-r shadow-xl z-50 flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Browse Classes</h2>
+          <div className="flex items-center gap-2">
+            <Library className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Browse Classes</h2>
+          </div>
           <Button
             size="icon"
             variant="ghost"
@@ -160,7 +162,7 @@ export function ClassBrowserPanel({ isOpen, onClose }: ClassBrowserPanelProps) {
           selectedLevel={selectedLevel}
           setSelectedLevel={setSelectedLevel}
           departments={departments}
-          groupedClassesLength={groupedClasses.length}
+          groupedClassesLength={filteredGroupedClasses.length}
         />
 
         <ClassBrowserTable
