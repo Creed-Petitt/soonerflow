@@ -1,4 +1,4 @@
-# SoonerFlow: A Full-Stack Class Scheduler
+# SoonerFlow: A University Class Scheduler
 
 *A modern, scalable web application for course browsing and schedule building, featuring a FastAPI backend, React.js frontend, and an automated CI/CD pipeline to Google Cloud.*
 
