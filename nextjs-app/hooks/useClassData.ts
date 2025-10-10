@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { fetchClassesForDepartment, processClasses } from "@/lib/class-api";
 import type { ClassData, GroupedClass } from "@/types/course";
 
@@ -17,7 +17,7 @@ export function useClassData(): UseClassDataReturn {
   const [groupedClasses, setGroupedClasses] = useState<GroupedClass[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadClassesForDepartment = async (dept: string, semester: string) => {
+  const loadClassesForDepartment = useCallback(async (dept: string, semester: string) => {
     setIsLoading(true);
     setClasses([]);
     setGroupedClasses([]);
@@ -25,7 +25,7 @@ export function useClassData(): UseClassDataReturn {
     setClasses(deptClasses);
     setGroupedClasses(processClasses(deptClasses));
     setIsLoading(false);
-  };
+  }, []);
 
   const clearClasses = () => {
     setClasses([]);
