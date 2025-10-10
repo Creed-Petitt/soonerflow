@@ -37,7 +37,7 @@ export function ClassBrowserFilters({
       <div className="p-4 space-y-3 border-b">
         <div className="flex gap-2">
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select Department" />
             </SelectTrigger>
             <SelectContent>
