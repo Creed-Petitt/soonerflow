@@ -2,7 +2,7 @@
 
 *A modern, scalable web application for course browsing and schedule building, featuring a FastAPI backend, React.js frontend, and an automated CI/CD pipeline to Google Cloud.*
 
-**[Live Demo](https://soonerflow.vercel.app/scheduler) • [Watch the CI/CD Pipeline in Action]([https://github.com/Creed-Petitt/soonerflow/actions])**
+**[Live Demo](https://soonerflow.vercel.app/scheduler) • [Watch the CI/CD Pipeline in Action](https://github.com/Creed-Petitt/soonerflow/actions)**
 
 ![SoonerFlow Demo](./demo.gif)
 
